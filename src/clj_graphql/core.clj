@@ -120,6 +120,28 @@
                     [type {:parse parse :serialize serialize}])
                   scalar-dims))))
 
+(defn dimension-args->uris [args mapping]
+  {:gender {:->uri str :uri (URI. "http://foo.com")}}
+  (into {} (map (fn [[dim-key value]]
+                  (let [{:keys [->uri uri]} (get mapping dim-key)]
+                    [uri (->uri value)]))
+                args)))
+
+(defn enum-dimension->uri-mapping [{:keys [dim values]}]
+  (let [value-map (into {} (map (juxt :value :member) values))]
+    {:->uri value-map :uri dim}))
+
+(defn scalar-dimension->uri-mapping [{:keys [dim]}]
+  {:->uri identity :uri dim})
+
+(defn dimensions->uri-mapping [dims]
+  (into {} (map (fn [{:keys [dimlabel] :as dim}]
+                  [(dim-label->field-name dimlabel) (cond
+                                                      (is-enum? dim) (enum-dimension->uri-mapping dim)
+                                                      (is-scalar? dim) (scalar-dimension->uri-mapping dim)
+                                                      :else (throw (IllegalArgumentException. "Cannot create mapping for dimension")))])
+                dims)))
+
 (defn read-schema-resource [resource-name]
   (if-let [r (io/resource resource-name)]
     (let [pbr (PushbackReader. (io/reader r))]
@@ -153,12 +175,28 @@
         dims (resolve-dataset-dims context args field)]
     (assoc ds :dimensions dims)))
 
-(defn resolve-observations [{:keys [repo] :as context} args {:keys [uri] :as ds-field}]
-  (println "args: " args)
-  (println "ds-field: " ds-field)
-  {:observations
-   {:matches []
-    :free_dimensions []}})
+(defn get-observation-query [dim->value-mapping]
+  (let [dim-patterns (map (fn [[dim-uri value-uri]]
+                            (str "?obs <" (str dim-uri) "> <" (str value-uri) "> .")) dim->value-mapping)]
+    (str
+     "PREFIX qb: <http://purl.org/linked-data/cube#>"
+     "SELECT ?obs ?value WHERE {"
+     "  ?obs a qb:Observation ."
+     "  ?obs qb:dataSet <http://statistics.gov.scot/data/earnings> ."
+     "  ?obs qb:measureType ?measureType ."
+     "  ?obs ?measureType ?value ."
+     (string/join "\n" dim-patterns)
+     "}")))
+
+(defn resolve-observations [{:keys [repo value->uri-mapping] :as context} {:keys [dimensions] :as args} {:keys [uri] :as ds-field}]
+  (let [arg-uris (dimension-args->uris dimensions value->uri-mapping)
+        query (get-observation-query arg-uris)
+        results (repo/query repo query)
+        matches (mapv (fn [{:keys [obs value]}]
+                       {:uri obs :value (str value)})
+                     results)]
+    {:matches matches
+     :free_dimensions []}))
 
 (defn get-schema [repo]
   (let [dims (get-dimensions repo)
@@ -175,10 +213,13 @@
                            :resolve-observations resolve-observations})
         (assoc :scalars scalars-schema))))
 
+(defn get-value->uri-mapping [repo]
+  (dimensions->uri-mapping (get-dimensions repo)))
+
 (defn get-compiled-schema [repo]
   (schema/compile (get-schema repo)))
 
-(defn load-dim-schema []
+#_(defn load-dim-schema []
   (-> (read-schema-resource "dim-schema.edn")
       (attach-resolvers {:resolve-dataset resolve-dataset
                          :resolve-observations resolve-observations})
@@ -194,6 +235,6 @@
                        {:parse (schema/as-conformer parse-year)
                         :serialize (schema/as-conformer uri->last-path-segment)}})))
 
-(defn compile-dim-schema []
+#_(defn compile-dim-schema []
   (schema/compile (load-dim-schema)))
 
