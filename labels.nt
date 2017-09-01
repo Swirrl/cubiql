@@ -1,0 +1,25 @@
+<http://purl.org/linked-data/sdmx/2009/dimension#refPeriod> <http://www.w3.org/2000/01/rdf-schema#label> "Reference Period"@en .
+<http://reference.data.gov.uk/id/year/2004> <http://www.w3.org/2000/01/rdf-schema#label> "2004" .
+<http://reference.data.gov.uk/id/year/2003> <http://www.w3.org/2000/01/rdf-schema#label> "2003" .
+<http://reference.data.gov.uk/id/year/2002> <http://www.w3.org/2000/01/rdf-schema#label> "2002" .
+<http://reference.data.gov.uk/id/year/1998> <http://www.w3.org/2000/01/rdf-schema#label> "1998" .
+<http://reference.data.gov.uk/id/year/1999> <http://www.w3.org/2000/01/rdf-schema#label> "1999" .
+<http://reference.data.gov.uk/id/year/2000> <http://www.w3.org/2000/01/rdf-schema#label> "2000" .
+<http://reference.data.gov.uk/id/year/2001> <http://www.w3.org/2000/01/rdf-schema#label> "2001" .
+<http://reference.data.gov.uk/id/year/2005> <http://www.w3.org/2000/01/rdf-schema#label> "2005" .
+<http://reference.data.gov.uk/id/year/2006> <http://www.w3.org/2000/01/rdf-schema#label> "2006" .
+<http://reference.data.gov.uk/id/year/2007> <http://www.w3.org/2000/01/rdf-schema#label> "2007" .
+<http://reference.data.gov.uk/id/year/2008> <http://www.w3.org/2000/01/rdf-schema#label> "2008" .
+<http://reference.data.gov.uk/id/year/2009> <http://www.w3.org/2000/01/rdf-schema#label> "2009" .
+<http://reference.data.gov.uk/id/year/2010> <http://www.w3.org/2000/01/rdf-schema#label> "2010" .
+<http://reference.data.gov.uk/id/year/2011> <http://www.w3.org/2000/01/rdf-schema#label> "2011" .
+<http://reference.data.gov.uk/id/year/2012> <http://www.w3.org/2000/01/rdf-schema#label> "2012" .
+<http://purl.org/linked-data/cube#measureType> <http://www.w3.org/2000/01/rdf-schema#label> "measure type"@en .
+<http://statistics.gov.scot/def/measure-properties/median> <http://www.w3.org/2000/01/rdf-schema#label> "Median" .
+<http://statistics.gov.scot/def/dimension/gender> <http://www.w3.org/2000/01/rdf-schema#label> "Gender" .
+<http://statistics.gov.scot/def/concept/gender/all> <http://www.w3.org/2000/01/rdf-schema#label> "All" .
+<http://statistics.gov.scot/def/concept/gender/male> <http://www.w3.org/2000/01/rdf-schema#label> "Male" .
+<http://statistics.gov.scot/def/concept/gender/female> <http://www.w3.org/2000/01/rdf-schema#label> "Female" .
+<http://statistics.gov.scot/def/dimension/populationGroup> <http://www.w3.org/2000/01/rdf-schema#label> "Population Group" .
+<http://statistics.gov.scot/def/concept/population-group/workplace-based> <http://www.w3.org/2000/01/rdf-schema#label> "Workplace Based" .
+<http://statistics.gov.scot/def/concept/population-group/residence-based> <http://www.w3.org/2000/01/rdf-schema#label> "Residence Based" .

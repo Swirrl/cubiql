@@ -1,0 +1,35 @@
+{:objects
+ {:dataset
+  {:fields
+   {:uri {:type :uri}
+    :title {:type String}
+    :description {:type String}
+    :dimensions {:type (list :dim)}
+    :observations {:type :observation_result
+                   :args {:dimensions {:type :obs_dims}}
+                   :resolve :resolve-observations}}}
+
+  :dim
+  {:fields
+   {:uri {:type :uri}
+    :values {:type (list :dim_value)}}}
+
+  :dim_value
+  {:fields
+   {:uri {:type :uri}
+    :label {:type String}}}
+
+  :observation_result
+  {:fields
+   {:matches {:type (list :observation)}
+    :free_dimensions {:type (list :dim)}}}
+
+  :observation
+  {:fields
+   {:uri {:type :uri}
+    :value {:type String}}}}
+ 
+ :queries
+ {:dataset
+  {:type :dataset
+   :resolve :resolve-dataset}}}

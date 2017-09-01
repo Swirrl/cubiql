@@ -1,0 +1,21 @@
+<http://statistics.gov.scot/data/earnings> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://purl.org/linked-data/cube#DataSet> .
+<http://statistics.gov.scot/data/earnings> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://publishmydata.com/def/dataset#Dataset> .
+<http://statistics.gov.scot/data/earnings> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://publishmydata.com/def/dataset#LinkedDataset> .
+<http://statistics.gov.scot/data/earnings> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://rdfs.org/ns/void#Dataset> .
+<http://statistics.gov.scot/data/earnings> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/dcat#Dataset> .
+<http://statistics.gov.scot/data/earnings> <http://www.w3.org/2000/01/rdf-schema#label> "Earnings" .
+<http://statistics.gov.scot/data/earnings> <http://purl.org/dc/terms/title> "Earnings" .
+<http://statistics.gov.scot/data/earnings> <http://www.w3.org/2000/01/rdf-schema#comment> "Median gross weekly earnings (\u00A3s) by gender and workplace/residence measure. " .
+<http://statistics.gov.scot/data/earnings> <http://publishmydata.com/def/dataset#contactEmail> <mailto:statistics.enquiries@scotland.gsi.gov.uk> .
+<http://statistics.gov.scot/data/earnings> <http://publishmydata.com/def/dataset#graph> <http://statistics.gov.scot/graph/earnings> .
+<http://statistics.gov.scot/data/earnings> <http://purl.org/dc/terms/issued> "2014-07-29T02:00:00+02:00"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
+<http://statistics.gov.scot/data/earnings> <http://purl.org/dc/terms/modified> "2016-02-09T12:08:35Z"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
+<http://statistics.gov.scot/data/earnings> <http://purl.org/dc/terms/license> <http://www.nationalarchives.gov.uk/doc/open-government-licence/version/2/> .
+<http://statistics.gov.scot/data/earnings> <http://purl.org/dc/terms/creator> <http://statistics.gov.scot/id/organisation/scottish-government> .
+<http://statistics.gov.scot/data/earnings> <http://purl.org/dc/terms/publisher> <http://statistics.gov.scot/id/organisation/scottish-government> .
+<http://statistics.gov.scot/data/earnings> <http://purl.org/dc/terms/references> <http://docs.publishmydata.com> .
+<http://statistics.gov.scot/data/earnings> <http://rdfs.org/ns/void#sparqlEndpoint> <http://statistics.gov.scot/sparql> .
+<http://statistics.gov.scot/data/earnings> <http://www.w3.org/ns/dcat#theme> <http://statistics.gov.scot/def/concept/folders/themes/economic-activity-benefits-and-tax-credits> .
+<http://statistics.gov.scot/data/earnings> <http://publishmydata.com/def/ontology/folder/inFolder> <http://statistics.gov.scot/def/concept/folders/themes/economic-activity-benefits-and-tax-credits> .
+<http://statistics.gov.scot/data/earnings> <http://publishmydata.com/def/ontology/folder/inFolder> <http://statistics.gov.scot/def/concept/folders/organisations/scottish-government> .
+<http://statistics.gov.scot/data/earnings> <http://purl.org/dc/terms/description> "The median gross weekly earnings (before deductions for Tax & National Insurance) of full-time employees on adult rates, whose pay for the survey period was not affected by absence. The self-employed are excluded from this study. This information is obtained from the Annual Survey of Hours & Earnings (ASHE). This is an Office for National Statistics (ONS) publication" .
