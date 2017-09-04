@@ -6,7 +6,8 @@
             [com.walmartlabs.lacinia :refer [execute]]
             [clojure.java.io :as io]
             [clojure.edn :as edn]
-            [clojure.data.json :as json])
+            [clojure.data.json :as json]
+            [clojure.set :as set])
   (:import [java.net URI]
            [java.io PushbackReader]))
 
@@ -46,6 +47,9 @@
 (defn dim-label->field-name [label]
   (keyword (string/join "_" (map string/lower-case (string/split (str label) #"\s+")))))
 
+(defn dimension->field-name [{:keys [dimlabel]}]
+  (dim-label->field-name dimlabel))
+
 (defn has-valid-name-first-char? [name]
   (boolean (re-find #"^[_a-zA-Z]" name)))
 
@@ -69,18 +73,26 @@
     {:type :ref_area
      :kind :scalar
      :parse (schema/as-conformer #(URI. (str "http://statistics.gov.scot/id/statistical-geography/" %)))
-     :serialize (schema/as-conformer uri->last-path-segment)}
+     :serialize (schema/as-conformer uri->last-path-segment)
+     :value->dimension-uri identity
+     :dimension-uri->value identity}
     
     (= (URI. "http://purl.org/linked-data/sdmx/2009/dimension#refPeriod") dim)
     {:type :year
      :kind :scalar
      :parse (schema/as-conformer parse-year)
-     :serialize (schema/as-conformer uri->last-path-segment)}
+     :serialize (schema/as-conformer uri->last-path-segment)
+     :value->dimension-uri identity
+     :dimension-uri->value identity}
     
     :else
-    {:kind :enum
-     :type (enum-label->type-name dimlabel)
-     :values (get-enum-values repo dim)}))
+    (let [values (get-enum-values repo dim)
+          value->uri (into {} (map (juxt :value :member) values))]
+      {:kind :enum
+       :type (enum-label->type-name dimlabel)
+       :values (get-enum-values repo dim)
+       :value->dimension-uri value->uri
+       :dimension-uri->value (set/map-invert value->uri)})))
 
 (defn get-test-repo []
   (repo/fixture-repo "earnings.nt" "earnings_metadata.nt" "dimension_pos.nt" "member_labels.nt"))
@@ -127,20 +139,15 @@
                     [uri (->uri value)]))
                 args)))
 
-(defn enum-dimension->uri-mapping [{:keys [dim values]}]
-  (let [value-map (into {} (map (juxt :value :member) values))]
-    {:->uri value-map :uri dim}))
+(defn dimension->query-var-name [{:keys [order]}]
+  (str "dim" order))
 
-(defn scalar-dimension->uri-mapping [{:keys [dim]}]
-  {:->uri identity :uri dim})
+(defn get-dimension-query-binding [dim bindings-map]
+  (get bindings-map (keyword (dimension->query-var-name dim))))
 
-(defn dimensions->uri-mapping [dims]
-  (into {} (map (fn [{:keys [dimlabel] :as dim}]
-                  [(dim-label->field-name dimlabel) (cond
-                                                      (is-enum? dim) (enum-dimension->uri-mapping dim)
-                                                      (is-scalar? dim) (scalar-dimension->uri-mapping dim)
-                                                      :else (throw (IllegalArgumentException. "Cannot create mapping for dimension")))])
-                dims)))
+(defn get-dimension-query-value [{:keys [dimension-uri->value] :as dim} bindings-map]
+  (let [binding (get-dimension-query-binding dim bindings-map)]
+    (dimension-uri->value binding)))
 
 (defn read-schema-resource [resource-name]
   (if-let [r (io/resource resource-name)]
@@ -175,26 +182,48 @@
         dims (resolve-dataset-dims context args field)]
     (assoc ds :dimensions dims)))
 
-(defn get-observation-query [dim->value-mapping]
-  (let [dim-patterns (map (fn [[dim-uri value-uri]]
-                            (str "?obs <" (str dim-uri) "> <" (str value-uri) "> .")) dim->value-mapping)]
+(defn get-observation-query [ds-dimensions query-dimensions]
+  (let [field->ds-dims (into {} (map (fn [dim] [(dimension->field-name dim) dim]) ds-dimensions))
+        constrained-dims (select-keys field->ds-dims (keys query-dimensions))
+        free-dims (apply dissoc field->ds-dims (keys query-dimensions))
+        constrained-patterns (map (fn [[field-name field-value]]
+                                    (let [dim (get field->ds-dims field-name)
+                                          val-uri ((:value->dimension-uri dim) field-value)]
+                                      (str "?obs <" (str (:dim dim)) "> <" (str val-uri) "> .")))
+                                  query-dimensions)
+        binds (map (fn [[field-name field-value]]
+                     (let [dim (get field->ds-dims field-name)
+                           val-uri ((:value->dimension-uri dim) field-value)
+                           var-name (dimension->query-var-name dim)]
+                       (str "BIND(<" val-uri "> as ?" var-name ") .")))
+                   query-dimensions)
+        query-patterns (map (fn [[field-name dim]]
+                              (let [var-name (dimension->query-var-name dim)]
+                                (str "?obs <" (:dim dim) "> ?" var-name " .")))
+                            free-dims)]
     (str
      "PREFIX qb: <http://purl.org/linked-data/cube#>"
-     "SELECT ?obs ?value WHERE {"
+     "SELECT * WHERE {"
      "  ?obs a qb:Observation ."
      "  ?obs qb:dataSet <http://statistics.gov.scot/data/earnings> ."
      "  ?obs qb:measureType ?measureType ."
      "  ?obs ?measureType ?value ."
-     (string/join "\n" dim-patterns)
+     (string/join "\n" constrained-patterns)
+     (string/join "\n" query-patterns)
+     (string/join "\n" binds)
      "}")))
 
-(defn resolve-observations [{:keys [repo value->uri-mapping] :as context} {:keys [dimensions] :as args} {:keys [uri] :as ds-field}]
-  (let [arg-uris (dimension-args->uris dimensions value->uri-mapping)
-        query (get-observation-query arg-uris)
+(defn resolve-observations [{:keys [repo dimensions] :as context} {query-dimensions :dimensions :as args} {:keys [uri] :as ds-field}]
+  (let [query (get-observation-query dimensions query-dimensions)
         results (repo/query repo query)
-        matches (mapv (fn [{:keys [obs value]}]
-                       {:uri obs :value (str value)})
-                     results)]
+        matches (mapv (fn [{:keys [obs value] :as bindings}]
+                        (let [mapped-field-values (map (fn [dim]
+                                                         (let [field-name (dimension->field-name dim)
+                                                               value (get-dimension-query-value dim bindings)]
+                                                           [field-name value]))
+                                                       dimensions)]
+                          (into {:uri obs :value (str value)} mapped-field-values)))
+                      results)]
     {:matches matches
      :free_dimensions []}))
 
@@ -212,9 +241,6 @@
         (attach-resolvers {:resolve-dataset resolve-dataset
                            :resolve-observations resolve-observations})
         (assoc :scalars scalars-schema))))
-
-(defn get-value->uri-mapping [repo]
-  (dimensions->uri-mapping (get-dimensions repo)))
 
 (defn get-compiled-schema [repo]
   (schema/compile (get-schema repo)))
