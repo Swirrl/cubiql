@@ -42,7 +42,8 @@
   (let [year (Integer/parseInt year-str)]
     (URI. (str "http://reference.data.gov.uk/id/year/" year))))
 
-(defn uri->last-path-segment [uri])
+(defn uri->last-path-segment [uri]
+  (last (string/split (.getPath uri) #"/")))
 
 (defn dim-label->field-name [label]
   (keyword (string/join "_" (map string/lower-case (string/split (str label) #"\s+")))))
@@ -227,6 +228,9 @@
     {:matches matches
      :free_dimensions []}))
 
+(defn merge-type-schemas [s1 s2]
+  (merge-with merge s1 s2))
+
 (defn get-schema [repo]
   (let [dims (get-dimensions repo)
         obs-dims-schema (dimensions->obs-dims-schema dims)
@@ -240,7 +244,8 @@
         (assoc-in [:input-objects :obs_dims] obs-dims-schema)
         (attach-resolvers {:resolve-dataset resolve-dataset
                            :resolve-observations resolve-observations})
-        (assoc :scalars scalars-schema))))
+        (assoc :scalars scalars-schema)
+        (update-in [:objects :observation] #(merge-type-schemas % obs-dims-schema)))))
 
 (defn get-compiled-schema [repo]
   (schema/compile (get-schema repo)))
