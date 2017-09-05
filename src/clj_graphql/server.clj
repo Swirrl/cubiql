@@ -7,7 +7,8 @@
   (let [repo (core/get-test-repo)
         schema (core/get-compiled-schema repo)
         ds-dimensions (core/get-dimensions repo)
-        opts {:app-context {:repo repo :dimensions ds-dimensions}
+        measure-types (core/get-measure-types repo)
+        opts {:app-context {:repo repo :dimensions ds-dimensions :measure-types measure-types}
               :port port
               :graphiql true}]
     (lp/pedestal-service schema opts)))

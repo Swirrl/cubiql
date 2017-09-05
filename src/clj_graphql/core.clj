@@ -96,7 +96,7 @@
        :dimension-uri->value (set/map-invert value->uri)})))
 
 (defn get-test-repo []
-  (repo/fixture-repo "earnings.nt" "earnings_metadata.nt" "dimension_pos.nt" "member_labels.nt"))
+  (repo/fixture-repo "earnings.nt" "earnings_metadata.nt" "dimension_pos.nt" "member_labels.nt" "measure_properties.nt"))
 
 (defn get-dimensions [repo]
   (let [base-dims (repo/query repo (get-dimensions-query))]
@@ -104,11 +104,48 @@
            (merge m (get-dimension-type repo m)))
          base-dims)))
 
+(defn get-measure-types-query []
+  (str
+   "PREFIX qb: <http://purl.org/linked-data/cube#>"
+   "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>"
+   "SELECT ?mt ?label WHERE {"
+   "  ?ds qb:structure ?struct ."
+   "  ?struct qb:component ?comp ."
+   "  ?comp qb:measure ?mt ."
+   "  ?mt a qb:MeasureProperty ."
+   "  ?mt rdfs:label ?label ."
+   "}"))
+
+(defn rename-key [m k new-k]
+  (let [v (get m k)]
+    (-> m
+        (assoc new-k v)
+        (dissoc k))))
+
+(defn get-measure-types [repo]
+  (let [q (get-measure-types-query)
+        results (repo/query repo q)]
+    (map-indexed (fn [idx bindings]
+                   (-> bindings
+                       (rename-key :mt :uri)
+                       (assoc :order (inc idx))))  results)))
+
+(defn get-measure-type-schemas [repo]
+  (let [measure-types (get-measure-types repo)]
+    (map (fn [{:keys [label] :as mt}]
+           (let [field-name (dim-label->field-name label)]
+             {field-name {:type 'String}})) measure-types)))
+
 (defn dimensions->obs-dims-schema [dims]
   (let [fields (map (fn [{:keys [dimlabel type]}]
                       [(dim-label->field-name dimlabel) {:type type}])
                     dims)]
     {:fields (into {} fields)}))
+
+(defn dimensions->obs-dim-schemas [dims]
+  (map (fn [{:keys [dimlabel type]}]
+                      [(dim-label->field-name dimlabel) {:type type}])
+                    dims))
 
 (defn dim-has-kind? [kind dim]
   (= kind (:kind dim)))
@@ -183,8 +220,12 @@
         dims (resolve-dataset-dims context args field)]
     (assoc ds :dimensions dims)))
 
-(defn get-observation-query [ds-dimensions query-dimensions]
+(defn measure-type->query-var-name [{:keys [order]}]
+  (str "mt" order))
+
+(defn get-observation-query [ds-dimensions query-dimensions measure-types]
   (let [field->ds-dims (into {} (map (fn [dim] [(dimension->field-name dim) dim]) ds-dimensions))
+        field->measure-types (into {} (map (fn [{:keys [label] :as dim}] [(dim-label->field-name label) dim]) measure-types))
         constrained-dims (select-keys field->ds-dims (keys query-dimensions))
         free-dims (apply dissoc field->ds-dims (keys query-dimensions))
         constrained-patterns (map (fn [[field-name field-value]]
@@ -192,6 +233,11 @@
                                           val-uri ((:value->dimension-uri dim) field-value)]
                                       (str "?obs <" (str (:dim dim)) "> <" (str val-uri) "> .")))
                                   query-dimensions)
+        measure-type-patterns (map (fn [[field-name {:keys [uri] :as mt}]]
+                                     (str
+                                      "  ?obs qb:measureType <" (str uri) "> . \n" 
+                                      "  ?obs <" (str uri) "> ?" (measure-type->query-var-name mt) " ."))                                   
+                                   field->measure-types)
         binds (map (fn [[field-name field-value]]
                      (let [dim (get field->ds-dims field-name)
                            val-uri ((:value->dimension-uri dim) field-value)
@@ -209,21 +255,27 @@
      "  ?obs qb:dataSet <http://statistics.gov.scot/data/earnings> ."
      "  ?obs qb:measureType ?measureType ."
      "  ?obs ?measureType ?value ."
+     (string/join "\n" measure-type-patterns)
      (string/join "\n" constrained-patterns)
      (string/join "\n" query-patterns)
      (string/join "\n" binds)
      "}")))
 
-(defn resolve-observations [{:keys [repo dimensions] :as context} {query-dimensions :dimensions :as args} {:keys [uri] :as ds-field}]
-  (let [query (get-observation-query dimensions query-dimensions)
+(defn resolve-observations [{:keys [repo dimensions measure-types] :as context} {query-dimensions :dimensions :as args} {:keys [uri] :as ds-field}]
+  (let [query (get-observation-query dimensions query-dimensions measure-types)
         results (repo/query repo query)
-        matches (mapv (fn [{:keys [obs value] :as bindings}]
+        matches (mapv (fn [{:keys [obs] :as bindings}]
                         (let [mapped-field-values (map (fn [dim]
                                                          (let [field-name (dimension->field-name dim)
                                                                value (get-dimension-query-value dim bindings)]
                                                            [field-name value]))
-                                                       dimensions)]
-                          (into {:uri obs :value (str value)} mapped-field-values)))
+                                                       dimensions)
+                              mapped-measure-types (map (fn [{:keys [label] :as mt}]
+                                                          (let [field-name (dim-label->field-name label)
+                                                                var-name (keyword (measure-type->query-var-name mt))]
+                                                            [field-name (some-> (get bindings var-name) str)]))
+                                                        measure-types)]
+                          (into {:uri obs} (concat mapped-field-values mapped-measure-types))))
                       results)]
     {:matches matches
      :free_dimensions []}))
@@ -233,7 +285,8 @@
 
 (defn get-schema [repo]
   (let [dims (get-dimensions repo)
-        obs-dims-schema (dimensions->obs-dims-schema dims)
+        obs-dim-schemas (dimensions->obs-dim-schemas dims)
+        measure-type-schemas (get-measure-type-schemas repo)
         enums-schema (dimensions->enums-schema dims)
         dim-scalars-schema (dimensions->scalars-schema dims)
         scalars-schema (assoc dim-scalars-schema :uri {:parse (schema/as-conformer #(URI. %))
@@ -241,31 +294,13 @@
         base-schema (read-schema-resource "base-schema.edn")]
     (-> base-schema
         (assoc :enums enums-schema)
-        (assoc-in [:input-objects :obs_dims] obs-dims-schema)
+        (assoc-in [:input-objects :obs_dims] {:fields (into {} obs-dim-schemas)})
         (attach-resolvers {:resolve-dataset resolve-dataset
                            :resolve-observations resolve-observations})
         (assoc :scalars scalars-schema)
-        (update-in [:objects :observation] #(merge-type-schemas % obs-dims-schema)))))
+        (update-in [:objects :observation :fields] #(into % (concat obs-dim-schemas measure-type-schemas))))))
 
 (defn get-compiled-schema [repo]
   (schema/compile (get-schema repo)))
 
-#_(defn load-dim-schema []
-  (-> (read-schema-resource "dim-schema.edn")
-      (attach-resolvers {:resolve-dataset resolve-dataset
-                         :resolve-observations resolve-observations})
-      (assoc :scalars {:uri
-                       {:parse (schema/as-conformer #(URI. %))
-                        :serialize (schema/as-conformer str)}
-
-                       :ref_area
-                       {:parse (schema/as-conformer #(URI. (str "http://statistics.gov.scot/id/statistical-geography/" %)))
-                        :serialize (schema/as-conformer uri->last-path-segment)}
-
-                       :year
-                       {:parse (schema/as-conformer parse-year)
-                        :serialize (schema/as-conformer uri->last-path-segment)}})))
-
-#_(defn compile-dim-schema []
-  (schema/compile (load-dim-schema)))
 

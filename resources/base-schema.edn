@@ -26,8 +26,7 @@
 
   :observation
   {:fields
-   {:uri {:type :uri}
-    :value {:type String}}}}
+   {:uri {:type :uri}}}}
  
  :queries
  {:dataset

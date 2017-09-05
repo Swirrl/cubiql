@@ -1,0 +1,5 @@
+<http://statistics.gov.scot/def/measure-properties/median> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/1999/02/22-rdf-syntax-ns#Property> .
+<http://statistics.gov.scot/def/measure-properties/median> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://purl.org/linked-data/cube#MeasureProperty> .
+<http://statistics.gov.scot/def/measure-properties/median> <http://www.w3.org/2000/01/rdf-schema#label> "Median" .
+<http://statistics.gov.scot/def/measure-properties/median> <http://www.w3.org/2000/01/rdf-schema#isDefinedBy> <http://statistics.gov.scot/def/ontology/measure-properties> .
+<http://statistics.gov.scot/def/measure-properties/median> <http://www.w3.org/2000/01/rdf-schema#subPropertyOf> <http://purl.org/linked-data/sdmx/2009/measure#obsValue> .
