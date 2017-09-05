@@ -5,9 +5,9 @@
             [com.walmartlabs.lacinia.util :refer [attach-resolvers]]
             [com.walmartlabs.lacinia :refer [execute]]
             [clojure.java.io :as io]
-            [clojure.edn :as edn]
             [clojure.data.json :as json]
-            [clojure.set :as set])
+            [clojure.set :as set]
+            [clj-graphql.util :refer [read-edn-resource rename-key]])
   (:import [java.net URI]
            [java.io PushbackReader]))
 
@@ -125,12 +125,6 @@
    "  ?mt rdfs:label ?label ."
    "}"))
 
-(defn rename-key [m k new-k]
-  (let [v (get m k)]
-    (-> m
-        (assoc new-k v)
-        (dissoc k))))
-
 (defn measure-type->query-var-name [{:keys [order]}]
   (str "mt" order))
 
@@ -164,7 +158,7 @@
 
 (defn dimensions->enums-schema [dims]
   (let [enum-dims (filter is-enum? dims)
-        enum-defs (map (fn [{:keys [kind values type label] :as d}]
+        enum-defs (map (fn [{:keys [values type label] :as d}]
                          [type {:values (mapv :value values)
                                 :description (str label)}])
                        enum-dims)]
@@ -176,18 +170,7 @@
                     [type {:parse parse :serialize serialize}])
                   scalar-dims))))
 
-(defn dimension-args->uris [args mapping]
-  {:gender {:->uri str :uri (URI. "http://foo.com")}}
-  (into {} (map (fn [[dim-key value]]
-                  (let [{:keys [->uri uri]} (get mapping dim-key)]
-                    [uri (->uri value)]))
-                args)))
 
-(defn read-schema-resource [resource-name]
-  (if-let [r (io/resource resource-name)]
-    (let [pbr (PushbackReader. (io/reader r))]
-      (edn/read pbr))
-    (throw (IllegalArgumentException. "Resource not found"))))
 
 (defn resolve-dataset-dims [{:keys [repo] :as context} args field]
   (let [dims (get-dimensions repo)]
@@ -269,9 +252,6 @@
     {:matches matches
      :free_dimensions []}))
 
-(defn merge-type-schemas [s1 s2]
-  (merge-with merge s1 s2))
-
 (defn get-schema [repo]
   (let [dims (get-dimensions repo)
         obs-dim-schemas (dimensions->obs-dim-schemas dims)
@@ -280,7 +260,7 @@
         dim-scalars-schema (dimensions->scalars-schema dims)
         scalars-schema (assoc dim-scalars-schema :uri {:parse (schema/as-conformer #(URI. %))
                                                        :serialize (schema/as-conformer str)})
-        base-schema (read-schema-resource "base-schema.edn")]
+        base-schema (read-edn-resource "base-schema.edn")]
     (-> base-schema
         (assoc :enums enums-schema)
         (assoc-in [:input-objects :obs_dims] {:fields (into {} obs-dim-schemas)})
