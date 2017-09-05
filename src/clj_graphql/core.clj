@@ -79,7 +79,7 @@
      :parse (schema/as-conformer #(URI. (str "http://statistics.gov.scot/id/statistical-geography/" %)))
      :serialize (schema/as-conformer uri->last-path-segment)
      :value->dimension-uri identity
-     :dimension-uri->value identity}
+     :result-binding->value identity}
     
     (= (URI. "http://purl.org/linked-data/sdmx/2009/dimension#refPeriod") uri)
     {:type :year
@@ -87,7 +87,7 @@
      :parse (schema/as-conformer parse-year)
      :serialize (schema/as-conformer uri->last-path-segment)
      :value->dimension-uri identity
-     :dimension-uri->value identity}
+     :result-binding->value identity}
     
     :else
     (let [values (get-enum-values repo dim)
@@ -96,16 +96,21 @@
        :type (->type-name dim)
        :values values
        :value->dimension-uri value->uri
-       :dimension-uri->value (set/map-invert value->uri)})))
+       :result-binding->value (set/map-invert value->uri)})))
 
 (defn get-test-repo []
   (repo/fixture-repo "earnings.nt" "earnings_metadata.nt" "dimension_pos.nt" "member_labels.nt" "measure_properties.nt"))
+
+(defn dimension->query-var-name [{:keys [order]}]
+  (str "dim" order))
 
 (defn get-dimensions [repo]
   (let [base-dims (repo/query repo (get-dimensions-query))]
     (map (fn [bindings]
            (let [dim (rename-key bindings :dim :uri)]
-             (merge dim (get-dimension-type repo dim))))
+             (-> dim
+                 (merge (get-dimension-type repo dim))
+                 (assoc :->query-var-name dimension->query-var-name))))
          base-dims)))
 
 (defn get-measure-types-query []
@@ -126,13 +131,18 @@
         (assoc new-k v)
         (dissoc k))))
 
+(defn measure-type->query-var-name [{:keys [order]}]
+  (str "mt" order))
+
 (defn get-measure-types [repo]
   (let [q (get-measure-types-query)
         results (repo/query repo q)]
     (map-indexed (fn [idx bindings]
                    (-> bindings
                        (rename-key :mt :uri)
-                       (assoc :order (inc idx))))  results)))
+                       (assoc :order (inc idx))
+                       (assoc :->query-var-name measure-type->query-var-name)
+                       (assoc :result-binding->value #(some-> % str))))  results)))
 
 (defn get-measure-type-schemas [repo]
   (let [measure-types (get-measure-types repo)]
@@ -173,16 +183,6 @@
                     [uri (->uri value)]))
                 args)))
 
-(defn dimension->query-var-name [{:keys [order]}]
-  (str "dim" order))
-
-(defn get-dimension-query-binding [dim bindings-map]
-  (get bindings-map (keyword (dimension->query-var-name dim))))
-
-(defn get-dimension-query-value [{:keys [dimension-uri->value] :as dim} bindings-map]
-  (let [binding (get-dimension-query-binding dim bindings-map)]
-    (dimension-uri->value binding)))
-
 (defn read-schema-resource [resource-name]
   (if-let [r (io/resource resource-name)]
     (let [pbr (PushbackReader. (io/reader r))]
@@ -215,9 +215,6 @@
   (let [ds (get-dataset repo)
         dims (resolve-dataset-dims context args field)]
     (assoc ds :dimensions dims)))
-
-(defn measure-type->query-var-name [{:keys [order]}]
-  (str "mt" order))
 
 (defn get-observation-query [ds-dimensions query-dimensions measure-types]
   (let [field->ds-dims (into {} (map (fn [dim] [(->field-name dim) dim]) ds-dimensions))
@@ -261,17 +258,13 @@
   (let [query (get-observation-query dimensions query-dimensions measure-types)
         results (repo/query repo query)
         matches (mapv (fn [{:keys [obs] :as bindings}]
-                        (let [mapped-field-values (map (fn [dim]
-                                                         (let [field-name (->field-name dim)
-                                                               value (get-dimension-query-value dim bindings)]
-                                                           [field-name value]))
-                                                       dimensions)
-                              mapped-measure-types (map (fn [mt]
-                                                          (let [field-name (->field-name mt)
-                                                                var-name (keyword (measure-type->query-var-name mt))]
-                                                            [field-name (some-> (get bindings var-name) str)]))
-                                                        measure-types)]
-                          (into {:uri obs} (concat mapped-field-values mapped-measure-types))))
+                        (let [field-values (map (fn [{:keys [->query-var-name result-binding->value] :as ft}]
+                                                  (let [field-name (->field-name ft)
+                                                        result-key (keyword (->query-var-name ft))
+                                                        value (get bindings result-key)]
+                                                    [field-name (result-binding->value value)]))
+                                                (concat dimensions measure-types))]
+                          (into {:uri obs} field-values)))
                       results)]
     {:matches matches
      :free_dimensions []}))
@@ -298,5 +291,3 @@
 
 (defn get-compiled-schema [repo]
   (schema/compile (get-schema repo)))
-
-
