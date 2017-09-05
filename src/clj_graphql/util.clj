@@ -21,7 +21,7 @@
   [m k new-k]
   {:pre [(contains? m k)]
    :post [(contains? % new-k)
-          (not (contains? m k))]}
+          (not (contains? % k))]}
   (let [v (get m k)]
     (-> m
         (assoc new-k v)
