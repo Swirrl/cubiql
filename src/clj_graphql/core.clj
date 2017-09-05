@@ -45,11 +45,11 @@
 (defn uri->last-path-segment [uri]
   (last (string/split (.getPath uri) #"/")))
 
-(defn dim-label->field-name [label]
+(defn label->field-name [label]
   (keyword (string/join "_" (map string/lower-case (string/split (str label) #"\s+")))))
 
-(defn dimension->field-name [{:keys [label]}]
-  (dim-label->field-name label))
+(defn ->field-name [{:keys [label]}]
+  (label->field-name label))
 
 (defn has-valid-name-first-char? [name]
   (boolean (re-find #"^[_a-zA-Z]" name)))
@@ -60,7 +60,7 @@
     (keyword valid-name)))
 
 (defn enum-label->type-name [label]
-  (keyword (str (name (dim-label->field-name label)) "_type")))
+  (keyword (str (name (label->field-name label)) "_type")))
 
 (defn get-enum-values [repo dim-uri]
   (let [results (repo/query repo (get-enum-values-query dim-uri))]
@@ -100,8 +100,8 @@
 
 (defn get-dimensions [repo]
   (let [base-dims (repo/query repo (get-dimensions-query))]
-    (map (fn [{:keys [dim] :as m}]
-           (merge m (get-dimension-type repo m)))
+    (map (fn [bindings]
+           (merge bindings (get-dimension-type repo bindings)))
          base-dims)))
 
 (defn get-measure-types-query []
@@ -132,20 +132,12 @@
 
 (defn get-measure-type-schemas [repo]
   (let [measure-types (get-measure-types repo)]
-    (map (fn [{:keys [label] :as mt}]
-           (let [field-name (dim-label->field-name label)]
-             {field-name {:type 'String}})) measure-types)))
-
-(defn dimensions->obs-dims-schema [dims]
-  (let [fields (map (fn [{:keys [label type]}]
-                      [(dim-label->field-name label) {:type type}])
-                    dims)]
-    {:fields (into {} fields)}))
+    (map (fn [mt] {(->field-name mt) {:type 'String}}) measure-types)))
 
 (defn dimensions->obs-dim-schemas [dims]
-  (map (fn [{:keys [label type]}]
-                      [(dim-label->field-name label) {:type type}])
-                    dims))
+  (map (fn [{:keys [type] :as dim}]
+         [(->field-name dim) {:type type}])
+       dims))
 
 (defn dim-has-kind? [kind dim]
   (= kind (:kind dim)))
@@ -224,8 +216,8 @@
   (str "mt" order))
 
 (defn get-observation-query [ds-dimensions query-dimensions measure-types]
-  (let [field->ds-dims (into {} (map (fn [dim] [(dimension->field-name dim) dim]) ds-dimensions))
-        field->measure-types (into {} (map (fn [{:keys [label] :as dim}] [(dim-label->field-name label) dim]) measure-types))
+  (let [field->ds-dims (into {} (map (fn [dim] [(->field-name dim) dim]) ds-dimensions))
+        field->measure-types (into {} (map (fn [dim] [(->field-name dim) dim]) measure-types))
         constrained-dims (select-keys field->ds-dims (keys query-dimensions))
         free-dims (apply dissoc field->ds-dims (keys query-dimensions))
         constrained-patterns (map (fn [[field-name field-value]]
@@ -266,12 +258,12 @@
         results (repo/query repo query)
         matches (mapv (fn [{:keys [obs] :as bindings}]
                         (let [mapped-field-values (map (fn [dim]
-                                                         (let [field-name (dimension->field-name dim)
+                                                         (let [field-name (->field-name dim)
                                                                value (get-dimension-query-value dim bindings)]
                                                            [field-name value]))
                                                        dimensions)
-                              mapped-measure-types (map (fn [{:keys [label] :as mt}]
-                                                          (let [field-name (dim-label->field-name label)
+                              mapped-measure-types (map (fn [mt]
+                                                          (let [field-name (->field-name mt)
                                                                 var-name (keyword (measure-type->query-var-name mt))]
                                                             [field-name (some-> (get bindings var-name) str)]))
                                                         measure-types)]
