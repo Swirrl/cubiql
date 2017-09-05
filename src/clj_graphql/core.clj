@@ -202,7 +202,6 @@
 (defn get-observation-query [ds-dimensions query-dimensions measure-types]
   (let [field->ds-dims (into {} (map (fn [dim] [(->field-name dim) dim]) ds-dimensions))
         field->measure-types (into {} (map (fn [dim] [(->field-name dim) dim]) measure-types))
-        constrained-dims (select-keys field->ds-dims (keys query-dimensions))
         free-dims (apply dissoc field->ds-dims (keys query-dimensions))
         constrained-patterns (map (fn [[field-name field-value]]
                                     (let [dim (get field->ds-dims field-name)
