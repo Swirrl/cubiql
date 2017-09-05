@@ -59,18 +59,21 @@
         valid-name (if (has-valid-name-first-char? name) name (str "a_" name))]
     (keyword valid-name)))
 
-(defn enum-label->type-name [label]
-  (keyword (str (name (label->field-name label)) "_type")))
+(defn field-name->type-name [field-name]
+  (keyword (str (name field-name) "_type")))
 
-(defn get-enum-values [repo dim-uri]
-  (let [results (repo/query repo (get-enum-values-query dim-uri))]
+(defn ->type-name [f]
+  (field-name->type-name (->field-name f)))
+
+(defn get-enum-values [repo {:keys [uri] :as dim}]
+  (let [results (repo/query repo (get-enum-values-query uri))]
     (map (fn [{:keys [label] :as m}]
            (assoc m :value (enum-label->value-name label)))
          results)))
 
-(defn get-dimension-type [repo {:keys [dim label]}]
+(defn get-dimension-type [repo {:keys [uri label] :as dim}]
   (cond
-    (= (URI. "http://purl.org/linked-data/sdmx/2009/dimension#refArea") dim)
+    (= (URI. "http://purl.org/linked-data/sdmx/2009/dimension#refArea") uri)
     {:type :ref_area
      :kind :scalar
      :parse (schema/as-conformer #(URI. (str "http://statistics.gov.scot/id/statistical-geography/" %)))
@@ -78,7 +81,7 @@
      :value->dimension-uri identity
      :dimension-uri->value identity}
     
-    (= (URI. "http://purl.org/linked-data/sdmx/2009/dimension#refPeriod") dim)
+    (= (URI. "http://purl.org/linked-data/sdmx/2009/dimension#refPeriod") uri)
     {:type :year
      :kind :scalar
      :parse (schema/as-conformer parse-year)
@@ -90,8 +93,8 @@
     (let [values (get-enum-values repo dim)
           value->uri (into {} (map (juxt :value :member) values))]
       {:kind :enum
-       :type (enum-label->type-name label)
-       :values (get-enum-values repo dim)
+       :type (->type-name dim)
+       :values values
        :value->dimension-uri value->uri
        :dimension-uri->value (set/map-invert value->uri)})))
 
@@ -101,7 +104,8 @@
 (defn get-dimensions [repo]
   (let [base-dims (repo/query repo (get-dimensions-query))]
     (map (fn [bindings]
-           (merge bindings (get-dimension-type repo bindings)))
+           (let [dim (rename-key bindings :dim :uri)]
+             (merge dim (get-dimension-type repo dim))))
          base-dims)))
 
 (defn get-measure-types-query []
@@ -187,8 +191,8 @@
 
 (defn resolve-dataset-dims [{:keys [repo] :as context} args field]
   (let [dims (get-dimensions repo)]
-    (map (fn [{:keys [dim values]}]
-           {:uri (str dim)
+    (map (fn [{:keys [uri values]}]
+           {:uri (str uri)
             :values (map (fn [{:keys [member label]}]
                            {:uri (str member)
                             :label label})
@@ -223,7 +227,7 @@
         constrained-patterns (map (fn [[field-name field-value]]
                                     (let [dim (get field->ds-dims field-name)
                                           val-uri ((:value->dimension-uri dim) field-value)]
-                                      (str "?obs <" (str (:dim dim)) "> <" (str val-uri) "> .")))
+                                      (str "?obs <" (str (:uri dim)) "> <" (str val-uri) "> .")))
                                   query-dimensions)
         measure-type-patterns (map (fn [[field-name {:keys [uri] :as mt}]]
                                      (str
@@ -238,7 +242,7 @@
                    query-dimensions)
         query-patterns (map (fn [[field-name dim]]
                               (let [var-name (dimension->query-var-name dim)]
-                                (str "?obs <" (:dim dim) "> ?" var-name " .")))
+                                (str "?obs <" (:uri dim) "> ?" var-name " .")))
                             free-dims)]
     (str
      "PREFIX qb: <http://purl.org/linked-data/cube#>"
