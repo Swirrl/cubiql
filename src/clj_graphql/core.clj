@@ -14,14 +14,14 @@
 (defn get-dimensions-query []
   (str
    "PREFIX qb: <http://purl.org/linked-data/cube#>"
-   "SELECT ?dim ?order ?dimlabel ?doc WHERE {"
+   "SELECT ?dim ?order ?label ?doc WHERE {"
        "  ?ds qb:structure ?struct ."
        "  ?struct a qb:DataStructureDefinition ."
        "  ?struct qb:component ?comp ."
        "  ?comp a qb:ComponentSpecification ."
        "  ?comp qb:order ?order ."
        "  ?comp qb:dimension ?dim ."
-       "  ?dim rdfs:label ?dimlabel ."
+       "  ?dim rdfs:label ?label ."
        "  OPTIONAL { ?dim rdfs:comment ?doc }"
        "}"))
 
@@ -48,8 +48,8 @@
 (defn dim-label->field-name [label]
   (keyword (string/join "_" (map string/lower-case (string/split (str label) #"\s+")))))
 
-(defn dimension->field-name [{:keys [dimlabel]}]
-  (dim-label->field-name dimlabel))
+(defn dimension->field-name [{:keys [label]}]
+  (dim-label->field-name label))
 
 (defn has-valid-name-first-char? [name]
   (boolean (re-find #"^[_a-zA-Z]" name)))
@@ -68,7 +68,7 @@
            (assoc m :value (enum-label->value-name label)))
          results)))
 
-(defn get-dimension-type [repo {:keys [dim dimlabel]}]
+(defn get-dimension-type [repo {:keys [dim label]}]
   (cond
     (= (URI. "http://purl.org/linked-data/sdmx/2009/dimension#refArea") dim)
     {:type :ref_area
@@ -90,7 +90,7 @@
     (let [values (get-enum-values repo dim)
           value->uri (into {} (map (juxt :value :member) values))]
       {:kind :enum
-       :type (enum-label->type-name dimlabel)
+       :type (enum-label->type-name label)
        :values (get-enum-values repo dim)
        :value->dimension-uri value->uri
        :dimension-uri->value (set/map-invert value->uri)})))
@@ -137,14 +137,14 @@
              {field-name {:type 'String}})) measure-types)))
 
 (defn dimensions->obs-dims-schema [dims]
-  (let [fields (map (fn [{:keys [dimlabel type]}]
-                      [(dim-label->field-name dimlabel) {:type type}])
+  (let [fields (map (fn [{:keys [label type]}]
+                      [(dim-label->field-name label) {:type type}])
                     dims)]
     {:fields (into {} fields)}))
 
 (defn dimensions->obs-dim-schemas [dims]
-  (map (fn [{:keys [dimlabel type]}]
-                      [(dim-label->field-name dimlabel) {:type type}])
+  (map (fn [{:keys [label type]}]
+                      [(dim-label->field-name label) {:type type}])
                     dims))
 
 (defn dim-has-kind? [kind dim]
@@ -158,9 +158,9 @@
 
 (defn dimensions->enums-schema [dims]
   (let [enum-dims (filter is-enum? dims)
-        enum-defs (map (fn [{:keys [kind values type dimlabel] :as d}]
+        enum-defs (map (fn [{:keys [kind values type label] :as d}]
                          [type {:values (mapv :value values)
-                                :description (str dimlabel)}])
+                                :description (str label)}])
                        enum-dims)]
     (into {} enum-defs)))
 
