@@ -1,5 +1,5 @@
 {:objects
- {:dataset
+ {:dataset_earnings
   {:fields
    {:uri {:type :uri}
     :title {:type String}
@@ -29,6 +29,6 @@
    {:uri {:type :uri}}}}
  
  :queries
- {:dataset
-  {:type :dataset
+ {:dataset_earnings
+  {:type :dataset_earnings
    :resolve :resolve-dataset}}}
