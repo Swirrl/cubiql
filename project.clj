@@ -7,9 +7,7 @@
                  [com.walmartlabs/lacinia "0.20.0"]
                  [com.walmartlabs/lacinia-pedestal "0.3.0"]
                  [org.clojure/data.json "0.2.6"]
-                 [grafter "0.9.0"]
-                 [ring "1.6.2"]
-                 [compojure "1.6.0"]]
-  :main ^:skip-aot clj-graphql.core
+                 [grafter "0.9.0"]]
+  :main ^:skip-aot clj-graphql.main
   :target-path "target/%s"
   :profiles {:uberjar {:aot :all}})
