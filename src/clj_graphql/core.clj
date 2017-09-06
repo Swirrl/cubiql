@@ -110,6 +110,7 @@
            (let [dim (rename-key bindings :dim :uri)]
              (-> dim
                  (merge (get-dimension-type repo dim))
+                 (assoc :field-name (->field-name dim))
                  (assoc :->query-var-name dimension->query-var-name))))
          base-dims)))
 
@@ -134,9 +135,10 @@
     (map-indexed (fn [idx bindings]
                    (-> bindings
                        (rename-key :mt :uri)
+                       (assoc :field-name (->field-name bindings))
                        (assoc :order (inc idx))
                        (assoc :->query-var-name measure-type->query-var-name)
-                       (assoc :result-binding->value #(some-> % str))))  results)))
+                       (assoc :result-binding->value #(some-> % str)))) results)))
 
 (defn get-measure-type-schemas [repo]
   (let [measure-types (get-measure-types repo)]
@@ -200,28 +202,28 @@
     (assoc ds :dimensions dims)))
 
 (defn get-observation-query [ds-dimensions query-dimensions measure-types]
-  (let [field->ds-dims (into {} (map (fn [dim] [(->field-name dim) dim]) ds-dimensions))
-        field->measure-types (into {} (map (fn [dim] [(->field-name dim) dim]) measure-types))
-        free-dims (apply dissoc field->ds-dims (keys query-dimensions))
-        constrained-patterns (map (fn [[field-name field-value]]
-                                    (let [dim (get field->ds-dims field-name)
-                                          val-uri ((:value->dimension-uri dim) field-value)]
-                                      (str "?obs <" (str (:uri dim)) "> <" (str val-uri) "> .")))
-                                  query-dimensions)
-        measure-type-patterns (map (fn [[field-name {:keys [uri] :as mt}]]
+  (let [is-query-dimension? (fn [{:keys [field-name]}] (contains? query-dimensions field-name))
+        constrained-dims (filter is-query-dimension? ds-dimensions)
+        free-dims (remove is-query-dimension? ds-dimensions)
+        constrained-patterns (map (fn [{:keys [field-name uri value->dimension-uri] :as dim}]
+                                    (let [field-value (get query-dimensions field-name)
+                                          val-uri (value->dimension-uri field-value)]
+                                      (str "?obs <" (str uri) "> <" (str val-uri) "> .")))
+                                  constrained-dims)
+        measure-type-patterns (map (fn [{:keys [field-name uri] :as mt}]
                                      (str
                                       "  ?obs qb:measureType <" (str uri) "> . \n" 
                                       "  ?obs <" (str uri) "> ?" (measure-type->query-var-name mt) " ."))                                   
-                                   field->measure-types)
-        binds (map (fn [[field-name field-value]]
-                     (let [dim (get field->ds-dims field-name)
-                           val-uri ((:value->dimension-uri dim) field-value)
+                                   measure-types)
+        binds (map (fn [{:keys [field-name value->dimension-uri] :as dim}]
+                     (let [field-value (get query-dimensions field-name)
+                           val-uri (value->dimension-uri field-value)
                            var-name (dimension->query-var-name dim)]
                        (str "BIND(<" val-uri "> as ?" var-name ") .")))
-                   query-dimensions)
-        query-patterns (map (fn [[field-name dim]]
+                   constrained-dims)
+        query-patterns (map (fn [{:keys [uri] :as dim}]
                               (let [var-name (dimension->query-var-name dim)]
-                                (str "?obs <" (:uri dim) "> ?" var-name " .")))
+                                (str "?obs <" uri "> ?" var-name " .")))
                             free-dims)]
     (str
      "PREFIX qb: <http://purl.org/linked-data/cube#>"
