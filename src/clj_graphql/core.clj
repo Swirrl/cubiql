@@ -142,11 +142,11 @@
 
 (defn get-measure-type-schemas [repo]
   (let [measure-types (get-measure-types repo)]
-    (map (fn [mt] {(->field-name mt) {:type 'String}}) measure-types)))
+    (map (fn [{:keys [field-name]}] {field-name {:type 'String}}) measure-types)))
 
 (defn dimensions->obs-dim-schemas [dims]
-  (map (fn [{:keys [type] :as dim}]
-         [(->field-name dim) {:type type}])
+  (map (fn [{:keys [field-name type] :as dim}]
+         [field-name {:type type}])
        dims))
 
 (defn dim-has-kind? [kind dim]
@@ -242,9 +242,8 @@
   (let [query (get-observation-query dimensions query-dimensions measure-types)
         results (repo/query repo query)
         matches (mapv (fn [{:keys [obs] :as bindings}]
-                        (let [field-values (map (fn [{:keys [->query-var-name result-binding->value] :as ft}]
-                                                  (let [field-name (->field-name ft)
-                                                        result-key (keyword (->query-var-name ft))
+                        (let [field-values (map (fn [{:keys [field-name ->query-var-name result-binding->value] :as ft}]
+                                                  (let [result-key (keyword (->query-var-name ft))
                                                         value (get bindings result-key)]
                                                     [field-name (result-binding->value value)]))
                                                 (concat dimensions measure-types))]
