@@ -4,7 +4,8 @@
    {:uri {:type :uri}
     :title {:type String}
     :description {:type String}
-    :dimensions {:type (list :dim)}
+    :dimensions {:type (list :dim)
+                 :resolve :resolve-dataset-dimensions}
     :measures {:type (list :measure)}}}
   
   :dataset_earnings

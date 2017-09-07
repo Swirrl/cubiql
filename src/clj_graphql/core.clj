@@ -11,19 +11,20 @@
   (:import [java.net URI]
            [java.io PushbackReader]))
 
-(defn get-dimensions-query []
+(defn get-dimensions-query [ds-uri]
   (str
    "PREFIX qb: <http://purl.org/linked-data/cube#>"
    "SELECT ?dim ?order ?label ?doc WHERE {"
-       "  ?ds qb:structure ?struct ."
-       "  ?struct a qb:DataStructureDefinition ."
-       "  ?struct qb:component ?comp ."
-       "  ?comp a qb:ComponentSpecification ."
-       "  ?comp qb:order ?order ."
-       "  ?comp qb:dimension ?dim ."
-       "  ?dim rdfs:label ?label ."
-       "  OPTIONAL { ?dim rdfs:comment ?doc }"
-       "}"))
+   "  <" ds-uri "> a qb:DataSet ."
+   "  <" ds-uri "> qb:structure ?struct ."
+   "  ?struct a qb:DataStructureDefinition ."
+   "  ?struct qb:component ?comp ."
+   "  ?comp a qb:ComponentSpecification ."
+   "  ?comp qb:order ?order ."
+   "  ?comp qb:dimension ?dim ."
+   "  ?dim rdfs:label ?label ."
+   "  OPTIONAL { ?dim rdfs:comment ?doc }"
+   "}"))
 
 (defn get-enum-values-query [dim-uri]
   (str
@@ -104,15 +105,17 @@
 (defn dimension->query-var-name [{:keys [order]}]
   (str "dim" order))
 
-(defn get-dimensions [repo]
-  (let [base-dims (repo/query repo (get-dimensions-query))]
-    (map (fn [bindings]
-           (let [dim (rename-key bindings :dim :uri)]
-             (-> dim
-                 (merge (get-dimension-type repo dim))
-                 (assoc :field-name (->field-name dim))
-                 (assoc :->query-var-name dimension->query-var-name))))
-         base-dims)))
+(defn get-dimensions
+  ([repo] (get-dimensions repo (URI. "http://statistics.gov.scot/data/earnings")))
+  ([repo ds-uri]
+   (let [base-dims (repo/query repo (get-dimensions-query ds-uri))]
+     (map (fn [bindings]
+            (let [dim (rename-key bindings :dim :uri)]
+              (-> dim
+                  (merge (get-dimension-type repo dim))
+                  (assoc :field-name (->field-name dim))
+                  (assoc :->query-var-name dimension->query-var-name))))
+          base-dims))))
 
 (defn get-measure-types-query []
   (str
@@ -172,10 +175,8 @@
                     [type {:parse parse :serialize serialize}])
                   scalar-dims))))
 
-
-
-(defn resolve-dataset-dims [{:keys [repo] :as context} args field]
-  (let [dims (get-dimensions repo)]
+(defn resolve-dataset-dimensions [{:keys [repo] :as context} args {:keys [uri] :as ds-field}]
+  (let [dims (get-dimensions repo uri)]
     (map (fn [{:keys [uri values]}]
            {:uri (str uri)
             :values (map (fn [{:keys [member label]}]
@@ -198,7 +199,7 @@
 
 (defn resolve-dataset-earnings [{:keys [repo] :as context} args field]
   (let [ds (get-dataset repo)
-        dims (resolve-dataset-dims context args field)]
+        dims (resolve-dataset-dimensions context args {:uri (URI. "http://statistics.gov.scot/data/earnings")})]
     (assoc ds :dimensions dims)))
 
 (defn get-observation-query [ds-dimensions query-dimensions measure-types]
@@ -312,7 +313,8 @@
         (assoc-in [:input-objects :obs_dims] {:fields (into {} obs-dim-schemas)})
         (attach-resolvers {:resolve-dataset-earnings resolve-dataset-earnings
                            :resolve-observations resolve-observations
-                           :resolve-dataset resolve-dataset})
+                           :resolve-dataset resolve-dataset
+                           :resolve-dataset-dimensions resolve-dataset-dimensions})
         (assoc :scalars scalars-schema)
         (update-in [:objects :observation :fields] #(into % (concat obs-dim-schemas measure-type-schemas))))))
 
