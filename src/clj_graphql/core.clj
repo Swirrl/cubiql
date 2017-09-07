@@ -313,24 +313,46 @@
         results (repo/query repo q)]
     (map #(rename-key % :ds :uri) results)))
 
-(defn get-schema [repo]
-  (let [dims (get-dimensions repo (URI. "http://statistics.gov.scot/data/earnings"))
+(defn get-dataset-schema [repo ds-uri]
+  (let [dims (get-dimensions repo ds-uri)
         obs-dim-schemas (dimensions->obs-dim-schemas dims)
         measure-type-schemas (get-measure-type-schemas repo)
+        observation-fields (into {:uri {:type :uri}} (concat obs-dim-schemas measure-type-schemas))
         enums-schema (dimensions->enums-schema dims)
+
+        ;;TODO: custom scalars are global so move to top level!
         dim-scalars-schema (dimensions->scalars-schema dims)
         scalars-schema (assoc dim-scalars-schema :uri {:parse (schema/as-conformer #(URI. %))
-                                                       :serialize (schema/as-conformer str)})
-        base-schema (read-edn-resource "base-schema.edn")]
-    (-> base-schema
-        (assoc :enums enums-schema)
-        (assoc-in [:input-objects :obs_dims] {:fields (into {} obs-dim-schemas)})
-        (attach-resolvers {:resolve-dataset-earnings resolve-dataset-earnings
-                           :resolve-observations resolve-observations
-                           :resolve-dataset resolve-dataset
-                           :resolve-dataset-dimensions resolve-dataset-dimensions})
-        (assoc :scalars scalars-schema)
-        (update-in [:objects :observation :fields] #(into % (concat obs-dim-schemas measure-type-schemas))))))
+                                                       :serialize (schema/as-conformer str)})]
+    {:enums enums-schema
+     :objects
+     {:dataset_earnings
+      {:fields
+       {:uri {:type :uri}
+        :title {:type 'String}
+        :description {:type 'String}
+        :dimensions {:type '(list :dim)}
+        :observations {:type :observation_result
+                       :args {:dimensions {:type :obs_dims}}
+                       :resolve :resolve-observations}}}
+
+      :observation
+      {:fields observation-fields}}
+
+     :input-objects
+     {:obs_dims
+      {:fields (into {} obs-dim-schemas)}}
+
+     :scalars scalars-schema}))
+
+(defn get-schema [repo]
+  (let [base-schema (read-edn-resource "base-schema.edn")
+        ds-schema (get-dataset-schema repo (URI. "http://statistics.gov.scot/data/earnings"))
+        combined-schema (merge-with merge base-schema ds-schema)]
+    (attach-resolvers combined-schema {:resolve-dataset-earnings resolve-dataset-earnings
+                                       :resolve-observations resolve-observations
+                                       :resolve-dataset resolve-dataset
+                                       :resolve-dataset-dimensions resolve-dataset-dimensions})))
 
 (defn get-compiled-schema [repo]
   (schema/compile (get-schema repo)))
