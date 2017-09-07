@@ -1,5 +1,13 @@
 {:objects
- {:dataset_earnings
+ {:dataset
+  {:fields
+   {:uri {:type :uri}
+    :title {:type String}
+    :description {:type String}
+    :dimensions {:type (list :dim)}
+    :measures {:type (list :measure)}}}
+  
+  :dataset_earnings
   {:fields
    {:uri {:type :uri}
     :title {:type String}
@@ -14,6 +22,10 @@
    {:uri {:type :uri}
     :values {:type (list :dim_value)}}}
 
+  :measure
+  {:fields
+   {:uri {:type :uri}}}
+
   :dim_value
   {:fields
    {:uri {:type :uri}
@@ -27,8 +39,20 @@
   :observation
   {:fields
    {:uri {:type :uri}}}}
+
+ :input-objects
+ {:filter
+  {:fields
+   {:or {:type (list :uri)}
+    :and {:type (list :uri)}}}}
  
  :queries
- {:dataset_earnings
+ {:dataset
+  {:type (list :dataset)
+   :resolve :resolve-dataset
+   :args
+   {:dimensions {:type :filter}}}
+
+  :dataset_earnings
   {:type :dataset_earnings
-   :resolve :resolve-dataset}}}
+   :resolve :resolve-dataset-earnings}}}

@@ -196,7 +196,7 @@
 (defn get-dataset [repo]
   (first (repo/query repo dataset-query)))
 
-(defn resolve-dataset [{:keys [repo] :as context} args field]
+(defn resolve-dataset-earnings [{:keys [repo] :as context} args field]
   (let [ds (get-dataset repo)
         dims (resolve-dataset-dims context args field)]
     (assoc ds :dimensions dims)))
@@ -252,6 +252,52 @@
     {:matches matches
      :free_dimensions []}))
 
+(defn get-dimensions-filter [{dims-and :and}]
+  (if (empty? dims-and)
+    ""
+    (let [and-clauses (map-indexed (fn [idx uri]
+                                     (let [comp-var (str "?comp" (inc idx))]
+                                       (str
+                                        "?struct qb:component " comp-var ". \n"
+                                        comp-var " a qb:ComponentSpecification .\n"
+                                        comp-var " qb:dimension <" (str uri) "> .\n")))
+                            dims-and)]
+      (str
+       "  ?ds qb:structure ?struct ."
+       "  ?struct a qb:DataStructureDefinition ."
+       (string/join "\n" and-clauses)))))
+
+(defn get-dimensions-or [{dims-or :or}]
+  (if (empty? dims-or)
+    "  ?ds a qb:DataSet ."
+    (let [union-clauses (map (fn [dim]
+                               (str "{ ?struct qb:component ?comp ."
+                                    "  ?comp qb:dimension <" dim "> . }"))
+                             dims-or)]
+      (str
+       "{ SELECT DISTINCT ?ds WHERE {"
+       "  ?ds a qb:DataSet ."
+       "  ?ds qb:structure ?struct ."
+       "  ?struct a qb:DataStructureDefinition ."
+       (string/join " UNION " union-clauses)
+       "} }"))))
+
+(defn get-datasets-query [dimensions measures]
+  (str
+   "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>"
+   "PREFIX qb: <http://purl.org/linked-data/cube#>"
+   "SELECT ?ds ?title ?description WHERE {"
+   (get-dimensions-or dimensions)
+   "  ?ds rdfs:label ?title ."
+   "  ?ds rdfs:comment ?description ."
+   (get-dimensions-filter dimensions)
+   "}"))
+
+(defn resolve-dataset [{:keys [repo]} {:keys [dimensions measures] :as args} _parent]
+  (let [q (get-datasets-query dimensions measures)
+        results (repo/query repo q)]
+    (map #(rename-key % :ds :uri) results)))
+
 (defn get-schema [repo]
   (let [dims (get-dimensions repo)
         obs-dim-schemas (dimensions->obs-dim-schemas dims)
@@ -264,8 +310,9 @@
     (-> base-schema
         (assoc :enums enums-schema)
         (assoc-in [:input-objects :obs_dims] {:fields (into {} obs-dim-schemas)})
-        (attach-resolvers {:resolve-dataset resolve-dataset
-                           :resolve-observations resolve-observations})
+        (attach-resolvers {:resolve-dataset-earnings resolve-dataset-earnings
+                           :resolve-observations resolve-observations
+                           :resolve-dataset resolve-dataset})
         (assoc :scalars scalars-schema)
         (update-in [:objects :observation :fields] #(into % (concat obs-dim-schemas measure-type-schemas))))))
 
