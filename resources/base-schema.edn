@@ -47,7 +47,7 @@
     :and {:type (list :uri)}}}}
  
  :queries
- {:dataset
+ {:datasets
   {:type (list :dataset)
    :resolve :resolve-dataset
    :args
