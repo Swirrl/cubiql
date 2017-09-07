@@ -20,12 +20,7 @@
   :dim_value
   {:fields
    {:uri {:type :uri}
-    :label {:type String}}}
-
-  :observation_result
-  {:fields
-   {:matches {:type (list :observation)}
-    :free_dimensions {:type (list :dim)}}}}
+    :label {:type String}}}}
 
  :input-objects
  {:filter

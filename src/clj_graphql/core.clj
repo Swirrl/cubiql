@@ -66,11 +66,11 @@
         valid-name (if (has-valid-name-first-char? name) name (str "a_" name))]
     (keyword valid-name)))
 
-(defn field-name->type-name [field-name]
-  (keyword (str (name field-name) "_type")))
+(defn field-name->type-name [field-name ds-schema]
+  (keyword (str (name ds-schema) "_" (name field-name) "_type")))
 
-(defn ->type-name [f]
-  (field-name->type-name (->field-name f)))
+(defn ->type-name [f ds-schema]
+  (field-name->type-name (->field-name f) ds-schema))
 
 (defn get-enum-values [repo {:keys [ds-uri uri] :as dim}]
   (let [results (repo/query repo (get-enum-values-query ds-uri uri))]
@@ -78,7 +78,7 @@
            (assoc m :value (enum-label->value-name label)))
          results)))
 
-(defn get-dimension-type [repo {:keys [uri label] :as dim}]
+(defn get-dimension-type [repo {:keys [uri label] :as dim} {:keys [schema] :as ds}]
   (cond
     (= (URI. "http://purl.org/linked-data/sdmx/2009/dimension#refArea") uri)
     {:type :ref_area
@@ -100,7 +100,7 @@
     (let [values (get-enum-values repo dim)
           value->uri (into {} (map (juxt :value :member) values))]
       {:kind :enum
-       :type (->type-name dim)
+       :type (->type-name dim schema)
        :values values
        :value->dimension-uri value->uri
        :result-binding->value (set/map-invert value->uri)})))
@@ -119,14 +119,14 @@
   (str "dim" order))
 
 (defn get-dimensions
-  [repo ds-uri]
-  (let [base-dims (repo/query repo (get-dimensions-query ds-uri))]
+  [repo {:keys [uri] :as ds}]
+  (let [base-dims (repo/query repo (get-dimensions-query uri))]
     (map (fn [bindings]
            (let [dim (-> bindings
                          (rename-key :dim :uri)
                          (rename-key :ds :ds-uri))]
              (-> dim
-                 (merge (get-dimension-type repo dim))
+                 (merge (get-dimension-type repo dim ds))
                  (assoc :field-name (->field-name dim))
                  (assoc :->query-var-name dimension->query-var-name))))
          base-dims)))
@@ -190,7 +190,8 @@
                   scalar-dims))))
 
 (defn resolve-dataset-dimensions [{:keys [repo] :as context} args {:keys [uri] :as ds-field}]
-  (let [dims (get-dimensions repo uri)]
+  ;;TODO: remove hard-coded schema name!
+  (let [dims (get-dimensions repo {:uri uri :schema :dataset_earnings})]
     (map (fn [{:keys [uri values]}]
            {:uri (str uri)
             :values (map (fn [{:keys [member label]}]
@@ -313,12 +314,15 @@
         results (repo/query repo q)]
     (map #(rename-key % :ds :uri) results)))
 
-(defn get-dataset-schema [repo ds-uri]
-  (let [dims (get-dimensions repo ds-uri)
+(defn get-dataset-schema [repo {:keys [uri schema] :as ds}]
+  (let [dims (get-dimensions repo ds)
         obs-dim-schemas (dimensions->obs-dim-schemas dims)
         measure-type-schemas (get-measure-type-schemas repo)
         observation-fields (into {:uri {:type :uri}} (concat obs-dim-schemas measure-type-schemas))
         enums-schema (dimensions->enums-schema dims)
+        observation-result-type-name (field-name->type-name :observation_result schema)
+        observation-type-name (field-name->type-name :observation schema)
+        observation-dims-type-name (field-name->type-name :observation_dimensions schema)
 
         ;;TODO: custom scalars are global so move to top level!
         dim-scalars-schema (dimensions->scalars-schema dims)
@@ -332,22 +336,27 @@
         :title {:type 'String}
         :description {:type 'String}
         :dimensions {:type '(list :dim)}
-        :observations {:type :observation_result
-                       :args {:dimensions {:type :obs_dims}}
+        :observations {:type observation-result-type-name
+                       :args {:dimensions {:type observation-dims-type-name}}
                        :resolve :resolve-observations}}}
 
-      :observation
+      observation-result-type-name
+      {:fields
+       {:matches {:type (list 'list observation-type-name)}
+        :free_dimensions {:type '(list :dim)}}}
+      
+      observation-type-name
       {:fields observation-fields}}
 
      :input-objects
-     {:obs_dims
+     {observation-dims-type-name
       {:fields (into {} obs-dim-schemas)}}
 
      :scalars scalars-schema}))
 
 (defn get-schema [repo]
   (let [base-schema (read-edn-resource "base-schema.edn")
-        ds-schema (get-dataset-schema repo (URI. "http://statistics.gov.scot/data/earnings"))
+        ds-schema (get-dataset-schema repo {:uri (URI. "http://statistics.gov.scot/data/earnings") :schema :dataset_earnings})
         combined-schema (merge-with merge base-schema ds-schema)]
     (attach-resolvers combined-schema {:resolve-dataset-earnings resolve-dataset-earnings
                                        :resolve-observations resolve-observations

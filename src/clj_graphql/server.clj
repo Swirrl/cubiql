@@ -7,7 +7,7 @@
 (defn create-server [port]
   (let [repo (core/get-test-repo)
         schema (core/get-compiled-schema repo)
-        ds-dimensions (core/get-dimensions repo (URI. "http://statistics.gov.scot/data/earnings"))
+        ds-dimensions (core/get-dimensions repo {:uri (URI. "http://statistics.gov.scot/data/earnings") :schema :dataset_earnings})
         measure-types (core/get-measure-types repo)
         opts {:app-context {:repo repo :dimensions ds-dimensions :measure-types measure-types}
               :port port
