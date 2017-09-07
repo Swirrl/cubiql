@@ -1,0 +1,21 @@
+<http://statistics.gov.scot/data/healthy-life-expectancy> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://purl.org/linked-data/cube#DataSet> .
+<http://statistics.gov.scot/data/healthy-life-expectancy> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://publishmydata.com/def/dataset#Dataset> .
+<http://statistics.gov.scot/data/healthy-life-expectancy> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://publishmydata.com/def/dataset#LinkedDataset> .
+<http://statistics.gov.scot/data/healthy-life-expectancy> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://rdfs.org/ns/void#Dataset> .
+<http://statistics.gov.scot/data/healthy-life-expectancy> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/dcat#Dataset> .
+<http://statistics.gov.scot/data/healthy-life-expectancy> <http://www.w3.org/2000/01/rdf-schema#label> "Healthy Life Expectancy" .
+<http://statistics.gov.scot/data/healthy-life-expectancy> <http://purl.org/dc/terms/title> "Healthy Life Expectancy" .
+<http://statistics.gov.scot/data/healthy-life-expectancy> <http://www.w3.org/2000/01/rdf-schema#comment> "Years of Healthy Life Expectancy (including confidence intervals) by gender" .
+<http://statistics.gov.scot/data/healthy-life-expectancy> <http://publishmydata.com/def/dataset#contactEmail> <mailto:nss.csd@nhs.net> .
+<http://statistics.gov.scot/data/healthy-life-expectancy> <http://publishmydata.com/def/dataset#graph> <http://statistics.gov.scot/graph/healthy-life-expectancy> .
+<http://statistics.gov.scot/data/healthy-life-expectancy> <http://purl.org/dc/terms/issued> "2014-07-29T02:00:00+02:00"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
+<http://statistics.gov.scot/data/healthy-life-expectancy> <http://purl.org/dc/terms/modified> "2016-02-10T10:14:02Z"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
+<http://statistics.gov.scot/data/healthy-life-expectancy> <http://purl.org/dc/terms/license> <http://www.nationalarchives.gov.uk/doc/open-government-licence/version/2/> .
+<http://statistics.gov.scot/data/healthy-life-expectancy> <http://purl.org/dc/terms/creator> <http://statistics.gov.scot/id/organisation/nhs-information-services> .
+<http://statistics.gov.scot/data/healthy-life-expectancy> <http://purl.org/dc/terms/publisher> <http://statistics.gov.scot/id/organisation/nhs-information-services> .
+<http://statistics.gov.scot/data/healthy-life-expectancy> <http://purl.org/dc/terms/references> <http://docs.publishmydata.com> .
+<http://statistics.gov.scot/data/healthy-life-expectancy> <http://rdfs.org/ns/void#sparqlEndpoint> <http://statistics.gov.scot/sparql> .
+<http://statistics.gov.scot/data/healthy-life-expectancy> <http://www.w3.org/ns/dcat#theme> <http://statistics.gov.scot/def/concept/folders/themes/population> .
+<http://statistics.gov.scot/data/healthy-life-expectancy> <http://publishmydata.com/def/ontology/folder/inFolder> <http://statistics.gov.scot/def/concept/folders/organisations/nhs-information-services-division> .
+<http://statistics.gov.scot/data/healthy-life-expectancy> <http://publishmydata.com/def/ontology/folder/inFolder> <http://statistics.gov.scot/def/concept/folders/themes/population> .
+<http://statistics.gov.scot/data/healthy-life-expectancy> <http://purl.org/dc/terms/description> "Life expectancy (LE) is an estimate of how many years a person might be expected to live, whereas healthy life expectancy (HLE) is an estimate of how many years they might live in a 'healthy' state. HLE is a key summary measure of a population's health.\r\n\r\nHLE is an estimate of how long the average person might be expected to live in a 'healthy' state. Like LE, it is most often expressed for an entire lifetime from the time of birth. HLE at birth is the number of years that a new-born baby would live in good health if they experienced the death rates and levels of general health of the local population at the time of their birth, throughout their life.\r\n\r\nHLE is calculated by combining LE and a measure of 'healthy' health: in these HLE analyses for Scotland the measure used is self-assessed general health. This is self-reported by survey or Census respondents but has been shown to reflect both mental and physical health.\r\n" .

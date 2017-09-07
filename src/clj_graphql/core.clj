@@ -14,7 +14,8 @@
 (defn get-dimensions-query [ds-uri]
   (str
    "PREFIX qb: <http://purl.org/linked-data/cube#>"
-   "SELECT ?dim ?order ?label ?doc WHERE {"
+   "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>"
+   "SELECT ?dim ?order ?label ?doc ?ds WHERE {"
    "  <" ds-uri "> a qb:DataSet ."
    "  <" ds-uri "> qb:structure ?struct ."
    "  ?struct a qb:DataStructureDefinition ."
@@ -24,14 +25,19 @@
    "  ?comp qb:dimension ?dim ."
    "  ?dim rdfs:label ?label ."
    "  OPTIONAL { ?dim rdfs:comment ?doc }"
+   "  BIND(<" ds-uri "> as ?ds) ."
    "}"))
 
-(defn get-enum-values-query [dim-uri]
+(defn get-enum-values-query [ds-uri dim-uri]
   (str
    "PREFIX qb: <http://purl.org/linked-data/cube#>"
    "PREFIX skos: <http://www.w3.org/2004/02/skos/core#>"   
    "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>"
    "SELECT ?member ?label WHERE {"
+   "  <" ds-uri "> a qb:DataSet ."
+   "  <" ds-uri "> qb:structure ?struct ."
+   "  ?struct a qb:DataStructureDefinition ."
+   "  ?struct qb:component ?comp ."
    "  ?comp qb:dimension <" dim-uri "> ."
    "  ?comp qb:codeList ?list ."
    #_"  ?list a skos:Collection ."
@@ -66,8 +72,8 @@
 (defn ->type-name [f]
   (field-name->type-name (->field-name f)))
 
-(defn get-enum-values [repo {:keys [uri] :as dim}]
-  (let [results (repo/query repo (get-enum-values-query uri))]
+(defn get-enum-values [repo {:keys [ds-uri uri] :as dim}]
+  (let [results (repo/query repo (get-enum-values-query ds-uri uri))]
     (map (fn [{:keys [label] :as m}]
            (assoc m :value (enum-label->value-name label)))
          results)))
@@ -100,22 +106,30 @@
        :result-binding->value (set/map-invert value->uri)})))
 
 (defn get-test-repo []
-  (repo/fixture-repo "earnings.nt" "earnings_metadata.nt" "dimension_pos.nt" "member_labels.nt" "measure_properties.nt"))
+  (repo/fixture-repo
+   "earnings.nt"
+   "earnings_metadata.nt"
+   "dimension_pos.nt"
+   "member_labels.nt"
+   "measure_properties.nt"
+   "healthy_life_expectancy.nt"
+   "healthy_life_expectancy_metadata.nt"))
 
 (defn dimension->query-var-name [{:keys [order]}]
   (str "dim" order))
 
 (defn get-dimensions
-  ([repo] (get-dimensions repo (URI. "http://statistics.gov.scot/data/earnings")))
-  ([repo ds-uri]
-   (let [base-dims (repo/query repo (get-dimensions-query ds-uri))]
-     (map (fn [bindings]
-            (let [dim (rename-key bindings :dim :uri)]
-              (-> dim
-                  (merge (get-dimension-type repo dim))
-                  (assoc :field-name (->field-name dim))
-                  (assoc :->query-var-name dimension->query-var-name))))
-          base-dims))))
+  [repo ds-uri]
+  (let [base-dims (repo/query repo (get-dimensions-query ds-uri))]
+    (map (fn [bindings]
+           (let [dim (-> bindings
+                         (rename-key :dim :uri)
+                         (rename-key :ds :ds-uri))]
+             (-> dim
+                 (merge (get-dimension-type repo dim))
+                 (assoc :field-name (->field-name dim))
+                 (assoc :->query-var-name dimension->query-var-name))))
+         base-dims)))
 
 (defn get-measure-types-query []
   (str
@@ -300,7 +314,7 @@
     (map #(rename-key % :ds :uri) results)))
 
 (defn get-schema [repo]
-  (let [dims (get-dimensions repo)
+  (let [dims (get-dimensions repo (URI. "http://statistics.gov.scot/data/earnings"))
         obs-dim-schemas (dimensions->obs-dim-schemas dims)
         measure-type-schemas (get-measure-type-schemas repo)
         enums-schema (dimensions->enums-schema dims)
