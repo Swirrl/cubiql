@@ -1,4 +1,4 @@
-(ns clj-graphql.util
+(ns graphql-qb.util
   (:require [clojure.java.io :as io]
             [clojure.edn :as edn])
   (:import [java.io PushbackReader]))

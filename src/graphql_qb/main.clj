@@ -1,5 +1,5 @@
-(ns clj-graphql.main
-  (:require [clj-graphql.server :as server])
+(ns graphql-qb.main
+  (:require [graphql-qb.server :as server])
   (:gen-class))
 
 (defn get-port

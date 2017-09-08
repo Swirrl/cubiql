@@ -1,5 +1,5 @@
-(ns clj-graphql.server
-  (:require [clj-graphql.core :as core]
+(ns graphql-qb.server
+  (:require [graphql-qb.core :as core]
             [com.walmartlabs.lacinia.pedestal :as lp]
             [io.pedestal.http :as server])
   (:import [java.net URI]))

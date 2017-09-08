@@ -1,4 +1,4 @@
-(ns clj-graphql.core
+(ns graphql-qb.core
   (:require [grafter.rdf.repository :as repo]
             [clojure.string :as string]
             [com.walmartlabs.lacinia.schema :as schema]
@@ -7,7 +7,7 @@
             [clojure.java.io :as io]
             [clojure.data.json :as json]
             [clojure.set :as set]
-            [clj-graphql.util :refer [read-edn-resource rename-key]])
+            [graphql-qb.util :refer [read-edn-resource rename-key]])
   (:import [java.net URI]
            [java.io PushbackReader]))
 
