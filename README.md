@@ -43,7 +43,10 @@ You can browse our schema by following these steps:
 3. Visit https://apis.guru/graphql-voyager/
 4. Select custom schema
 5. Paste the schema into the text area
-6. Click change schema
+6. Click change schema.
+
+You'll see something like:
+![screen shot 2017-09-08 at 15 48 29](https://user-images.githubusercontent.com/49898/30217232-6fcdf16e-94ad-11e7-9f65-3eaaa6ae0a5d.png)
 
 ## Running yourself
 
