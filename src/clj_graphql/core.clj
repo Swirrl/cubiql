@@ -225,7 +225,7 @@
   (if-let [{:keys [title] :as ds} (first (repo/query repo (get-dataset-query uri)))]
     (-> ds
         (assoc :uri uri)
-        (assoc :schema (dataset-label->schema-name title)))))
+        (assoc :schema (name (dataset-label->schema-name title))))))
 
 (defn resolve-dataset [uri {:keys [repo] :as context} args field]
   (if-let [ds (get-dataset repo uri)]
@@ -326,7 +326,11 @@
 (defn resolve-datasets [{:keys [repo]} {:keys [dimensions measures] :as args} _parent]
   (let [q (get-datasets-query dimensions measures)
         results (repo/query repo q)]
-    (map #(rename-key % :ds :uri) results)))
+    (map (fn [{:keys [title] :as bindings}]
+           (-> bindings
+               (rename-key :ds :uri)
+               (assoc :schema (name (dataset-label->schema-name title)))))
+         results)))
 
 (defn get-dataset-schema [repo {:keys [uri schema] :as ds}]
   (let [dims (get-dimensions repo ds)
@@ -352,6 +356,7 @@
        {:uri {:type :uri}
         :title {:type 'String}
         :description {:type 'String}
+        :schema {:type 'String}
         :dimensions {:type '(list :dim)}
         :observations {:type observation-result-type-name
                        :args {:dimensions {:type observation-dims-type-name}}
