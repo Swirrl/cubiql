@@ -52,6 +52,9 @@
 (defn uri->last-path-segment [uri]
   (last (string/split (.getPath uri) #"/")))
 
+(defn dataset-label->schema-name [label]
+  (keyword (string/join "_" (cons "dataset" (map string/lower-case (string/split label #"\s+"))))))
+
 (defn label->field-name [label]
   (keyword (string/join "_" (map string/lower-case (string/split (str label) #"\s+")))))
 
@@ -209,13 +212,24 @@
    "  BIND(?ds as ?uri)"
    "}"))
 
-(defn get-dataset [repo]
-  (first (repo/query repo dataset-query)))
+(defn get-dataset-query [uri]
+  (str
+   "SELECT ?title ?description WHERE {"
+   "  <" uri "> a <http://publishmydata.com/def/dataset#Dataset> ."
+   "  <" uri "> <http://purl.org/dc/terms/title> ?title ."
+   "  <" uri "> <http://www.w3.org/2000/01/rdf-schema#comment> ?description ."
+   "}")
+  )
 
-(defn resolve-dataset-earnings [{:keys [repo] :as context} args field]
-  (let [ds (get-dataset repo)
-        dims (resolve-dataset-dimensions context args {:uri (URI. "http://statistics.gov.scot/data/earnings")})]
-    (assoc ds :dimensions dims)))
+(defn get-dataset [repo uri]
+  (if-let [{:keys [title] :as ds} (first (repo/query repo (get-dataset-query uri)))]
+    (-> ds
+        (assoc :uri uri)
+        (assoc :schema (dataset-label->schema-name title)))))
+
+(defn resolve-dataset [uri {:keys [repo] :as context} args field]
+  (if-let [ds (get-dataset repo uri)]
+    (assoc ds :dimensions (resolve-dataset-dimensions context args {:uri uri}))))
 
 (defn get-observation-query [ds-dimensions query-dimensions measure-types]
   (let [is-query-dimension? (fn [{:keys [field-name]}] (contains? query-dimensions field-name))
@@ -309,7 +323,7 @@
    (get-dimensions-filter dimensions)
    "}"))
 
-(defn resolve-dataset [{:keys [repo]} {:keys [dimensions measures] :as args} _parent]
+(defn resolve-datasets [{:keys [repo]} {:keys [dimensions measures] :as args} _parent]
   (let [q (get-datasets-query dimensions measures)
         results (repo/query repo q)]
     (map #(rename-key % :ds :uri) results)))
@@ -323,6 +337,9 @@
         observation-result-type-name (field-name->type-name :observation_result schema)
         observation-type-name (field-name->type-name :observation schema)
         observation-dims-type-name (field-name->type-name :observation_dimensions schema)
+        resolver-name (keyword (str "resolve_" (name schema)))
+        resolver-map {resolver-name (fn [context args field]
+                                      (resolve-dataset uri context args field))}
 
         ;;TODO: custom scalars are global so move to top level!
         dim-scalars-schema (dimensions->scalars-schema dims)
@@ -330,7 +347,7 @@
                                                        :serialize (schema/as-conformer str)})]
     {:enums enums-schema
      :objects
-     {:dataset_earnings
+     {schema
       {:fields
        {:uri {:type :uri}
         :title {:type 'String}
@@ -352,10 +369,14 @@
      {observation-dims-type-name
       {:fields (into {} obs-dim-schemas)}}
 
-     :scalars scalars-schema}))
+     :queries
+     {schema
+      {:type schema
+       :resolve resolver-name}}
 
-(defn dataset-label->schema-name [label]
-  (keyword (string/join "_" (cons "dataset" (map string/lower-case (string/split label #"\s+"))))))
+     :resolvers resolver-map
+
+     :scalars scalars-schema}))
 
 (defn find-datasets [repo]
   (let [results (repo/query repo dataset-query)]
@@ -367,13 +388,13 @@
   (let [base-schema (read-edn-resource "base-schema.edn")
         datasets (find-datasets repo)
         ds-schemas (map #(get-dataset-schema repo %) datasets)
-        ;ds-schema (get-dataset-schema repo {:uri (URI. "http://statistics.gov.scot/data/earnings") :schema :dataset_earnings})
-        ;combined-schema (merge-with merge base-schema ds-schema)
-        combined-schema (reduce (fn [acc schema] (merge-with merge acc schema)) base-schema ds-schemas)]
-    (attach-resolvers combined-schema {:resolve-dataset-earnings resolve-dataset-earnings
-                                       :resolve-observations resolve-observations
-                                       :resolve-dataset resolve-dataset
-                                       :resolve-dataset-dimensions resolve-dataset-dimensions})))
+        combined-schema (reduce (fn [acc schema] (merge-with merge acc schema)) base-schema ds-schemas)
+        schema-resolvers (:resolvers combined-schema)
+        query-resolvers (merge {:resolve-observations resolve-observations
+                                       :resolve-datasets resolve-datasets
+                                       :resolve-dataset-dimensions resolve-dataset-dimensions}
+                               schema-resolvers)]
+    (attach-resolvers combined-schema query-resolvers)))
 
 (defn get-compiled-schema [repo]
   (schema/compile (get-schema repo)))

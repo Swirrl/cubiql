@@ -31,10 +31,6 @@
  :queries
  {:datasets
   {:type (list :dataset)
-   :resolve :resolve-dataset
+   :resolve :resolve-datasets
    :args
-   {:dimensions {:type :filter}}}
-
-  :dataset_earnings
-  {:type :dataset_earnings
-   :resolve :resolve-dataset-earnings}}}
+   {:dimensions {:type :filter}}}}}
