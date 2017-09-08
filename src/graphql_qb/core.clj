@@ -7,7 +7,8 @@
             [clojure.java.io :as io]
             [clojure.data.json :as json]
             [clojure.set :as set]
-            [graphql-qb.util :refer [read-edn-resource rename-key]])
+            [graphql-qb.util :refer [read-edn-resource rename-key]]
+            [clojure.pprint :as pprint])
   (:import [java.net URI]
            [java.io PushbackReader]))
 
@@ -160,9 +161,12 @@
                        (assoc :->query-var-name measure-type->query-var-name)
                        (assoc :result-binding->value #(some-> % str)))) results)))
 
+(defn measure-type->schema [{:keys [field-name]}]
+  {field-name {:type 'String}})
+
 (defn get-measure-type-schemas [repo]
   (let [measure-types (get-measure-types repo)]
-    (map (fn [{:keys [field-name]}] {field-name {:type 'String}}) measure-types)))
+    ))
 
 (defn dimensions->obs-dim-schemas [dims]
   (map (fn [{:keys [field-name type label doc] :as dim}]
@@ -269,8 +273,9 @@
      (string/join "\n" binds)
      "}")))
 
-(defn resolve-observations [{:keys [repo dimensions measure-types] :as context} {query-dimensions :dimensions :as args} {:keys [uri] :as ds-field}]
-  (let [query (get-observation-query dimensions query-dimensions measure-types)
+(defn resolve-observations [{:keys [repo ds-uri->dims-measures] :as context} {query-dimensions :dimensions :as args} {:keys [uri] :as ds-field}]
+  (let [{:keys [dimensions measure-types]} (get ds-uri->dims-measures uri)
+        query (get-observation-query dimensions query-dimensions measure-types)
         results (repo/query repo query)
         matches (mapv (fn [{:keys [obs] :as bindings}]
                         (let [field-values (map (fn [{:keys [field-name ->query-var-name result-binding->value] :as ft}]
@@ -334,10 +339,9 @@
                (assoc :schema (name (dataset-label->schema-name title)))))
          results)))
 
-(defn get-dataset-schema [repo {:keys [uri schema description] :as ds}]
-  (let [dims (get-dimensions repo ds)
-        obs-dim-schemas (dimensions->obs-dim-schemas dims)
-        measure-type-schemas (get-measure-type-schemas repo)
+(defn get-dataset-schema [{:keys [uri schema description] :as ds} dims measure-types]
+  (let [obs-dim-schemas (dimensions->obs-dim-schemas dims)
+        measure-type-schemas (map measure-type->schema measure-types)
         observation-fields (into {:uri {:type :uri}} (concat obs-dim-schemas measure-type-schemas))
         enums-schema (dimensions->enums-schema dims)
         observation-result-type-name (field-name->type-name :observation_result schema)
@@ -394,17 +398,38 @@
            (assoc ds :schema (dataset-label->schema-name title)))
          results)))
 
-(defn get-schema [repo]
-  (let [base-schema (read-edn-resource "base-schema.edn")
-        datasets (find-datasets repo)
-        ds-schemas (map #(get-dataset-schema repo %) datasets)
+(defn get-schema [datasets ds-uri->dims-measures]
+  (let [base-schema (read-edn-resource "base-schema.edn")        
+        ds-schemas (map (fn [{:keys [uri] :as ds}]
+                          (let [{:keys [dimensions measure-types]} (ds-uri->dims-measures uri)]
+                            (get-dataset-schema ds dimensions measure-types)))
+                        datasets)
         combined-schema (reduce (fn [acc schema] (merge-with merge acc schema)) base-schema ds-schemas)
         schema-resolvers (:resolvers combined-schema)
         query-resolvers (merge {:resolve-observations resolve-observations
-                                       :resolve-datasets resolve-datasets
-                                       :resolve-dataset-dimensions resolve-dataset-dimensions}
+                                :resolve-datasets resolve-datasets
+                                :resolve-dataset-dimensions resolve-dataset-dimensions}
                                schema-resolvers)]
     (attach-resolvers combined-schema query-resolvers)))
 
+(defn dump-schema [repo]
+  (let [datasets (find-datasets repo)
+        ds-uri->dims-measures (into {} (map (fn [{:keys [uri] :as ds}]
+                                              [uri {:dimensions (get-dimensions repo ds)
+                                                    :measure-types (get-measure-types repo)}])
+                                            datasets))
+        schema (get-schema datasets ds-uri->dims-measures)]
+    (pprint/pprint schema)))
+
 (defn get-compiled-schema [repo]
   (schema/compile (get-schema repo)))
+
+(defn build-schema-context [repo]
+  (let [datasets (find-datasets repo)
+        ds-uri->dims-measures (into {} (map (fn [{:keys [uri] :as ds}]
+                                              [uri {:dimensions (get-dimensions repo ds)
+                                                    :measure-types (get-measure-types repo)}])
+                                            datasets))
+        schema (get-schema datasets ds-uri->dims-measures)]
+    {:schema (schema/compile schema)
+     :ds-uri->dims-measures ds-uri->dims-measures}))

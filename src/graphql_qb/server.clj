@@ -6,10 +6,8 @@
 
 (defn create-server [port]
   (let [repo (core/get-test-repo)
-        schema (core/get-compiled-schema repo)
-        ds-dimensions (core/get-dimensions repo {:uri (URI. "http://statistics.gov.scot/data/earnings") :schema :dataset_earnings})
-        measure-types (core/get-measure-types repo)
-        opts {:app-context {:repo repo :dimensions ds-dimensions :measure-types measure-types}
+        {:keys [schema ds-uri->dims-measures]} (core/build-schema-context repo)
+        opts {:app-context {:repo repo :ds-uri->dims-measures ds-uri->dims-measures}
               :port port
               :graphiql true}]
     (lp/pedestal-service schema opts)))
