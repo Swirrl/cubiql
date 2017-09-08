@@ -1,6 +1,6 @@
 # graphql-qb
 
-A proof of concept GraphQL service for
+A proof of concept [GraphQL](http://graphql.org/) service for
 querying [Linked Data Cubes](https://www.w3.org/TR/vocab-data-cube/)
 that was produced as part of
 the [Open Gov Intelligence](http://www.opengovintelligence.eu/)
