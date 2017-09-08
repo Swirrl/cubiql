@@ -280,6 +280,7 @@
                           (into {:uri obs} field-values)))
                       results)]
     {:matches matches
+     :sparql (string/join (string/split query #"\n"))
      :free_dimensions []}))
 
 (defn get-dimensions-filter [{dims-and :and}]
@@ -364,7 +365,8 @@
 
       observation-result-type-name
       {:fields
-       {:matches {:type (list 'list observation-type-name)}
+       {:sparql {:type 'String}
+        :matches {:type (list 'list observation-type-name)}
         :free_dimensions {:type '(list :dim)}}}
       
       observation-type-name
