@@ -1,33 +1,36 @@
 {:objects
  {:dataset
   {:fields
-   {:uri {:type :uri}
-    :title {:type String}
-    :description {:type String}
-    :schema {:type String}
+   {:uri {:type :uri :description "Dataset URI"}
+    :title {:type String :description "Dataset title"}
+    :description {:type String :description "Dataset description"}
+    :schema {:type String :description "Name of the GraphQL query root for this dataset"}
     :dimensions {:type (list :dim)
-                 :resolve :resolve-dataset-dimensions}
-    :measures {:type (list :measure)}}}
+                 :resolve :resolve-dataset-dimensions
+                 :description "Dimensions within the dataset"}
+    :measures {:type (list :measure) :description "Measure types within the dataset"}}}
 
   :dim
   {:fields
-   {:uri {:type :uri}
-    :values {:type (list :dim_value)}}}
+   {:uri {:type :uri :description "URI of the dimension"}
+    :values {:type (list :dim_value) :description "Code list of values for the dimension"}}}
 
   :measure
   {:fields
-   {:uri {:type :uri}}}
+   {:uri {:type :uri :description "URI of the measure"}}}
 
   :dim_value
   {:fields
-   {:uri {:type :uri}
-    :label {:type String}}}}
+   {:uri {:type :uri :description "URI of the dimension value"}
+    :label {:type String :description "Label for the dimension value"}}}}
 
  :input-objects
  {:filter
   {:fields
-   {:or {:type (list :uri)}
-    :and {:type (list :uri)}}}}
+   {:or {:type (list :uri)
+         :description "List of URIs for which at least one must be contained within matching datasets."}
+    :and {:type (list :uri)
+          :description "List of URIs which must all be contained within matching datasets."}}}}
  
  :queries
  {:datasets

@@ -165,8 +165,9 @@
     (map (fn [{:keys [field-name]}] {field-name {:type 'String}}) measure-types)))
 
 (defn dimensions->obs-dim-schemas [dims]
-  (map (fn [{:keys [field-name type] :as dim}]
-         [field-name {:type type}])
+  (map (fn [{:keys [field-name type label doc] :as dim}]
+         [field-name {:type type
+                      :description (some-> (or doc label) str)}])
        dims))
 
 (defn dim-has-kind? [kind dim]
@@ -333,7 +334,7 @@
                (assoc :schema (name (dataset-label->schema-name title)))))
          results)))
 
-(defn get-dataset-schema [repo {:keys [uri schema] :as ds}]
+(defn get-dataset-schema [repo {:keys [uri schema description] :as ds}]
   (let [dims (get-dimensions repo ds)
         obs-dim-schemas (dimensions->obs-dim-schemas dims)
         measure-type-schemas (get-measure-type-schemas repo)
@@ -354,19 +355,21 @@
      :objects
      {schema
       {:fields
-       {:uri {:type :uri}
-        :title {:type 'String}
-        :description {:type 'String}
-        :schema {:type 'String}
-        :dimensions {:type '(list :dim)}
+       {:uri {:type :uri :description "Dataset URI"}
+        :title {:type 'String :description "Dataset title"}
+        :description {:type 'String :description "Dataset description"}
+        :schema {:type 'String :description "Name of the GraphQL query root for this dataset"}
+        :dimensions {:type '(list :dim) :description "Dimensions within the dataset"}
         :observations {:type observation-result-type-name
                        :args {:dimensions {:type observation-dims-type-name}}
-                       :resolve :resolve-observations}}}
+                       :resolve :resolve-observations
+                       :description "Observations matching the given criteria"}}
+       :description description}
 
       observation-result-type-name
       {:fields
-       {:sparql {:type 'String}
-        :matches {:type (list 'list observation-type-name)}
+       {:sparql {:type 'String :description "SPARQL query used to retrieve matching observations."}
+        :matches {:type (list 'list observation-type-name) :description "List of matching observations."}
         :free_dimensions {:type '(list :dim)}}}
       
       observation-type-name
