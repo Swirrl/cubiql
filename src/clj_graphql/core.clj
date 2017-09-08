@@ -354,10 +354,22 @@
 
      :scalars scalars-schema}))
 
+(defn dataset-label->schema-name [label]
+  (keyword (string/join "_" (cons "dataset" (map string/lower-case (string/split label #"\s+"))))))
+
+(defn find-datasets [repo]
+  (let [results (repo/query repo dataset-query)]
+    (map (fn [{:keys [title] :as ds}]
+           (assoc ds :schema (dataset-label->schema-name title)))
+         results)))
+
 (defn get-schema [repo]
   (let [base-schema (read-edn-resource "base-schema.edn")
-        ds-schema (get-dataset-schema repo {:uri (URI. "http://statistics.gov.scot/data/earnings") :schema :dataset_earnings})
-        combined-schema (merge-with merge base-schema ds-schema)]
+        datasets (find-datasets repo)
+        ds-schemas (map #(get-dataset-schema repo %) datasets)
+        ;ds-schema (get-dataset-schema repo {:uri (URI. "http://statistics.gov.scot/data/earnings") :schema :dataset_earnings})
+        ;combined-schema (merge-with merge base-schema ds-schema)
+        combined-schema (reduce (fn [acc schema] (merge-with merge acc schema)) base-schema ds-schemas)]
     (attach-resolvers combined-schema {:resolve-dataset-earnings resolve-dataset-earnings
                                        :resolve-observations resolve-observations
                                        :resolve-dataset resolve-dataset

@@ -1438,3 +1438,6 @@
 <http://statistics.gov.scot/data/healthy-life-expectancy/year/2006/S92000003/gender/male/confidence-interval/upper/years/count> <http://purl.org/linked-data/cube#dataSet> <http://statistics.gov.scot/data/healthy-life-expectancy> .
 <http://statistics.gov.scot/data/healthy-life-expectancy/year/2006/S92000003/gender/male/confidence-interval/upper/years/count> <http://statistics.gov.scot/def/dimension/gender> <http://statistics.gov.scot/def/concept/gender/male> .
 <http://statistics.gov.scot/data/healthy-life-expectancy/year/2006/S92000003/gender/male/confidence-interval/upper/years/count> <http://statistics.gov.scot/def/dimension/confidenceInterval> <http://statistics.gov.scot/def/concept/confidence-interval/upper> .
+
+<http://statistics.gov.scot/def/code-list/healthy-life-expectancy/measureType> <http://www.w3.org/2004/02/skos/core#member> <http://statistics.gov.scot/def/measure-properties/count> .
+<http://statistics.gov.scot/def/measure-properties/count> <http://www.w3.org/2000/01/rdf-schema#label> "Count" .
