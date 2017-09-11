@@ -135,12 +135,13 @@
                  (assoc :->query-var-name dimension->query-var-name))))
          base-dims)))
 
-(defn get-measure-types-query []
+(defn get-measure-types-query [ds-uri]
   (str
    "PREFIX qb: <http://purl.org/linked-data/cube#>"
    "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>"
    "SELECT ?mt ?label WHERE {"
-   "  ?ds qb:structure ?struct ."
+   "  <" ds-uri "> a qb:DataSet ."
+   "  <" ds-uri "> qb:structure ?struct ."
    "  ?struct qb:component ?comp ."
    "  ?comp qb:measure ?mt ."
    "  ?mt a qb:MeasureProperty ."
@@ -150,8 +151,8 @@
 (defn measure-type->query-var-name [{:keys [order]}]
   (str "mt" order))
 
-(defn get-measure-types [repo]
-  (let [q (get-measure-types-query)
+(defn get-measure-types [repo {:keys [uri] :as ds}]
+  (let [q (get-measure-types-query uri)
         results (repo/query repo q)]
     (map-indexed (fn [idx bindings]
                    (-> bindings
@@ -163,10 +164,6 @@
 
 (defn measure-type->schema [{:keys [field-name]}]
   {field-name {:type 'String}})
-
-(defn get-measure-type-schemas [repo]
-  (let [measure-types (get-measure-types repo)]
-    ))
 
 (defn dimensions->obs-dim-schemas [dims]
   (map (fn [{:keys [field-name type label doc] :as dim}]
@@ -198,8 +195,7 @@
                   scalar-dims))))
 
 (defn resolve-dataset-dimensions [{:keys [repo] :as context} args {:keys [uri] :as ds-field}]
-  ;;TODO: remove hard-coded schema name!
-  (let [dims (get-dimensions repo {:uri uri :schema :dataset_earnings})]
+  (let [dims (get-dimensions repo ds-field)]
     (map (fn [{:keys [uri values]}]
            {:uri (str uri)
             :values (map (fn [{:keys [member label]}]
@@ -236,7 +232,7 @@
   (if-let [ds (get-dataset repo uri)]
     (assoc ds :dimensions (resolve-dataset-dimensions context args {:uri uri}))))
 
-(defn get-observation-query [ds-dimensions query-dimensions measure-types]
+(defn get-observation-query [ds-uri ds-dimensions query-dimensions measure-types]
   (let [is-query-dimension? (fn [{:keys [field-name]}] (contains? query-dimensions field-name))
         constrained-dims (filter is-query-dimension? ds-dimensions)
         free-dims (remove is-query-dimension? ds-dimensions)
@@ -264,7 +260,7 @@
      "PREFIX qb: <http://purl.org/linked-data/cube#>"
      "SELECT * WHERE {"
      "  ?obs a qb:Observation ."
-     "  ?obs qb:dataSet <http://statistics.gov.scot/data/earnings> ."
+     "  ?obs qb:dataSet <" ds-uri "> ."
      "  ?obs qb:measureType ?measureType ."
      "  ?obs ?measureType ?value ."
      (string/join "\n" measure-type-patterns)
@@ -275,7 +271,7 @@
 
 (defn resolve-observations [{:keys [repo ds-uri->dims-measures] :as context} {query-dimensions :dimensions :as args} {:keys [uri] :as ds-field}]
   (let [{:keys [dimensions measure-types]} (get ds-uri->dims-measures uri)
-        query (get-observation-query dimensions query-dimensions measure-types)
+        query (get-observation-query uri dimensions query-dimensions measure-types)
         results (repo/query repo query)
         matches (mapv (fn [{:keys [obs] :as bindings}]
                         (let [field-values (map (fn [{:keys [field-name ->query-var-name result-binding->value] :as ft}]
@@ -416,7 +412,7 @@
   (let [datasets (find-datasets repo)
         ds-uri->dims-measures (into {} (map (fn [{:keys [uri] :as ds}]
                                               [uri {:dimensions (get-dimensions repo ds)
-                                                    :measure-types (get-measure-types repo)}])
+                                                    :measure-types (get-measure-types repo ds)}])
                                             datasets))
         schema (get-schema datasets ds-uri->dims-measures)]
     (pprint/pprint schema)))
@@ -428,7 +424,7 @@
   (let [datasets (find-datasets repo)
         ds-uri->dims-measures (into {} (map (fn [{:keys [uri] :as ds}]
                                               [uri {:dimensions (get-dimensions repo ds)
-                                                    :measure-types (get-measure-types repo)}])
+                                                    :measure-types (get-measure-types repo ds)}])
                                             datasets))
         schema (get-schema datasets ds-uri->dims-measures)]
     {:schema (schema/compile schema)
