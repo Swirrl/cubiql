@@ -1,7 +1,9 @@
 (ns graphql-qb.types
   "Functions for mapping DSD elements to/from GraphQL types"
-  (:require [clojure.string :as string])
-  (:import [java.net URI]))
+  (:require [clojure.string :as string]
+            [graphql-qb.util :as util])
+  (:import [java.net URI]
+           [java.util Base64]))
 
 (defn parse-year [year-str]
   (let [year (Integer/parseInt year-str)]
@@ -15,6 +17,19 @@
 
 (def serialise-year uri->last-path-segment)
 (def serialise-geography uri->last-path-segment)
+
+(defn parse-sparql-cursor [base64-str]
+  (let [bytes (.decode (Base64/getDecoder) base64-str)
+        offset (util/bytes->long bytes)]
+    (if (neg? offset)
+      (throw (IllegalArgumentException. "Invalid cursor"))
+      offset)))
+
+(defn serialise-sparql-cursor [offset]
+  {:pre [(>= offset 0)]}
+  (let [bytes (util/long->bytes offset)
+        enc (Base64/getEncoder)]
+    (.encodeToString enc bytes)))
 
 (defn dataset-label->schema-name [label]
   (keyword (string/join "_" (cons "dataset" (map string/lower-case (string/split label #"\s+"))))))

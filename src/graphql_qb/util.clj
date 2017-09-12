@@ -1,7 +1,8 @@
 (ns graphql-qb.util
   (:require [clojure.java.io :as io]
             [clojure.edn :as edn])
-  (:import [java.io PushbackReader]))
+  (:import [java.io PushbackReader]
+           [java.nio ByteBuffer]))
 
 (defn read-edn
   "Reads EDN from the given source."
@@ -26,3 +27,11 @@
     (-> m
         (assoc new-k v)
         (dissoc k))))
+
+(defn long->bytes [i]
+  {:post [(= 8 (alength %))]}
+  (.. (ByteBuffer/allocate 8) (putLong i) (array)))
+
+(defn bytes->long [bytes]
+  {:pre [(= 8 (alength bytes))]}
+  (.. (ByteBuffer/wrap bytes) (getLong)))

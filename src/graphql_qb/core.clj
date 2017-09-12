@@ -9,7 +9,7 @@
             [clojure.data.json :as json]
             [clojure.set :as set]
             [graphql-qb.util :refer [read-edn-resource rename-key]]
-            [graphql-qb.types :refer :all]
+            [graphql-qb.types :refer :all :as types]
             [clojure.pprint :as pprint])
   (:import [java.net URI]))
 
@@ -45,16 +45,6 @@
        :values values
        :value->dimension-uri value->uri
        :result-binding->value (set/map-invert value->uri)})))
-
-(defn get-test-repo []
-  (repo/fixture-repo
-   "earnings.nt"
-   "earnings_metadata.nt"
-   "dimension_pos.nt"
-   "member_labels.nt"
-   "measure_properties.nt"
-   "healthy_life_expectancy.nt"
-   "healthy_life_expectancy_metadata.nt"))
 
 (defn dimension->query-var-name [{:keys [order]}]
   (str "dim" order))
@@ -110,12 +100,6 @@
                                 :description (str label)}])
                        enum-dims)]
     (into {} enum-defs)))
-
-(defn dimensions->scalars-schema [dims]
-  (let [scalar-dims (filter is-scalar? dims)]
-    (into {} (map (fn [{:keys [type parse serialize]}]
-                    [type {:parse parse :serialize serialize}])
-                  scalar-dims))))
 
 (defn resolve-dataset-dimensions [{:keys [repo] :as context} args {:keys [uri] :as ds-field}]
   (let [dims (get-dimensions repo ds-field)]
@@ -249,12 +233,7 @@
         observation-dims-type-name (field-name->type-name :observation_dimensions schema)
         resolver-name (keyword (str "resolve_" (name schema)))
         resolver-map {resolver-name (fn [context args field]
-                                      (resolve-dataset uri context args field))}
-
-        ;;TODO: custom scalars are global so move to top level!
-        dim-scalars-schema (dimensions->scalars-schema dims)
-        scalars-schema (assoc dim-scalars-schema :uri {:parse (schema/as-conformer #(URI. %))
-                                                       :serialize (schema/as-conformer str)})]
+                                      (resolve-dataset uri context args field))}]
     {:enums enums-schema
      :objects
      {schema
@@ -265,7 +244,9 @@
         :schema {:type 'String :description "Name of the GraphQL query root for this dataset"}
         :dimensions {:type '(list :dim) :description "Dimensions within the dataset"}
         :observations {:type observation-result-type-name
-                       :args {:dimensions {:type observation-dims-type-name}}
+                       :args {:dimensions {:type observation-dims-type-name}
+                              :after {:type :SparqlCursor}
+                              :first {:type 'Int}}
                        :resolve :resolve-observations
                        :description "Observations matching the given criteria"}}
        :description description}
@@ -288,9 +269,7 @@
       {:type schema
        :resolve resolver-name}}
 
-     :resolvers resolver-map
-
-     :scalars scalars-schema}))
+     :resolvers resolver-map}))
 
 (defn find-datasets [repo]
   (let [results (sp/query "get-datasets.sparql" repo)]
@@ -298,8 +277,25 @@
            (assoc ds :schema (dataset-label->schema-name title)))
          results)))
 
+(def custom-scalars
+  {:SparqlCursor
+   {:parse (schema/as-conformer types/parse-sparql-cursor)
+    :serialize (schema/as-conformer types/serialise-sparql-cursor)}
+
+   :year
+   {:parse (schema/as-conformer types/parse-year)
+    :serialize (schema/as-conformer types/serialise-year)}
+
+   :ref_area
+   {:parse (schema/as-conformer types/parse-geography)
+    :serialize (schema/as-conformer types/serialise-geography)}
+
+   :uri {:parse (schema/as-conformer #(URI. %))
+         :serialize (schema/as-conformer str)}})
+
 (defn get-schema [datasets ds-uri->dims-measures]
-  (let [base-schema (read-edn-resource "base-schema.edn")        
+  (let [base-schema (read-edn-resource "base-schema.edn")
+        base-schema (assoc base-schema :scalars custom-scalars)
         ds-schemas (map (fn [{:keys [uri] :as ds}]
                           (let [{:keys [dimensions measure-types]} (ds-uri->dims-measures uri)]
                             (get-dataset-schema ds dimensions measure-types)))
