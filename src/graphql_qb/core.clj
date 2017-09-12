@@ -9,39 +9,9 @@
             [clojure.data.json :as json]
             [clojure.set :as set]
             [graphql-qb.util :refer [read-edn-resource rename-key]]
+            [graphql-qb.types :refer :all]
             [clojure.pprint :as pprint])
-  (:import [java.net URI]
-           [java.io PushbackReader]))
-
-(defn parse-year [year-str]
-  (let [year (Integer/parseInt year-str)]
-    (URI. (str "http://reference.data.gov.uk/id/year/" year))))
-
-(defn uri->last-path-segment [uri]
-  (last (string/split (.getPath uri) #"/")))
-
-(defn dataset-label->schema-name [label]
-  (keyword (string/join "_" (cons "dataset" (map string/lower-case (string/split label #"\s+"))))))
-
-(defn label->field-name [label]
-  (keyword (string/join "_" (map string/lower-case (string/split (str label) #"\s+")))))
-
-(defn ->field-name [{:keys [label]}]
-  (label->field-name label))
-
-(defn has-valid-name-first-char? [name]
-  (boolean (re-find #"^[_a-zA-Z]" name)))
-
-(defn enum-label->value-name [label]
-  (let [name (string/join "_" (map string/upper-case (string/split (str label) #"\s+")))
-        valid-name (if (has-valid-name-first-char? name) name (str "a_" name))]
-    (keyword valid-name)))
-
-(defn field-name->type-name [field-name ds-schema]
-  (keyword (str (name ds-schema) "_" (name field-name) "_type")))
-
-(defn ->type-name [f ds-schema]
-  (field-name->type-name (->field-name f) ds-schema))
+  (:import [java.net URI]))
 
 (defn get-enum-values [repo {:keys [ds-uri uri] :as dim}]
   (let [results (sp/query "get-enum-values.sparql" {:ds ds-uri :dim uri} repo)]
@@ -54,8 +24,8 @@
     (= (URI. "http://purl.org/linked-data/sdmx/2009/dimension#refArea") uri)
     {:type :ref_area
      :kind :scalar
-     :parse (schema/as-conformer #(URI. (str "http://statistics.gov.scot/id/statistical-geography/" %)))
-     :serialize (schema/as-conformer uri->last-path-segment)
+     :parse (schema/as-conformer parse-geography)
+     :serialize (schema/as-conformer serialise-geography)
      :value->dimension-uri identity
      :result-binding->value identity}
     
@@ -63,7 +33,7 @@
     {:type :year
      :kind :scalar
      :parse (schema/as-conformer parse-year)
-     :serialize (schema/as-conformer uri->last-path-segment)
+     :serialize (schema/as-conformer serialise-year)
      :value->dimension-uri identity
      :result-binding->value identity}
     
