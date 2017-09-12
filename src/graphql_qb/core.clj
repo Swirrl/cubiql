@@ -120,7 +120,7 @@
   (if-let [ds (get-dataset repo uri)]
     (assoc ds :dimensions (resolve-dataset-dimensions context args {:uri uri}))))
 
-(defn get-observation-query [ds-uri ds-dimensions query-dimensions measure-types]
+(defn get-observation-query [ds-uri ds-dimensions query-dimensions measure-types limit offset]
   (let [is-query-dimension? (fn [{:keys [field-name]}] (contains? query-dimensions field-name))
         constrained-dims (filter is-query-dimension? ds-dimensions)
         free-dims (remove is-query-dimension? ds-dimensions)
@@ -155,11 +155,21 @@
      (string/join "\n" constrained-patterns)
      (string/join "\n" query-patterns)
      (string/join "\n" binds)
-     "}")))
+     "} LIMIT " limit " OFFSET " offset)))
+
+(def default-limit 10)
+
+(defn get-limit [args]
+  (max 0 (or (:first args) default-limit)))
+
+(defn get-offset [args]
+  (max 0 (or (:after args) 0)))
 
 (defn resolve-observations [{:keys [repo ds-uri->dims-measures] :as context} {query-dimensions :dimensions :as args} {:keys [uri] :as ds-field}]
   (let [{:keys [dimensions measure-types]} (get ds-uri->dims-measures uri)
-        query (get-observation-query uri dimensions query-dimensions measure-types)
+        limit (get-limit args)
+        offset (get-offset args)
+        query (get-observation-query uri dimensions query-dimensions measure-types limit offset)
         results (repo/query repo query)
         matches (mapv (fn [{:keys [obs] :as bindings}]
                         (let [field-values (map (fn [{:keys [field-name ->query-var-name result-binding->value] :as ft}]
