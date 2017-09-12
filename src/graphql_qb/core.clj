@@ -1,5 +1,6 @@
 (ns graphql-qb.core
   (:require [grafter.rdf.repository :as repo]
+            [grafter.rdf.sparql :as sp]
             [clojure.string :as string]
             [com.walmartlabs.lacinia.schema :as schema]
             [com.walmartlabs.lacinia.util :refer [attach-resolvers]]
@@ -11,40 +12,6 @@
             [clojure.pprint :as pprint])
   (:import [java.net URI]
            [java.io PushbackReader]))
-
-(defn get-dimensions-query [ds-uri]
-  (str
-   "PREFIX qb: <http://purl.org/linked-data/cube#>"
-   "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>"
-   "SELECT ?dim ?order ?label ?doc ?ds WHERE {"
-   "  <" ds-uri "> a qb:DataSet ."
-   "  <" ds-uri "> qb:structure ?struct ."
-   "  ?struct a qb:DataStructureDefinition ."
-   "  ?struct qb:component ?comp ."
-   "  ?comp a qb:ComponentSpecification ."
-   "  ?comp qb:order ?order ."
-   "  ?comp qb:dimension ?dim ."
-   "  ?dim rdfs:label ?label ."
-   "  OPTIONAL { ?dim rdfs:comment ?doc }"
-   "  BIND(<" ds-uri "> as ?ds) ."
-   "}"))
-
-(defn get-enum-values-query [ds-uri dim-uri]
-  (str
-   "PREFIX qb: <http://purl.org/linked-data/cube#>"
-   "PREFIX skos: <http://www.w3.org/2004/02/skos/core#>"   
-   "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>"
-   "SELECT ?member ?label WHERE {"
-   "  <" ds-uri "> a qb:DataSet ."
-   "  <" ds-uri "> qb:structure ?struct ."
-   "  ?struct a qb:DataStructureDefinition ."
-   "  ?struct qb:component ?comp ."
-   "  ?comp qb:dimension <" dim-uri "> ."
-   "  ?comp qb:codeList ?list ."
-   #_"  ?list a skos:Collection ."
-   "  ?list skos:member ?member ."
-   "  ?member rdfs:label ?label ."
-   "}"))
 
 (defn parse-year [year-str]
   (let [year (Integer/parseInt year-str)]
@@ -77,7 +44,7 @@
   (field-name->type-name (->field-name f) ds-schema))
 
 (defn get-enum-values [repo {:keys [ds-uri uri] :as dim}]
-  (let [results (repo/query repo (get-enum-values-query ds-uri uri))]
+  (let [results (sp/query "get-enum-values.sparql" {:ds ds-uri :dim uri} repo)]
     (map (fn [{:keys [label] :as m}]
            (assoc m :value (enum-label->value-name label)))
          results)))
@@ -124,36 +91,22 @@
 
 (defn get-dimensions
   [repo {:keys [uri] :as ds}]
-  (let [base-dims (repo/query repo (get-dimensions-query uri))]
+  (let [base-dims (sp/query "get-dimensions.sparql" {:ds uri} repo)]
     (map (fn [bindings]
            (let [dim (-> bindings
-                         (rename-key :dim :uri)
-                         (rename-key :ds :ds-uri))]
+                         (assoc :ds-uri uri)
+                         (rename-key :dim :uri))]
              (-> dim
                  (merge (get-dimension-type repo dim ds))
                  (assoc :field-name (->field-name dim))
                  (assoc :->query-var-name dimension->query-var-name))))
          base-dims)))
 
-(defn get-measure-types-query [ds-uri]
-  (str
-   "PREFIX qb: <http://purl.org/linked-data/cube#>"
-   "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>"
-   "SELECT ?mt ?label WHERE {"
-   "  <" ds-uri "> a qb:DataSet ."
-   "  <" ds-uri "> qb:structure ?struct ."
-   "  ?struct qb:component ?comp ."
-   "  ?comp qb:measure ?mt ."
-   "  ?mt a qb:MeasureProperty ."
-   "  ?mt rdfs:label ?label ."
-   "}"))
-
 (defn measure-type->query-var-name [{:keys [order]}]
   (str "mt" order))
 
 (defn get-measure-types [repo {:keys [uri] :as ds}]
-  (let [q (get-measure-types-query uri)
-        results (repo/query repo q)]
+  (let [results (sp/query "get-measure-types.sparql" {:ds uri} repo)]
     (map-indexed (fn [idx bindings]
                    (-> bindings
                        (rename-key :mt :uri)
@@ -204,28 +157,9 @@
                          values)})
          dims)))
 
-(def dataset-query
-  (str
-   "SELECT ?uri ?title ?description WHERE {"
-   "  ?ds a <http://publishmydata.com/def/dataset#Dataset> ."
-   "  ?ds <http://purl.org/dc/terms/title> ?title ."
-   "  ?ds <http://www.w3.org/2000/01/rdf-schema#comment> ?description ."
-   "  BIND(?ds as ?uri)"
-   "}"))
-
-(defn get-dataset-query [uri]
-  (str
-   "SELECT ?title ?description WHERE {"
-   "  <" uri "> a <http://publishmydata.com/def/dataset#Dataset> ."
-   "  <" uri "> <http://purl.org/dc/terms/title> ?title ."
-   "  <" uri "> <http://www.w3.org/2000/01/rdf-schema#comment> ?description ."
-   "}")
-  )
-
 (defn get-dataset [repo uri]
-  (if-let [{:keys [title] :as ds} (first (repo/query repo (get-dataset-query uri)))]
+  (if-let [{:keys [title] :as ds} (first (sp/query "get-datasets.sparql" {:ds uri} repo))]
     (-> ds
-        (assoc :uri uri)
         (assoc :schema (name (dataset-label->schema-name title))))))
 
 (defn resolve-dataset [uri {:keys [repo] :as context} args field]
@@ -389,7 +323,7 @@
      :scalars scalars-schema}))
 
 (defn find-datasets [repo]
-  (let [results (repo/query repo dataset-query)]
+  (let [results (sp/query "get-datasets.sparql" repo)]
     (map (fn [{:keys [title] :as ds}]
            (assoc ds :schema (dataset-label->schema-name title)))
          results)))

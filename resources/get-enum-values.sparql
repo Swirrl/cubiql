@@ -1,0 +1,13 @@
+PREFIX qb: <http://purl.org/linked-data/cube#>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>   
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+SELECT ?member ?label WHERE {
+  ?ds a qb:DataSet .
+  ?ds qb:structure ?struct .
+  ?struct a qb:DataStructureDefinition .
+  ?struct qb:component ?comp .
+  ?comp qb:dimension ?dim .
+  ?comp qb:codeList ?list .
+  ?list skos:member ?member .
+  ?member rdfs:label ?label .
+}

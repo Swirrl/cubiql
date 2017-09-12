@@ -1,0 +1,13 @@
+PREFIX qb: <http://purl.org/linked-data/cube#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+SELECT ?dim ?order ?label ?doc ?ds WHERE {
+  ?ds a qb:DataSet .
+  ?ds qb:structure ?struct .
+  ?struct a qb:DataStructureDefinition .
+  ?struct qb:component ?comp .
+  ?comp a qb:ComponentSpecification .
+  ?comp qb:order ?order .
+  ?comp qb:dimension ?dim .
+  ?dim rdfs:label ?label .
+  OPTIONAL { ?dim rdfs:comment ?doc }
+}
