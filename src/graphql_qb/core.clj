@@ -65,13 +65,18 @@
 (defn measure-type->query-var-name [{:keys [order]}]
   (str "mt" order))
 
+(defn is-measure-numeric? [repo ds-uri measure-uri]
+  (let [results (sp/query "sample-observation-measure.sparql" {:ds ds-uri :mt measure-uri} repo)]
+    (number? (:value (first results)))))
+
 (defn get-measure-types [repo {:keys [uri] :as ds}]
   (let [results (sp/query "get-measure-types.sparql" {:ds uri} repo)]
-    (map-indexed (fn [idx bindings]
+    (map-indexed (fn [idx {:keys [mt] :as bindings}]
                    (-> bindings
                        (rename-key :mt :uri)
                        (assoc :field-name (->field-name bindings))
                        (assoc :order (inc idx))
+                       (assoc :is-numeric? (is-measure-numeric? repo uri mt))
                        (assoc :->query-var-name measure-type->query-var-name)
                        (assoc :result-binding->value #(some-> % str)))) results)))
 
@@ -207,6 +212,10 @@
      :next_page (calculate-next-page-offset offset limit total-matches)
      :free_dimensions []}))
 
+(defn resolve-observation-aggregations [context args observations-field]
+  {:min 10
+   :max 20})
+
 (defn get-dimensions-filter [{dims-and :and}]
   (if (empty? dims-and)
     ""
@@ -257,11 +266,31 @@
                (assoc :schema (name (dataset-label->schema-name title)))))
          results)))
 
+(defn measure-types->aggregation-schema [aggregation-types-type measure-types]
+  {:fields
+   {:max {:type aggregation-types-type :description "The maximum value of the measure type"}
+    :min {:type aggregation-types-type :description "The minimum value of the measure type"}}})
+
+(defn aggregate-measure-types->enums-schema [schema type-name measure-types]
+  (let [values (mapv (fn [{:keys [label]}]
+                      (enum-label->value-name label)) measure-types)]
+    {type-name
+     {:description "Measure types which support aggregation"
+      :values values}}))
+
 (defn get-dataset-schema [{:keys [uri schema description] :as ds} dims measure-types]
   (let [obs-dim-schemas (dimensions->obs-dim-schemas dims)
         measure-type-schemas (map measure-type->schema measure-types)
         observation-fields (into {:uri {:type :uri}} (concat obs-dim-schemas measure-type-schemas))
-        enums-schema (dimensions->enums-schema dims)
+
+        aggregation-measure-types (filter :is-numeric? measure-types)
+        aggregation-types-type-name (field-name->type-name :aggregation_measure_types schema)
+        aggregation-fields-type-name (field-name->type-name :aggregations schema)
+        aggregation-type-enum-schema (aggregate-measure-types->enums-schema schema aggregation-types-type-name aggregation-measure-types)
+        
+        dims-enums-schema (dimensions->enums-schema dims)
+        enums-schema (merge dims-enums-schema aggregation-type-enum-schema)
+        
         observation-result-type-name (field-name->type-name :observation_result schema)
         observation-type-name (field-name->type-name :observation schema)
         observation-dims-type-name (field-name->type-name :observation_dimensions schema)
@@ -289,9 +318,18 @@
       {:fields
        {:sparql {:type 'String :description "SPARQL query used to retrieve matching observations."}
         :matches {:type (list 'list observation-type-name) :description "List of matching observations."}
+        :aggregations {:type aggregation-fields-type-name
+                       :resolve :resolve-aggregations}
         :total_matches {:type 'Int}
         :next_page {:type :SparqlCursor}
         :free_dimensions {:type '(list :dim)}}}
+
+      aggregation-fields-type-name
+      {:fields
+       {:max {:type 'Float
+              :args {:measure {:type (list 'non-null aggregation-types-type-name) :description "The measure to aggregate"}}}
+        :min {:type 'Float
+              :args {:measure {:type (list 'non-null aggregation-types-type-name):description "The measure to aggregate"}}}}}
       
       observation-type-name
       {:fields observation-fields}}
@@ -340,7 +378,8 @@
         schema-resolvers (:resolvers combined-schema)
         query-resolvers (merge {:resolve-observations resolve-observations
                                 :resolve-datasets resolve-datasets
-                                :resolve-dataset-dimensions resolve-dataset-dimensions}
+                                :resolve-dataset-dimensions resolve-dataset-dimensions
+                                :resolve-aggregations resolve-observation-aggregations}
                                schema-resolvers)]
     (attach-resolvers combined-schema query-resolvers)))
 
@@ -352,9 +391,6 @@
                                             datasets))
         schema (get-schema datasets ds-uri->dims-measures)]
     (pprint/pprint schema)))
-
-(defn get-compiled-schema [repo]
-  (schema/compile (get-schema repo)))
 
 (defn build-schema-context [repo]
   (let [datasets (find-datasets repo)

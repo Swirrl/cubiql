@@ -1,0 +1,9 @@
+PREFIX qb: <http://purl.org/linked-data/cube#>
+
+SELECT (SAMPLE(?measure) as ?value) WHERE {
+  ?ds a qb:DataSet .
+  ?obs a qb:Observation .
+  ?obs qb:dataSet ?ds .
+  ?obs qb:measureType ?mt .
+  ?obs ?mt ?measure .
+}
