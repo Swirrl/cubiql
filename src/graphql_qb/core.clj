@@ -120,7 +120,7 @@
   (if-let [ds (get-dataset repo uri)]
     (assoc ds :dimensions (resolve-dataset-dimensions context args {:uri uri}))))
 
-(defn get-observation-query [ds-uri ds-dimensions query-dimensions measure-types limit offset]
+(defn get-observation-query-bgps [ds-uri ds-dimensions query-dimensions measure-types]
   (let [is-query-dimension? (fn [{:keys [field-name]}] (contains? query-dimensions field-name))
         constrained-dims (filter is-query-dimension? ds-dimensions)
         free-dims (remove is-query-dimension? ds-dimensions)
@@ -145,8 +145,6 @@
                                 (str "?obs <" uri "> ?" var-name " .")))
                             free-dims)]
     (str
-     "PREFIX qb: <http://purl.org/linked-data/cube#>"
-     "SELECT * WHERE {"
      "  ?obs a qb:Observation ."
      "  ?obs qb:dataSet <" ds-uri "> ."
      "  ?obs qb:measureType ?measureType ."
@@ -154,8 +152,26 @@
      (string/join "\n" measure-type-patterns)
      (string/join "\n" constrained-patterns)
      (string/join "\n" query-patterns)
-     (string/join "\n" binds)
-     "} LIMIT " limit " OFFSET " offset)))
+     (string/join "\n" binds))))
+
+(defn get-observation-query [ds-uri ds-dimensions query-dimensions measure-types limit offset]
+  (str
+   "PREFIX qb: <http://purl.org/linked-data/cube#>"
+   "SELECT * WHERE {"
+   (get-observation-query-bgps ds-uri ds-dimensions query-dimensions measure-types)
+   "} LIMIT " limit " OFFSET " offset))
+
+(defn get-observation-count-query [ds-uri ds-dimensions query-dimensions measure-types]
+  (str
+   "PREFIX qb: <http://purl.org/linked-data/cube#>"
+   "SELECT (COUNT(*) as ?c) WHERE {"
+   (get-observation-query-bgps ds-uri ds-dimensions query-dimensions measure-types)
+   "}"))
+
+(defn get-observation-count [repo ds-uri ds-dimensions query-dimensions measure-types]
+  (let [query (get-observation-count-query ds-uri ds-dimensions query-dimensions measure-types)
+        results (repo/query repo query)]
+    (:c (first results))))
 
 (def default-limit 10)
 
@@ -165,10 +181,16 @@
 (defn get-offset [args]
   (max 0 (or (:after args) 0)))
 
+(defn calculate-next-page-offset [offset limit total-matches]
+  (let [next-offset (+ offset limit)]
+    (if (> total-matches next-offset)
+      next-offset)))
+
 (defn resolve-observations [{:keys [repo ds-uri->dims-measures] :as context} {query-dimensions :dimensions :as args} {:keys [uri] :as ds-field}]
   (let [{:keys [dimensions measure-types]} (get ds-uri->dims-measures uri)
         limit (get-limit args)
         offset (get-offset args)
+        total-matches (get-observation-count repo uri dimensions query-dimensions measure-types)
         query (get-observation-query uri dimensions query-dimensions measure-types limit offset)
         results (repo/query repo query)
         matches (mapv (fn [{:keys [obs] :as bindings}]
@@ -181,6 +203,8 @@
                       results)]
     {:matches matches
      :sparql (string/join (string/split query #"\n"))
+     :total_matches total-matches
+     :next_page (calculate-next-page-offset offset limit total-matches)
      :free_dimensions []}))
 
 (defn get-dimensions-filter [{dims-and :and}]
@@ -265,6 +289,8 @@
       {:fields
        {:sparql {:type 'String :description "SPARQL query used to retrieve matching observations."}
         :matches {:type (list 'list observation-type-name) :description "List of matching observations."}
+        :total_matches {:type 'Int}
+        :next_page {:type :SparqlCursor}
         :free_dimensions {:type '(list :dim)}}}
       
       observation-type-name
