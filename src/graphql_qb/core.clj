@@ -210,11 +210,37 @@
      :sparql (string/join (string/split query #"\n"))
      :total_matches total-matches
      :next_page (calculate-next-page-offset offset limit total-matches)
+     :aggregations {:query-dimensions query-dimensions :ds-uri uri}
      :free_dimensions []}))
 
-(defn resolve-observation-aggregations [context args observations-field]
-  {:min 10
-   :max 20})
+(defn exec-observation-aggregation [repo ds-uri->dims-measures measure query-dimensions ds-uri aggregation-fn]
+  (let [{:keys [dimensions measure-types]} (get ds-uri->dims-measures ds-uri)
+        {:keys [->query-var-name] :as max-measure} (first (filter (fn [{:keys [label] :as m}]
+                                                                    (= measure (enum-label->value-name label)))
+                                                                  measure-types))
+        measure-var-name (->query-var-name max-measure)
+        bgps (get-observation-query-bgps ds-uri dimensions query-dimensions measure-types)
+        sparql-fn (string/upper-case (name aggregation-fn))        
+        
+        q (str
+           "PREFIX qb: <http://purl.org/linked-data/cube#>"
+           "SELECT (" sparql-fn "(?" measure-var-name ") AS ?" (name aggregation-fn) ") WHERE {"
+           bgps
+           "}")
+          results (repo/query repo q)]
+    (get (first results) aggregation-fn)))
+
+(defn resolve-observations-min [{:keys [repo ds-uri->dims-measures] :as context} {:keys [measure] :as args} {:keys [query-dimensions ds-uri] :as aggregation-field}]
+  (exec-observation-aggregation repo ds-uri->dims-measures measure query-dimensions ds-uri :min))
+
+(defn resolve-observations-max [{:keys [repo ds-uri->dims-measures] :as context} {:keys [measure] :as args} {:keys [query-dimensions ds-uri] :as aggregation-field}]
+  (exec-observation-aggregation repo ds-uri->dims-measures measure query-dimensions ds-uri :max))
+
+(defn resolve-observations-aggregation [aggregation-fn
+                                        {:keys [repo ds-uri->dims-measures] :as context}
+                                        {:keys [measure] :as args}
+                                        {:keys [query-dimensions ds-uri] :as aggregation-field}]
+  (exec-observation-aggregation repo ds-uri->dims-measures measure query-dimensions ds-uri aggregation-fn))
 
 (defn get-dimensions-filter [{dims-and :and}]
   (if (empty? dims-and)
@@ -318,8 +344,7 @@
       {:fields
        {:sparql {:type 'String :description "SPARQL query used to retrieve matching observations."}
         :matches {:type (list 'list observation-type-name) :description "List of matching observations."}
-        :aggregations {:type aggregation-fields-type-name
-                       :resolve :resolve-aggregations}
+        :aggregations {:type aggregation-fields-type-name}
         :total_matches {:type 'Int}
         :next_page {:type :SparqlCursor}
         :free_dimensions {:type '(list :dim)}}}
@@ -327,9 +352,17 @@
       aggregation-fields-type-name
       {:fields
        {:max {:type 'Float
-              :args {:measure {:type (list 'non-null aggregation-types-type-name) :description "The measure to aggregate"}}}
+              :args {:measure {:type (list 'non-null aggregation-types-type-name) :description "The measure to aggregate"}}
+              :resolve :resolve-observations-max}
         :min {:type 'Float
-              :args {:measure {:type (list 'non-null aggregation-types-type-name):description "The measure to aggregate"}}}}}
+              :args {:measure {:type (list 'non-null aggregation-types-type-name):description "The measure to aggregate"}}
+              :resolve :resolve-observations-min}
+        :sum {:type 'Float
+              :args {:measure {:type (list 'non-null aggregation-types-type-name) :description "The measure to aggregate"}}
+              :resolve :resolve-observations-sum}
+        :average {:type 'Float
+                  :args {:measure {:type (list 'non-null aggregation-types-type-name) :description "The measure to aggregate"}}
+                  :resolve :resolve-observations-average}}}
       
       observation-type-name
       {:fields observation-fields}}
@@ -378,8 +411,11 @@
         schema-resolvers (:resolvers combined-schema)
         query-resolvers (merge {:resolve-observations resolve-observations
                                 :resolve-datasets resolve-datasets
-                                :resolve-dataset-dimensions resolve-dataset-dimensions
-                                :resolve-aggregations resolve-observation-aggregations}
+                                :resolve-dataset-dimensions resolve-dataset-dimensions                                
+                                :resolve-observations-min (partial resolve-observations-aggregation :min)
+                                :resolve-observations-max (partial resolve-observations-aggregation :max)
+                                :resolve-observations-sum (partial resolve-observations-aggregation :sum)
+                                :resolve-observations-average (partial resolve-observations-aggregation :avg)}
                                schema-resolvers)]
     (attach-resolvers combined-schema query-resolvers)))
 
