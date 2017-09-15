@@ -42,4 +42,5 @@
   {:type (list :dataset)
    :resolve :resolve-datasets
    :args
-   {:dimensions {:type :filter}}}}}
+   {:dimensions {:type :filter}
+    :uri {:type :uri}}}}}

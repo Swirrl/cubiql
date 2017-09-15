@@ -287,7 +287,7 @@
        (string/join " UNION " union-clauses)
        "} }"))))
 
-(defn get-datasets-query [dimensions measures]
+(defn get-datasets-query [dimensions measures uri]
   (str
    "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>"
    "PREFIX qb: <http://purl.org/linked-data/cube#>"
@@ -296,10 +296,12 @@
    "  ?ds rdfs:label ?title ."
    "  ?ds rdfs:comment ?description ."
    (get-dimensions-filter dimensions)
+   (if (some? uri)
+     (str "FILTER(?ds = <" uri ">) ."))
    "}"))
 
-(defn resolve-datasets [{:keys [repo]} {:keys [dimensions measures] :as args} _parent]
-  (let [q (get-datasets-query dimensions measures)
+(defn resolve-datasets [{:keys [repo]} {:keys [dimensions measures uri] :as args} _parent]
+  (let [q (get-datasets-query dimensions measures uri)
         results (repo/query repo q)]
     (map (fn [{:keys [title] :as bindings}]
            (-> bindings
