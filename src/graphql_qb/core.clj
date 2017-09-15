@@ -123,7 +123,7 @@
 
 (defn resolve-dataset [uri {:keys [repo] :as context} args field]
   (if-let [ds (get-dataset repo uri)]
-    (assoc ds :dimensions (resolve-dataset-dimensions context args {:uri uri}))))
+    (assoc ds :dimensions (resolve-dataset-dimensions context args ds))))
 
 (defn get-observation-query-bgps [ds-uri ds-dimensions query-dimensions measure-types]
   (let [is-query-dimension? (fn [{:keys [field-name]}] (contains? query-dimensions field-name))
@@ -152,19 +152,22 @@
     (str
      "  ?obs a qb:Observation ."
      "  ?obs qb:dataSet <" ds-uri "> ."
-     "  ?obs qb:measureType ?measureType ."
-     "  ?obs ?measureType ?value ."
      (string/join "\n" measure-type-patterns)
      (string/join "\n" constrained-patterns)
      (string/join "\n" query-patterns)
      (string/join "\n" binds))))
 
-(defn get-observation-query [ds-uri ds-dimensions query-dimensions measure-types limit offset]
+(defn get-observation-query [ds-uri ds-dimensions query-dimensions measure-types]
   (str
    "PREFIX qb: <http://purl.org/linked-data/cube#>"
    "SELECT * WHERE {"
    (get-observation-query-bgps ds-uri ds-dimensions query-dimensions measure-types)
-   "} LIMIT " limit " OFFSET " offset))
+   "}"))
+
+(defn get-observation-page-query [ds-uri ds-dimensions query-dimensions measure-types limit offset]
+  (str
+   (get-observation-query ds-uri ds-dimensions query-dimensions measure-types)
+   " LIMIT " limit " OFFSET " offset))
 
 (defn get-observation-count-query [ds-uri ds-dimensions query-dimensions measure-types]
   (str
@@ -179,9 +182,10 @@
     (:c (first results))))
 
 (def default-limit 10)
+(def max-limit 1000)
 
 (defn get-limit [args]
-  (max 0 (or (:first args) default-limit)))
+  (min (max 0 (or (:first args) default-limit)) max-limit))
 
 (defn get-offset [args]
   (max 0 (or (:after args) 0)))
@@ -193,25 +197,36 @@
 
 (defn resolve-observations [{:keys [repo ds-uri->dims-measures] :as context} {query-dimensions :dimensions :as args} {:keys [uri] :as ds-field}]
   (let [{:keys [dimensions measure-types]} (get ds-uri->dims-measures uri)
+        total-matches (get-observation-count repo uri dimensions query-dimensions measure-types)
+        query (get-observation-query uri dimensions query-dimensions measure-types)]
+    {::query-dimensions query-dimensions
+     ::dataset ds-field
+     :sparql (string/join (string/split query #"\n"))
+     :total_matches total-matches
+     :aggregations {:query-dimensions query-dimensions :ds-uri uri}
+     :free_dimensions []}))
+
+(defn resolve-observations-page [{:keys [repo ds-uri->dims-measures] :as context} args observations-field]
+  (let [query-dimensions (::query-dimensions observations-field)
+        ds-uri (get-in observations-field [::dataset :uri])
+        {:keys [dimensions measure-types]} (get ds-uri->dims-measures ds-uri)
         limit (get-limit args)
         offset (get-offset args)
-        total-matches (get-observation-count repo uri dimensions query-dimensions measure-types)
-        query (get-observation-query uri dimensions query-dimensions measure-types limit offset)
+        total-matches (:total_matches observations-field)
+        query (get-observation-page-query ds-uri dimensions query-dimensions measure-types limit offset)
         results (repo/query repo query)
         matches (mapv (fn [{:keys [obs] :as bindings}]
-                        (let [field-values (map (fn [{:keys [field-name ->query-var-name result-binding->value] :as ft}]
+                        (let [field-values (map (fn [{:keys [field-name ->query-var-name result-binding->value] :as ft}]                                                    
                                                   (let [result-key (keyword (->query-var-name ft))
                                                         value (get bindings result-key)]
                                                     [field-name (result-binding->value value)]))
                                                 (concat dimensions measure-types))]
                           (into {:uri obs} field-values)))
-                      results)]
-    {:matches matches
-     :sparql (string/join (string/split query #"\n"))
-     :total_matches total-matches
-     :next_page (calculate-next-page-offset offset limit total-matches)
-     :aggregations {:query-dimensions query-dimensions :ds-uri uri}
-     :free_dimensions []}))
+                      results)
+        next-page (calculate-next-page-offset offset limit total-matches)]
+    {:next_page next-page
+     :count (count matches)
+     :result matches}))
 
 (defn exec-observation-aggregation [repo ds-uri->dims-measures measure query-dimensions ds-uri aggregation-fn]
   (let [{:keys [dimensions measure-types]} (get ds-uri->dims-measures ds-uri)
@@ -318,6 +333,7 @@
         enums-schema (merge dims-enums-schema aggregation-type-enum-schema)
         
         observation-result-type-name (field-name->type-name :observation_result schema)
+        observation-results-page-type-name (field-name->type-name :observation_results_page schema)
         observation-type-name (field-name->type-name :observation schema)
         observation-dims-type-name (field-name->type-name :observation_dimensions schema)
         resolver-name (keyword (str "resolve_" (name schema)))
@@ -333,9 +349,7 @@
         :schema {:type 'String :description "Name of the GraphQL query root for this dataset"}
         :dimensions {:type '(list :dim) :description "Dimensions within the dataset"}
         :observations {:type observation-result-type-name
-                       :args {:dimensions {:type observation-dims-type-name}
-                              :after {:type :SparqlCursor}
-                              :first {:type 'Int}}
+                       :args {:dimensions {:type observation-dims-type-name}}
                        :resolve :resolve-observations
                        :description "Observations matching the given criteria"}}
        :description description}
@@ -343,11 +357,20 @@
       observation-result-type-name
       {:fields
        {:sparql {:type 'String :description "SPARQL query used to retrieve matching observations."}
-        :matches {:type (list 'list observation-type-name) :description "List of matching observations."}
+        :page {:type observation-results-page-type-name
+               :args {:after {:type :SparqlCursor}
+                      :first {:type 'Int}}
+               :description "Page of results to retrieve."
+               :resolve :resolve-observations-page}
         :aggregations {:type aggregation-fields-type-name}
         :total_matches {:type 'Int}
-        :next_page {:type :SparqlCursor}
         :free_dimensions {:type '(list :dim)}}}
+
+      observation-results-page-type-name
+      {:fields
+       {:next_page {:type :SparqlCursor :description "Cursor to the next page of results"}
+        :count {:type 'Int}
+        :result {:type (list 'list observation-type-name) :description "List of observations on this page"}}}
 
       aggregation-fields-type-name
       {:fields
@@ -410,6 +433,7 @@
         combined-schema (reduce (fn [acc schema] (merge-with merge acc schema)) base-schema ds-schemas)
         schema-resolvers (:resolvers combined-schema)
         query-resolvers (merge {:resolve-observations resolve-observations
+                                :resolve-observations-page resolve-observations-page
                                 :resolve-datasets resolve-datasets
                                 :resolve-dataset-dimensions resolve-dataset-dimensions                                
                                 :resolve-observations-min (partial resolve-observations-aggregation :min)

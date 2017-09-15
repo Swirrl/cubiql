@@ -30,7 +30,12 @@
    {:or {:type (list :uri)
          :description "List of URIs for which at least one must be contained within matching datasets."}
     :and {:type (list :uri)
-          :description "List of URIs which must all be contained within matching datasets."}}}}
+          :description "List of URIs which must all be contained within matching datasets."}}}
+
+  :page_selector
+  {:fields
+   {:first {:type Int :description "Number of results to retrive."}
+    :after {:type :SparqlCursor :description "Cursor to the start of the results page"}}}}
  
  :queries
  {:datasets
