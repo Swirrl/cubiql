@@ -28,6 +28,9 @@
         (assoc new-k v)
         (dissoc k))))
 
+(defn keyed-by [f s]
+  (into {} (map (fn [v] [(f v) v]) s)))
+
 (defn long->bytes [i]
   {:post [(= 8 (alength %))]}
   (.. (ByteBuffer/allocate 8) (putLong i) (array)))
