@@ -50,6 +50,9 @@ RDF dataset definition.
   - [min](http://graphql-qb.publishmydata.com/index.html?query=%7B%0A%20%20dataset_earnings%20%7B%0A%20%20%20%20title%0A%20%20%20%20description%0A%20%20%20%20observations(dimensions%3A%20%7Bgender%3A%20ALL%2C%20%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20population_group%3A%20WORKPLACE_BASED%2C%20%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20measure_type%3A%20MEDIAN%7D)%20%7B%0A%20%20%20%20%20%20aggregations%20%7B%0A%20%20%20%20%20%20%20%20min(measure%3A%20MEDIAN)%0A%20%20%20%20%20%20%7D%0A%20%20%20%20%7D%0A%20%20%7D%0A%7D%0A)
   - [sum](http://graphql-qb.publishmydata.com/index.html?query=%7B%0A%20%20dataset_earnings%20%7B%0A%20%20%20%20title%0A%20%20%20%20description%0A%20%20%20%20observations(dimensions%3A%20%7Bgender%3A%20ALL%2C%20%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20population_group%3A%20WORKPLACE_BASED%2C%20%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20measure_type%3A%20MEDIAN%7D)%20%7B%0A%20%20%20%20%20%20aggregations%20%7B%0A%20%20%20%20%20%20%20%20sum(measure%3AMEDIAN)%0A%20%20%20%20%20%20%7D%0A%20%20%20%20%7D%0A%20%20%7D%0A%7D%0A)
 
+- Misc
+  - [Getting SPARQL query](http://graphql-qb.publishmydata.com/index.html?query=%7B%0A%20%20dataset_earnings%20%7B%0A%20%20%20%20observations(dimensions%3A%7Bgender%3AALL%20%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20population_group%3AWORKPLACE_BASED%20%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20measure_type%3AMEDIAN%7D)%20%7B%0A%20%20%20%20%20%20sparql%0A%20%20%20%20%7D%0A%20%20%7D%0A%7D)
+
 ### Using graphql voyager 
 
 You can browse our schema by following these steps:
