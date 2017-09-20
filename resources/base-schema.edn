@@ -24,6 +24,11 @@
    {:uri {:type :uri :description "URI of the dimension value"}
     :label {:type String :description "Label for the dimension value"}}}}
 
+ :enums
+ {:sort_direction
+  {:description "Which direction to sort a dimension or measure in"
+   :values [:ASC :DESC]}}
+
  :input-objects
  {:filter
   {:fields

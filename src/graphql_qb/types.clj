@@ -58,7 +58,9 @@
   (field-name->type-name (->field-name f) ds-schema))
 
 (defprotocol SparqlQueryable
-  (->query-var-name [this]))
+  (->query-var-name [this])
+  (->order-by-var-name [this])
+  (get-order-by-bgps [this]))
 
 (defprotocol SchemaType
   (type-name [this]))
@@ -118,10 +120,26 @@
 (defn is-enum-type? [type]
   (instance? EnumType type))
 
+(defn is-ref-area-type? [type]
+  (instance? RefAreaType type))
+
+(defn is-ref-period-type? [type]
+  (instance? RefPeriodType type))
+
 (defrecord Dimension [uri ds-uri schema label doc order type]
   SparqlQueryable
   (->query-var-name [_this]
     (str "dim" order))
+  
+  (->order-by-var-name [this]
+    (if (is-ref-area-type? type)
+      (str "dim" order "label")
+      (->query-var-name this)))
+
+  (get-order-by-bgps [this]
+    (if (is-ref-area-type? type)
+      [(str "OPTIONAL { ?"(->query-var-name this) " rdfs:label ?" (->order-by-var-name this) " }")]
+      []))
 
   TypeMapper
   (graphql->sparql [this graphql-value]
@@ -150,6 +168,12 @@
   SparqlQueryable
   (->query-var-name [_this]
     (str "mt" order))
+
+  (->order-by-var-name [this]
+    (->query-var-name this))
+
+  (get-order-by-bgps [this]
+    [])
 
   TypeMapper
   (graphql->sparql [this graphql-value]

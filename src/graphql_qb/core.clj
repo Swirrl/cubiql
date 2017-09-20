@@ -76,7 +76,18 @@
   (if-let [ds (get-dataset repo uri)]
     (assoc ds :dimensions (resolve-dataset-dimensions context args ds))))
 
-(defn get-observation-query-bgps [ds-uri ds-dimensions query-dimensions measure-types]
+(defn get-order-by [order-by-dim-measures]
+  (if (empty? order-by-dim-measures)
+    ""
+    (let [orderings (map (fn [[dm sort-direction]]
+                           (let [var (str "?" (types/->order-by-var-name dm))]
+                             (if (= :DESC sort-direction)
+                               (str "DESC(" var ")")
+                               var)))
+                         order-by-dim-measures)]
+      (str "ORDER BY " (string/join " " orderings)))))
+
+(defn get-observation-query-bgps [ds-uri ds-dimensions query-dimensions measure-types order-by-dims-measures]
   (let [is-query-dimension? (fn [{:keys [field-name]}] (contains? query-dimensions field-name))
         constrained-dims (filter is-query-dimension? ds-dimensions)
         free-dims (remove is-query-dimension? ds-dimensions)
@@ -99,32 +110,36 @@
         query-patterns (map (fn [{:keys [uri] :as dim}]
                               (let [var-name (types/->query-var-name dim)]
                                 (str "?obs <" uri "> ?" var-name " .")))
-                            free-dims)]
+                            free-dims)
+        order-by-patterns (mapcat (fn [[dm _]] (types/get-order-by-bgps dm)) order-by-dims-measures)]
     (str
      "  ?obs a qb:Observation ."
      "  ?obs qb:dataSet <" ds-uri "> ."
      (string/join "\n" measure-type-patterns)
      (string/join "\n" constrained-patterns)
      (string/join "\n" query-patterns)
+     (string/join "\n" order-by-patterns)
      (string/join "\n" binds))))
 
-(defn get-observation-query [ds-uri ds-dimensions query-dimensions measure-types]
+(defn get-observation-query [ds-uri ds-dimensions query-dimensions measure-types order-by-dim-measures]
   (str
    "PREFIX qb: <http://purl.org/linked-data/cube#>"
+   "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>"
    "SELECT * WHERE {"
-   (get-observation-query-bgps ds-uri ds-dimensions query-dimensions measure-types)
-   "}"))
+   (get-observation-query-bgps ds-uri ds-dimensions query-dimensions measure-types order-by-dim-measures)
+   "} " (get-order-by order-by-dim-measures)))
 
-(defn get-observation-page-query [ds-uri ds-dimensions query-dimensions measure-types limit offset]
+(defn get-observation-page-query [ds-uri ds-dimensions query-dimensions measure-types limit offset order-by-dim-measures]
   (str
-   (get-observation-query ds-uri ds-dimensions query-dimensions measure-types)
+   (get-observation-query ds-uri ds-dimensions query-dimensions measure-types order-by-dim-measures)
    " LIMIT " limit " OFFSET " offset))
 
 (defn get-observation-count-query [ds-uri ds-dimensions query-dimensions measure-types]
   (str
    "PREFIX qb: <http://purl.org/linked-data/cube#>"
+   "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>"
    "SELECT (COUNT(*) as ?c) WHERE {"
-   (get-observation-query-bgps ds-uri ds-dimensions query-dimensions measure-types)
+   (get-observation-query-bgps ds-uri ds-dimensions query-dimensions measure-types [])
    "}"))
 
 (defn get-observation-count [repo ds-uri ds-dimensions query-dimensions measure-types]
@@ -146,25 +161,43 @@
     (if (> total-matches next-offset)
       next-offset)))
 
-(defn resolve-observations [{:keys [repo uri->dataset] :as context} {query-dimensions :dimensions :as args} {:keys [uri] :as ds-field}]
-  (let [{:keys [dimensions measures]} (get uri->dataset uri)
-        total-matches (get-observation-count repo uri dimensions query-dimensions measures)
-        query (get-observation-query uri dimensions query-dimensions measures)]
-    {::query-dimensions query-dimensions
-     ::dataset ds-field
-     :sparql (string/join (string/split query #"\n"))
-     :total_matches total-matches
-     :aggregations {:query-dimensions query-dimensions :ds-uri uri}
-     :free_dimensions []}))
+(defn graphql-enum->dimension-measure [{:keys [dimensions measures] :as dataset} enum]
+  (first (filter (fn [dm]
+                   (= enum (first (types/to-enum-value dm))))
+                 (concat dimensions measures))))
+
+(defn get-dimension-measure-ordering [dataset sorts sort-spec]
+  (map (fn [dm-enum]
+         (let [dm (graphql-enum->dimension-measure dataset dm-enum)
+               field (types/->field-name dm)
+               sort-dir (get sort-spec field :ASC)]
+           [dm sort-dir]))
+       sorts))
+
+(defn resolve-observations [{:keys [repo uri->dataset] :as context}
+                            {query-dimensions :dimensions order-by :order order-spec :order_spec :as args}
+                            {:keys [uri] :as ds-field}]
+  (let [{:keys [dimensions measures] :as dataset} (get uri->dataset uri)
+          total-matches (get-observation-count repo uri dimensions query-dimensions measures)
+          ordered-dim-measures (get-dimension-measure-ordering dataset order-by order-spec)
+          query (get-observation-query uri dimensions query-dimensions measures ordered-dim-measures)]
+      {::query-dimensions query-dimensions
+       ::order-by-dimension-measures ordered-dim-measures
+       ::dataset ds-field
+       :sparql (string/join (string/split query #"\n"))
+       :total_matches total-matches
+       :aggregations {:query-dimensions query-dimensions :ds-uri uri}
+       :free_dimensions []}))
 
 (defn resolve-observations-page [{:keys [repo uri->dataset] :as context} args observations-field]
   (let [query-dimensions (::query-dimensions observations-field)
+        order-by-dim-measures (::order-by-dimension-measures observations-field)
         ds-uri (get-in observations-field [::dataset :uri])
         {:keys [dimensions measures]} (get uri->dataset ds-uri)
         limit (get-limit args)
         offset (get-offset args)
         total-matches (:total_matches observations-field)
-        query (get-observation-page-query ds-uri dimensions query-dimensions measures limit offset)
+        query (get-observation-page-query ds-uri dimensions query-dimensions measures limit offset order-by-dim-measures)
         results (repo/query repo query)
         matches (mapv (fn [{:keys [obs] :as bindings}]
                         (let [field-values (map (fn [{:keys [field-name] :as ft}]                                                    
@@ -180,10 +213,8 @@
      :result matches}))
 
 (defn exec-observation-aggregation [repo uri->dataset measure query-dimensions ds-uri aggregation-fn]
-  (let [{:keys [dimensions measures]} (get uri->dataset ds-uri)
-        agg-measure (first (filter (fn [{:keys [label] :as m}]
-                                     (= measure (enum-label->value-name label)))
-                                   measures))
+  (let [{:keys [dimensions measures] :as dataset} (get uri->dataset ds-uri)
+        agg-measure (graphql-enum->dimension-measure dataset measure)
         measure-var-name (types/->query-var-name agg-measure)
         bgps (get-observation-query-bgps ds-uri dimensions query-dimensions measures)
         sparql-fn (string/upper-case (name aggregation-fn))        
@@ -309,3 +340,4 @@
         schema (get-schema datasets)]
     {:schema (lschema/compile schema)
      :datasets datasets}))
+
