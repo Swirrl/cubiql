@@ -1,0 +1,33 @@
+<http://statistics.gov.scot/id/statistical-geography/S12000044> <http://www.w3.org/2000/01/rdf-schema#label> "North Lanarkshire" .
+<http://statistics.gov.scot/id/statistical-geography/S12000027> <http://www.w3.org/2000/01/rdf-schema#label> "Shetland Islands" .
+<http://statistics.gov.scot/id/statistical-geography/S12000013> <http://www.w3.org/2000/01/rdf-schema#label> "Na h-Eileanan Siar" .
+<http://statistics.gov.scot/id/statistical-geography/S12000014> <http://www.w3.org/2000/01/rdf-schema#label> "Falkirk" .
+<http://statistics.gov.scot/id/statistical-geography/S92000003> <http://www.w3.org/2000/01/rdf-schema#label> "Scotland" .
+<http://statistics.gov.scot/id/statistical-geography/S12000018> <http://www.w3.org/2000/01/rdf-schema#label> "Inverclyde" .
+<http://statistics.gov.scot/id/statistical-geography/S12000008> <http://www.w3.org/2000/01/rdf-schema#label> "East Ayrshire" .
+<http://statistics.gov.scot/id/statistical-geography/S12000026> <http://www.w3.org/2000/01/rdf-schema#label> "Scottish Borders" .
+<http://statistics.gov.scot/id/statistical-geography/S12000015> <http://www.w3.org/2000/01/rdf-schema#label> "Fife" .
+<http://statistics.gov.scot/id/statistical-geography/S12000023> <http://www.w3.org/2000/01/rdf-schema#label> "Orkney Islands" .
+<http://statistics.gov.scot/id/statistical-geography/S12000024> <http://www.w3.org/2000/01/rdf-schema#label> "Perth and Kinross" .
+<http://statistics.gov.scot/id/statistical-geography/S12000021> <http://www.w3.org/2000/01/rdf-schema#label> "North Ayrshire" .
+<http://statistics.gov.scot/id/statistical-geography/S12000039> <http://www.w3.org/2000/01/rdf-schema#label> "West Dunbartonshire" .
+<http://statistics.gov.scot/id/statistical-geography/S12000019> <http://www.w3.org/2000/01/rdf-schema#label> "Midlothian" .
+<http://statistics.gov.scot/id/statistical-geography/S12000028> <http://www.w3.org/2000/01/rdf-schema#label> "South Ayrshire" .
+<http://statistics.gov.scot/id/statistical-geography/S12000030> <http://www.w3.org/2000/01/rdf-schema#label> "Stirling" .
+<http://statistics.gov.scot/id/statistical-geography/S12000034> <http://www.w3.org/2000/01/rdf-schema#label> "Aberdeenshire" .
+<http://statistics.gov.scot/id/statistical-geography/S12000029> <http://www.w3.org/2000/01/rdf-schema#label> "South Lanarkshire" .
+<http://statistics.gov.scot/id/statistical-geography/S12000010> <http://www.w3.org/2000/01/rdf-schema#label> "East Lothian" .
+<http://statistics.gov.scot/id/statistical-geography/S12000038> <http://www.w3.org/2000/01/rdf-schema#label> "Renfrewshire" .
+<http://statistics.gov.scot/id/statistical-geography/S12000040> <http://www.w3.org/2000/01/rdf-schema#label> "West Lothian" .
+<http://statistics.gov.scot/id/statistical-geography/S12000033> <http://www.w3.org/2000/01/rdf-schema#label> "Aberdeen City" .
+<http://statistics.gov.scot/id/statistical-geography/S12000046> <http://www.w3.org/2000/01/rdf-schema#label> "Glasgow City" .
+<http://statistics.gov.scot/id/statistical-geography/S12000017> <http://www.w3.org/2000/01/rdf-schema#label> "Highland" .
+<http://statistics.gov.scot/id/statistical-geography/S12000042> <http://www.w3.org/2000/01/rdf-schema#label> "Dundee City" .
+<http://statistics.gov.scot/id/statistical-geography/S12000011> <http://www.w3.org/2000/01/rdf-schema#label> "East Renfrewshire" .
+<http://statistics.gov.scot/id/statistical-geography/S12000006> <http://www.w3.org/2000/01/rdf-schema#label> "Dumfries and Galloway" .
+<http://statistics.gov.scot/id/statistical-geography/S12000036> <http://www.w3.org/2000/01/rdf-schema#label> "City of Edinburgh" .
+<http://statistics.gov.scot/id/statistical-geography/S12000035> <http://www.w3.org/2000/01/rdf-schema#label> "Argyll and Bute" .
+<http://statistics.gov.scot/id/statistical-geography/S12000005> <http://www.w3.org/2000/01/rdf-schema#label> "Clackmannanshire" .
+<http://statistics.gov.scot/id/statistical-geography/S12000045> <http://www.w3.org/2000/01/rdf-schema#label> "East Dunbartonshire" .
+<http://statistics.gov.scot/id/statistical-geography/S12000041> <http://www.w3.org/2000/01/rdf-schema#label> "Angus" .
+<http://statistics.gov.scot/id/statistical-geography/S12000020> <http://www.w3.org/2000/01/rdf-schema#label> "Moray" .
