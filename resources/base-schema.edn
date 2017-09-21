@@ -1,18 +1,19 @@
 {:objects
  {:dataset
-  {:fields
-   {:uri {:type :uri :description "Dataset URI"}
-    :title {:type String :description "Dataset title"}
+  {:implements [:dataset_meta]
+   :fields
+   {:uri         {:type :uri :description "Dataset URI"}
+    :title       {:type String :description "Dataset title"}
     :description {:type String :description "Dataset description"}
-    :schema {:type String :description "Name of the GraphQL query root for this dataset"}
-    :dimensions {:type (list :dim)
-                 :resolve :resolve-dataset-dimensions
-                 :description "Dimensions within the dataset"}
-    :measures {:type (list :measure) :description "Measure types within the dataset"}}}
+    :schema      {:type String :description "Name of the GraphQL query root field corresponding to this dataset"}
+    :dimensions  {:type        (list :dim)
+                  :resolve     :resolve-dataset-dimensions
+                  :description "Dimensions within the dataset"}
+    :measures    {:type (list :measure) :description "Measure types within the dataset"}}}
 
   :dim
   {:fields
-   {:uri {:type :uri :description "URI of the dimension"}
+   {:uri    {:type :uri :description "URI of the dimension"}
     :values {:type (list :dim_value) :description "Code list of values for the dimension"}}}
 
   :measure
@@ -21,31 +22,41 @@
 
   :dim_value
   {:fields
-   {:uri {:type :uri :description "URI of the dimension value"}
+   {:uri   {:type :uri :description "URI of the dimension value"}
     :label {:type String :description "Label for the dimension value"}}}}
+
+ :interfaces
+ {:dataset_meta
+  {:description "Fields common to generic and specific dataset schemas"
+   :fields
+   {:uri         {:type :uri :description "Dataset URI"}
+    :title       {:type String :description "Dataset title"}
+    :description {:type String :description "Dataset description"}
+    :schema      {:type String :description "Name of the GraphQL query root field corresponding to this dataset"}
+    :dimensions  {:type (list :dim) :description "Dimensions within the dataset"}}}}
 
  :enums
  {:sort_direction
   {:description "Which direction to sort a dimension or measure in"
-   :values [:ASC :DESC]}}
+   :values      [:ASC :DESC]}}
 
  :input-objects
  {:filter
   {:fields
-   {:or {:type (list :uri)
-         :description "List of URIs for which at least one must be contained within matching datasets."}
-    :and {:type (list :uri)
+   {:or  {:type        (list :uri)
+          :description "List of URIs for which at least one must be contained within matching datasets."}
+    :and {:type        (list :uri)
           :description "List of URIs which must all be contained within matching datasets."}}}
 
   :page_selector
   {:fields
    {:first {:type Int :description "Number of results to retrive."}
     :after {:type :SparqlCursor :description "Cursor to the start of the results page"}}}}
- 
+
  :queries
  {:datasets
-  {:type (list :dataset)
+  {:type    (list :dataset)
    :resolve :resolve-datasets
    :args
-   {:dimensions {:type :filter}
-    :uri {:type :uri}}}}}
+            {:dimensions {:type :filter}
+             :uri        {:type :uri}}}}}

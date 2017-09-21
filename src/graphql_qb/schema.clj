@@ -56,11 +56,12 @@
     {:enums enums-schema
      :objects
      {schema
-      {:fields
+      {:implements [:dataset_meta]
+       :fields
        {:uri {:type :uri :description "Dataset URI"}
         :title {:type 'String :description "Dataset title"}
         :description {:type 'String :description "Dataset description"}
-        :schema {:type 'String :description "Name of the GraphQL query root for this dataset"}
+        :schema {:type 'String :description "Name of the GraphQL query root field corresponding to this dataset"}
         :dimensions {:type '(list :dim) :description "Dimensions within the dataset"}
         :observations {:type observation-result-type-name
                        :args {:dimensions {:type observation-dims-type-name}
