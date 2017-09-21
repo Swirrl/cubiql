@@ -181,8 +181,7 @@
        ::dataset ds-field
        :sparql (string/join (string/split query #"\n"))
        :total_matches total-matches
-       :aggregations {:query-dimensions query-dimensions :ds-uri uri}
-       :free_dimensions []}))
+       :aggregations {:query-dimensions query-dimensions :ds-uri uri}}))
 
 (defn resolve-observations-page [{:keys [repo uri->dataset] :as context} args observations-field]
   (let [query-dimensions (::query-dimensions observations-field)
