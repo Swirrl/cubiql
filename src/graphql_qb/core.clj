@@ -53,12 +53,15 @@
                    (let [measure-type (types/->MeasureType mt label (inc idx) (is-measure-numeric? repo uri mt))]
                      (assoc measure-type :field-name (->field-name bindings)))) results)))
 
-(defn resolve-dataset-dimensions [{:keys [repo] :as context} args {:keys [uri] :as ds-field}]
+(defn dimension-enum-value->graphql [{:keys [value label] :as item}]
+  {:uri (str value) :label (str label)})
+
+(defn resolve-dataset-dimensions [{:keys [repo] :as context} _args ds-field]
   (let [dims (get-dimensions repo ds-field)]
     (map (fn [{:keys [uri type]}]
            {:uri (str uri)
             :values (if (types/is-enum-type? type)
-                      (:values type))})
+                      (map dimension-enum-value->graphql (:values type)))})
          dims)))
 
 (defn get-dataset [repo uri]
@@ -66,9 +69,8 @@
     (-> ds
         (assoc :schema (name (dataset-label->schema-name title))))))
 
-(defn resolve-dataset [uri {:keys [repo] :as context} args field]
-  (if-let [ds (get-dataset repo uri)]
-    (assoc ds :dimensions (resolve-dataset-dimensions context args ds))))
+(defn resolve-dataset [uri {:keys [repo] :as context} _args _field]
+  (get-dataset repo uri))
 
 (defn get-order-by [order-by-dim-measures]
   (if (empty? order-by-dim-measures)
