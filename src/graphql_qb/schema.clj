@@ -5,9 +5,9 @@
   {:type :uri
    :description "URI of the observation"})
 
-(defn get-enum-schema-values [{:keys [values->uri] :as enum-type}]
+(defn get-enum-schema-values [{:keys [values] :as enum-type}]
   {:pre [(types/is-enum-type? enum-type)]}
-  (vec (keys values->uri)))
+  (mapv :value values))
 
 (defn enum->schema [enum]
   {(types/type-name enum) {:values (get-enum-schema-values enum)}})

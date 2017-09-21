@@ -30,9 +30,11 @@
     
     :else
     (let [values (get-enum-values repo dim)
-          value->uri (into {} (map (juxt :value :member) values))
+          enum-values (mapv (fn [{:keys [member label priority]}]
+                              (types/->EnumItem member label (types/enum-label->value-name label) priority))
+                            values)
           enum-name (types/label->enum-name label)]
-      (types/->EnumType schema enum-name value->uri))))
+      (types/->EnumType schema enum-name enum-values))))
 
 (defn get-dimensions
   [repo {:keys [uri schema] :as ds}]
@@ -59,12 +61,10 @@
 
 (defn resolve-dataset-dimensions [{:keys [repo] :as context} args {:keys [uri] :as ds-field}]
   (let [dims (get-dimensions repo ds-field)]
-    (map (fn [{:keys [uri values]}]
+    (map (fn [{:keys [uri type]}]
            {:uri (str uri)
-            :values (map (fn [{:keys [member label]}]
-                           {:uri (str member)
-                            :label label})
-                         values)})
+            :values (if (types/is-enum-type? type)
+                      (:values type))})
          dims)))
 
 (defn get-dataset [repo uri]
@@ -163,7 +163,7 @@
 
 (defn graphql-enum->dimension-measure [{:keys [dimensions measures] :as dataset} enum]
   (first (filter (fn [dm]
-                   (= enum (first (types/to-enum-value dm))))
+                   (= enum (:value (types/to-enum-value dm))))
                  (concat dimensions measures))))
 
 (defn get-dimension-measure-ordering [dataset sorts sort-spec]
@@ -214,17 +214,16 @@
 
 (defn exec-observation-aggregation [repo uri->dataset measure query-dimensions ds-uri aggregation-fn]
   (let [{:keys [dimensions measures] :as dataset} (get uri->dataset ds-uri)
-        agg-measure (graphql-enum->dimension-measure dataset measure)
+        agg-measure (graphql-enum->dimension-measure dataset measure)        
         measure-var-name (types/->query-var-name agg-measure)
-        bgps (get-observation-query-bgps ds-uri dimensions query-dimensions measures)
-        sparql-fn (string/upper-case (name aggregation-fn))        
-        
+        bgps (get-observation-query-bgps ds-uri dimensions query-dimensions measures [])
+        sparql-fn (string/upper-case (name aggregation-fn))
         q (str
            "PREFIX qb: <http://purl.org/linked-data/cube#>"
            "SELECT (" sparql-fn "(?" measure-var-name ") AS ?" (name aggregation-fn) ") WHERE {"
            bgps
            "}")
-          results (repo/query repo q)]
+        results (repo/query repo q)]
     (get (first results) aggregation-fn)))
 
 (defn resolve-observations-aggregation [aggregation-fn
@@ -322,7 +321,7 @@
         query-resolvers (merge {:resolve-observations resolve-observations
                                 :resolve-observations-page resolve-observations-page
                                 :resolve-datasets resolve-datasets
-                                :resolve-dataset-dimensions resolve-dataset-dimensions                                
+                                :resolve-dataset-dimensions resolve-dataset-dimensions
                                 :resolve-observations-min (partial resolve-observations-aggregation :min)
                                 :resolve-observations-max (partial resolve-observations-aggregation :max)
                                 :resolve-observations-sum (partial resolve-observations-aggregation :sum)

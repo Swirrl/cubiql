@@ -101,7 +101,9 @@
 
 (extend RefPeriodType TypeMapper id-mapper)
 
-(defrecord EnumType [schema enum-name values->uri]
+(defrecord EnumItem [uri label value sort-priority])
+
+(defrecord EnumType [schema enum-name values]
   SchemaType
   (type-name [this]
     (field-name->type-name enum-name schema))
@@ -111,11 +113,12 @@
   
   TypeMapper
   (graphql->sparql [_this value]
-    (get values->uri value))
+    (if-let [val (first (filter #(= value (:value %)) values))]
+      (:uri val)))
 
-  (sparql->graphql [_this binding]
-    (let [m (set/map-invert values->uri)]
-      (get m binding))))
+  (sparql->graphql [_this uri]
+    (if-let [val (first (filter #(= uri (:uri %)) values))]
+      (enum-label->value-name val))))
 
 (defn is-enum-type? [type]
   (instance? EnumType type))
@@ -162,7 +165,8 @@
     (get-enums type))
 
   EnumValue
-  (to-enum-value [this] [(enum-label->value-name label) this]))
+  (to-enum-value [this]
+    (->EnumItem this label (enum-label->value-name label) nil)))
 
 (defrecord MeasureType [uri label order is-numeric?]
   SparqlQueryable
@@ -189,7 +193,8 @@
   (get-enums [_this] nil)
 
   EnumValue
-  (to-enum-value [this] [(enum-label->value-name label) this]))
+  (to-enum-value [this]
+    (->EnumItem this label (enum-label->value-name label) nil)))
 
 (defrecord Dataset [uri title description dimensions measures]
   EnumTypeSource
@@ -203,4 +208,4 @@
   (filter :is-numeric? measures))
 
 (defn build-enum [schema enum-name values]
-  (->EnumType schema enum-name (into {} (map to-enum-value values))))
+  (->EnumType schema enum-name (mapv to-enum-value values)))
