@@ -87,7 +87,7 @@
         free-dims (remove is-query-dimension? ds-dimensions)
         constrained-patterns (map (fn [{:keys [field-name uri] :as dim}]
                                     (let [field-value (get query-dimensions field-name)
-                                          val-uri (types/graphql->sparql dim field-value)]
+                                          val-uri (types/from-graphql dim field-value)]
                                       (str "?obs <" uri "> <" val-uri "> .")))
                                   constrained-dims)
         measure-type-patterns (map (fn [{:keys [uri] :as mt}]
@@ -97,7 +97,7 @@
                                    measure-types)
         binds (map (fn [{:keys [field-name] :as dim}]
                      (let [field-value (get query-dimensions field-name)                           
-                           val-uri (types/graphql->sparql dim field-value)
+                           val-uri (types/from-graphql dim field-value)
                            var-name (types/->query-var-name dim)]
                        (str "BIND(<" val-uri "> as ?" var-name ") .")))
                    constrained-dims)
@@ -157,7 +157,7 @@
 
 (defn graphql-enum->dimension-measure [{:keys [dimensions measures] :as dataset} enum]
   (let [dm-enum (types/build-enum :ignored :ignored (concat dimensions measures))]
-    (types/graphql->sparql dm-enum enum)))
+    (types/from-graphql dm-enum enum)))
 
 (defn get-dimension-measure-ordering [dataset sorts sort-spec]
   (map (fn [dm-enum]
@@ -196,7 +196,7 @@
                         (let [field-values (map (fn [{:keys [field-name] :as ft}]                                                    
                                                   (let [result-key (keyword (types/->query-var-name ft))
                                                         value (get bindings result-key)]
-                                                    [field-name (types/sparql->graphql ft value)]))
+                                                    [field-name (types/to-graphql ft value)]))
                                                 (concat dimensions measures))]
                           (into {:uri obs} field-values)))
                       results)

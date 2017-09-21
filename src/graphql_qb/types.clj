@@ -68,15 +68,15 @@
   (->schema-element [this]))
 
 (defprotocol TypeMapper
-  (graphql->sparql [this graphql-value])
-  (sparql->graphql [this binding-value]))
+  (from-graphql [this graphql-value])
+  (to-graphql [this value]))
 
 (defprotocol EnumValue
   (to-enum-value [this]))
 
 (def id-mapper
-  {:graphql->sparql (fn [_this v] v)
-   :sparql->graphql (fn [_this v] v)})
+  {:from-graphql (fn [_this v] v)
+   :to-graphql (fn [_this v] v)})
 
 (defrecord RefAreaType []
   EnumTypeSource
@@ -107,11 +107,11 @@
   (get-enums [this] [this])
   
   TypeMapper
-  (graphql->sparql [_this item-name]
+  (from-graphql [_this item-name]
     (if-let [item (first (filter #(= item-name (:name %)) values))]
       (:value item)))
 
-  (sparql->graphql [_this value]
+  (to-graphql [_this value]
     (if-let [item (first (filter #(= value (:value %)) values))]
       (:name item))))
 
@@ -140,11 +140,11 @@
       []))
 
   TypeMapper
-  (graphql->sparql [this graphql-value]
-    (graphql->sparql type graphql-value))
+  (from-graphql [this graphql-value]
+    (from-graphql type graphql-value))
 
-  (sparql->graphql [this binding]
-    (sparql->graphql type binding))
+  (to-graphql [this binding]
+    (to-graphql type binding))
 
   SchemaType
   (type-name [this]
@@ -175,9 +175,9 @@
     [])
 
   TypeMapper
-  (graphql->sparql [this graphql-value]
+  (from-graphql [this graphql-value]
     (throw (IllegalStateException. "Not implemented!")))
-  (sparql->graphql [this binding]
+  (to-graphql [this binding]
     (some-> binding str))
 
   SchemaElement
