@@ -101,7 +101,7 @@
 
 (extend RefPeriodType TypeMapper id-mapper)
 
-(defrecord EnumItem [uri label value sort-priority])
+(defrecord EnumItem [value label name sort-priority])
 
 (defrecord EnumType [schema enum-name values]
   SchemaType
@@ -112,13 +112,13 @@
   (get-enums [this] [this])
   
   TypeMapper
-  (graphql->sparql [_this value]
-    (if-let [val (first (filter #(= value (:value %)) values))]
-      (:uri val)))
+  (graphql->sparql [_this item-name]
+    (if-let [item (first (filter #(= item-name (:name %)) values))]
+      (:value item)))
 
-  (sparql->graphql [_this uri]
-    (if-let [val (first (filter #(= uri (:uri %)) values))]
-      (enum-label->value-name val))))
+  (sparql->graphql [_this value]
+    (if-let [item (first (filter #(= value (:value %)) values))]
+      (:name item))))
 
 (defn is-enum-type? [type]
   (instance? EnumType type))

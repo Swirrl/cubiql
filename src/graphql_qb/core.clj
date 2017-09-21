@@ -14,10 +14,10 @@
             [graphql-qb.schema :as schema])
   (:import [java.net URI]))
 
-(defn get-enum-values [repo {:keys [ds-uri uri] :as dim}]
+(defn get-enum-items [repo {:keys [ds-uri uri] :as dim}]
   (let [results (sp/query "get-enum-values.sparql" {:ds ds-uri :dim uri} repo)]
-    (map (fn [{:keys [label] :as m}]
-           (assoc m :value (enum-label->value-name label)))
+    (mapv (fn [{:keys [member label priority] :as m}]
+            (types/->EnumItem member label (types/enum-label->value-name label) priority))
          results)))
 
 (defn get-dimension-type [repo {:keys [uri label] :as dim} {:keys [schema] :as ds}]
@@ -29,12 +29,9 @@
     (types/->RefPeriodType)
     
     :else
-    (let [values (get-enum-values repo dim)
-          enum-values (mapv (fn [{:keys [member label priority]}]
-                              (types/->EnumItem member label (types/enum-label->value-name label) priority))
-                            values)
+    (let [items (get-enum-items repo dim)
           enum-name (types/label->enum-name label)]
-      (types/->EnumType schema enum-name enum-values))))
+      (types/->EnumType schema enum-name items))))
 
 (defn get-dimensions
   [repo {:keys [uri schema] :as ds}]
@@ -162,9 +159,8 @@
       next-offset)))
 
 (defn graphql-enum->dimension-measure [{:keys [dimensions measures] :as dataset} enum]
-  (first (filter (fn [dm]
-                   (= enum (:value (types/to-enum-value dm))))
-                 (concat dimensions measures))))
+  (let [dm-enum (types/build-enum :ignored :ignored (concat dimensions measures))]
+    (types/graphql->sparql dm-enum enum)))
 
 (defn get-dimension-measure-ordering [dataset sorts sort-spec]
   (map (fn [dm-enum]

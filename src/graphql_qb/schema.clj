@@ -5,12 +5,12 @@
   {:type :uri
    :description "URI of the observation"})
 
-(defn get-enum-schema-values [{:keys [values] :as enum-type}]
+(defn get-enum-names [{:keys [values] :as enum-type}]
   {:pre [(types/is-enum-type? enum-type)]}
-  (mapv :value values))
+  (mapv :name values))
 
 (defn enum->schema [enum]
-  {(types/type-name enum) {:values (get-enum-schema-values enum)}})
+  {(types/type-name enum) {:values (get-enum-names enum)}})
 
 (defn dataset-observation-schema [{:keys [dimensions measures] :as dataset}]
   (let [dimension-schemas (map types/->schema-element dimensions)
