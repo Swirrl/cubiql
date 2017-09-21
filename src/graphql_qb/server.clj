@@ -3,8 +3,7 @@
             [graphql-qb.data :as data]
             [graphql-qb.util :as util]
             [com.walmartlabs.lacinia.pedestal :as lp]
-            [io.pedestal.http :as server])
-  (:import [java.net URI]))
+            [io.pedestal.http :as server]))
 
 (defn create-server [port]
   (let [repo (data/get-test-repo)

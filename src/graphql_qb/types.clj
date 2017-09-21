@@ -1,8 +1,7 @@
 (ns graphql-qb.types
   "Functions for mapping DSD elements to/from GraphQL types"
   (:require [clojure.string :as string]
-            [graphql-qb.util :as util]
-            [clojure.set :as set])
+            [graphql-qb.util :as util])
   (:import [java.net URI]
            [java.util Base64]))
 
@@ -54,9 +53,6 @@
 (defn field-name->type-name [field-name ds-schema]
   (keyword (str (name ds-schema) "_" (name field-name) "_type")))
 
-(defn ->type-name [f ds-schema]
-  (field-name->type-name (->field-name f) ds-schema))
-
 (defprotocol SparqlQueryable
   (->query-var-name [this])
   (->order-by-var-name [this])
@@ -69,7 +65,6 @@
   (get-enums [this]))
 
 (defprotocol SchemaElement
-  (field-name [this])
   (->schema-element [this]))
 
 (defprotocol TypeMapper
