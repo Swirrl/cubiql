@@ -15,5 +15,5 @@
                :graphiql    true}]
      (lp/pedestal-service schema opts))))
 
-(defn start-server [port]
-  (server/start (create-server port)))
+(defn start-server [port repo]
+  (server/start (create-server port repo)))
