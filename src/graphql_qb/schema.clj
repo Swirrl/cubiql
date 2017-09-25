@@ -65,6 +65,9 @@
         :dimensions {:type '(list :dim)
                      :description "Dimensions within the dataset"
                      :resolve :resolve-dataset-dimensions}
+        :measures {:type '(list :measure)
+                   :description "Measure types within the dataset"
+                   :resolve :resolve-dataset-measures}
         :observations {:type observation-result-type-name
                        :args {:dimensions {:type observation-dims-type-name}
                               :order {:type (list 'list (types/type-name dimensions-measures-fields-enum))}

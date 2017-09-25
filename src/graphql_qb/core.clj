@@ -53,16 +53,29 @@
                    (let [measure-type (types/->MeasureType mt label (inc idx) (is-measure-numeric? repo uri mt))]
                      (assoc measure-type :field-name (->field-name bindings)))) results)))
 
-(defn dimension-enum-value->graphql [{:keys [value label] :as item}]
-  {:uri (str value) :label (str label)})
+(defn dimension-enum-value->graphql [{:keys [value label name] :as item}]
+  {:uri (str value) :label (str label) :enum_name (clojure.core/name name)})
+
+(defn dimension-measure->graphql [{:keys [uri label] :as measure}]
+  {:uri   uri
+   :label (str label)
+   :enum_name  (name (:name (types/to-enum-value measure)))})
+
+(def measure->graphql dimension-measure->graphql)
+
+(defn dimension->graphql [{:keys [type] :as dim}]
+  (let [base-dim (dimension-measure->graphql dim)]
+    (if (types/is-enum-type? type)
+      (assoc base-dim :values (map dimension-enum-value->graphql (:values type)))
+      base-dim)))
 
 (defn resolve-dataset-dimensions [{:keys [repo] :as context} _args ds-field]
   (let [dims (get-dimensions repo ds-field)]
-    (map (fn [{:keys [uri type]}]
-           {:uri (str uri)
-            :values (if (types/is-enum-type? type)
-                      (map dimension-enum-value->graphql (:values type)))})
-         dims)))
+    (map dimension->graphql dims)))
+
+(defn resolve-dataset-measures [{:keys [repo] :as context} _args ds-field]
+  (let [measures (get-measure-types repo ds-field)]
+    (map measure->graphql measures)))
 
 (defn get-dataset [repo uri]
   (if-let [{:keys [title] :as ds} (first (vec (sp/query "get-datasets.sparql" {:ds uri} repo)))]
@@ -317,6 +330,7 @@
                                 :resolve-observations-page resolve-observations-page
                                 :resolve-datasets resolve-datasets
                                 :resolve-dataset-dimensions resolve-dataset-dimensions
+                                :resolve-dataset-measures resolve-dataset-measures
                                 :resolve-observations-min (partial resolve-observations-aggregation :min)
                                 :resolve-observations-max (partial resolve-observations-aggregation :max)
                                 :resolve-observations-sum (partial resolve-observations-aggregation :sum)
