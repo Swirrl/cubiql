@@ -12,8 +12,8 @@
   (:import [java.net URI]))
 
 (defn get-enum-items [repo {:keys [ds-uri uri] :as dim}]
-  (let [results (sp/query "get-enum-values.sparql" {:ds ds-uri :dim uri} repo)]
-    (mapv (fn [{:keys [member label priority] :as m}]
+  (let [results (util/distinct-by :member (sp/query "get-enum-values.sparql" {:ds ds-uri :dim uri} repo))]
+    (mapv (fn [{:keys [member label priority]}]
             (types/->EnumItem member label (types/enum-label->value-name label) priority))
          results)))
 
@@ -32,23 +32,23 @@
 
 (defn get-dimensions
   [repo {:keys [uri schema] :as ds}]
-  (let [base-dims (sp/query "get-dimensions.sparql" {:ds uri} repo)]
-    (map (fn [bindings]
-           (let [dim (-> bindings
-                         (assoc :ds-uri uri)
-                         (assoc :schema schema)
-                         (rename-key :dim :uri))
-                 type (get-dimension-type repo dim ds)
-                 dim-rec (types/map->Dimension (assoc dim :type type))]
-             (assoc dim-rec :field-name (->field-name dim))))
-         base-dims)))
+  (let [results (util/distinct-by :dim (sp/query "get-dimensions.sparql" {:ds uri} repo))]
+    (mapv (fn [bindings]
+            (let [dim (-> bindings
+                          (assoc :ds-uri uri)
+                          (assoc :schema schema)
+                          (rename-key :dim :uri))
+                  type (get-dimension-type repo dim ds)
+                  dim-rec (types/map->Dimension (assoc dim :type type))]
+              (assoc dim-rec :field-name (->field-name dim))))
+          results)))
 
 (defn is-measure-numeric? [repo ds-uri measure-uri]
-  (let [results (sp/query "sample-observation-measure.sparql" {:ds ds-uri :mt measure-uri} repo)]
-    (number? (:value (first results)))))
+  (let [results (vec (sp/query "sample-observation-measure.sparql" {:ds ds-uri :mt measure-uri} repo))]
+    (number? (:measure (first results)))))
 
 (defn get-measure-types [repo {:keys [uri] :as ds}]
-  (let [results (sp/query "get-measure-types.sparql" {:ds uri} repo)]
+  (let [results (vec (sp/query "get-measure-types.sparql" {:ds uri} repo))]
     (map-indexed (fn [idx {:keys [mt label] :as bindings}]
                    (let [measure-type (types/->MeasureType mt label (inc idx) (is-measure-numeric? repo uri mt))]
                      (assoc measure-type :field-name (->field-name bindings)))) results)))
@@ -65,7 +65,7 @@
          dims)))
 
 (defn get-dataset [repo uri]
-  (if-let [{:keys [title] :as ds} (first (sp/query "get-datasets.sparql" {:ds uri} repo))]
+  (if-let [{:keys [title] :as ds} (first (vec (sp/query "get-datasets.sparql" {:ds uri} repo)))]
     (-> ds
         (assoc :schema (name (dataset-label->schema-name title))))))
 
@@ -278,14 +278,15 @@
                (assoc :schema (name (dataset-label->schema-name title)))))
          results)))
 
+(defn- transform-dataset-result [repo {:keys [uri title description] :as ds}]
+  (let [schema (dataset-label->schema-name title)
+        measures (get-measure-types repo {:uri uri})
+        dims (get-dimensions repo {:uri uri :schema schema})]
+    (types/->Dataset uri title description dims measures)))
+
 (defn find-datasets [repo]
   (let [results (sp/query "get-datasets.sparql" repo)]
-    (map (fn [{:keys [uri title description] :as ds}]
-           (let [schema (dataset-label->schema-name title)
-                 dims (get-dimensions repo {:uri uri :schema schema})
-                 measures (get-measure-types repo {:uri uri})]
-             (types/->Dataset uri title description dims measures)))
-         results)))
+    (mapv #(transform-dataset-result repo %) results)))
 
 (def custom-scalars
   {:SparqlCursor

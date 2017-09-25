@@ -31,6 +31,19 @@
 (defn keyed-by [f s]
   (into {} (map (fn [v] [(f v) v]) s)))
 
+(defn distinct-by
+  "Returns a sequence containing distinct elements by the given key function."
+  [f s]
+  (let [keys (atom #{})]
+    (filter (fn [v]
+              (let [k (f v)]
+                (if (contains? @keys k)
+                  false
+                  (do
+                    (swap! keys conj k)
+                    true))))
+            s)))
+
 (defn long->bytes [i]
   {:post [(= 8 (alength %))]}
   (.. (ByteBuffer/allocate 8) (putLong i) (array)))

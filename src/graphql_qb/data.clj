@@ -1,6 +1,5 @@
 (ns graphql-qb.data
   (:require
-   [clojure.java.io :as io]
    [clojure.string :as string]
    [grafter.rdf.repository :as repo]
    [grafter.rdf.formats :as formats]
@@ -18,11 +17,14 @@
    "healthy_life_expectancy_metadata.nt"
    "resources/geo-labels.nt"))
 
+(defn get-scotland-repo []
+  (repo/sparql-repo "https://production-drafter-sg.publishmydata.com/v1/sparql/live"))
+
 (defn fetch-geo-labels
   "Fetches the labels for all areas found across all observations and
   saves them into a resource file."
   []
-  (let [live-repo (repo/sparql-repo "https://production-drafter-sg.publishmydata.com/v1/sparql/live")
+  (let [live-repo (get-scotland-repo)
         test-repo (get-test-repo)
         q (str
            "SELECT DISTINCT ?area WHERE {"

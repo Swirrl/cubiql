@@ -5,14 +5,15 @@
             [com.walmartlabs.lacinia.pedestal :as lp]
             [io.pedestal.http :as server]))
 
-(defn create-server [port]
-  (let [repo (data/get-test-repo)
-        {:keys [schema datasets]} (core/build-schema-context repo)
-        uri->dataset (util/keyed-by :uri datasets)
-        opts {:app-context {:repo repo :uri->dataset uri->dataset}
-              :port port
-              :graphiql true}]
-    (lp/pedestal-service schema opts)))
+(defn create-server
+  ([port] (create-server port (data/get-test-repo)))
+  ([port repo]
+   (let [{:keys [schema datasets]} (core/build-schema-context repo)
+         uri->dataset (util/keyed-by :uri datasets)
+         opts {:app-context {:repo repo :uri->dataset uri->dataset}
+               :port        port
+               :graphiql    true}]
+     (lp/pedestal-service schema opts))))
 
 (defn start-server [port]
   (server/start (create-server port)))

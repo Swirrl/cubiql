@@ -4,7 +4,6 @@ PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
 PREFIX ui: <http://www.w3.org/ns/ui#>
 
 SELECT ?member ?label ?priority WHERE {
-  ?ds a qb:DataSet .
   ?ds qb:structure ?struct .
   ?struct a qb:DataStructureDefinition .
   ?struct qb:component ?comp .
