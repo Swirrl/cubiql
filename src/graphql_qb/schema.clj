@@ -63,11 +63,9 @@
         :description {:type 'String :description "Dataset description"}
         :schema {:type 'String :description "Name of the GraphQL query root field corresponding to this dataset"}
         :dimensions {:type '(list :dim)
-                     :description "Dimensions within the dataset"
-                     :resolve :resolve-dataset-dimensions}
+                     :description "Dimensions within the dataset"}
         :measures {:type '(list :measure)
-                   :description "Measure types within the dataset"
-                   :resolve :resolve-dataset-measures}
+                   :description "Measure types within the dataset"}
         :observations {:type observation-result-type-name
                        :args {:dimensions {:type observation-dims-type-name}
                               :order {:type (list 'list (types/type-name dimensions-measures-fields-enum))}

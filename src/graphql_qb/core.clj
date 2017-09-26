@@ -77,14 +77,6 @@
   (let [measures (get-measure-types repo ds-field)]
     (map measure->graphql measures)))
 
-(defn get-dataset [repo uri]
-  (if-let [{:keys [title] :as ds} (first (vec (sp/query "get-datasets.sparql" {:ds uri} repo)))]
-    (-> ds
-        (assoc :schema (name (dataset-label->schema-name title))))))
-
-(defn resolve-dataset [uri {:keys [repo] :as context} _args _field]
-  (get-dataset repo uri))
-
 (defn get-order-by [order-by-dim-measures]
   (if (empty? order-by-dim-measures)
     ""
@@ -317,14 +309,22 @@
    :uri {:parse (lschema/as-conformer #(URI. %))
          :serialize (lschema/as-conformer str)}})
 
+(defn dataset->graphql [{:keys [uri title description dimensions measures] :as dataset}]
+  {:uri uri
+   :title title
+   :description description
+   :schema (types/dataset-schema dataset)
+   :dimensions (map dimension->graphql dimensions)
+   :measures (map measure->graphql measures)})
+
 (defn get-schema [datasets]
   (let [base-schema (read-edn-resource "base-schema.edn")
         base-schema (assoc base-schema :scalars custom-scalars)
         ds-schemas (map schema/get-dataset-schema datasets)
         combined-schema (reduce (fn [acc schema] (merge-with merge acc schema)) base-schema ds-schemas)
-        schema-resolvers (into {} (map (fn [{:keys [uri] :as ds}]
-                                         [(schema/dataset-resolver ds) (fn [context args field]
-                                                                         (resolve-dataset uri context args field))])
+        schema-resolvers (into {} (map (fn [dataset]
+                                         [(schema/dataset-resolver dataset) (fn [context args field]
+                                                                              (dataset->graphql dataset))])
                                        datasets))
         query-resolvers (merge {:resolve-observations resolve-observations
                                 :resolve-observations-page resolve-observations-page
