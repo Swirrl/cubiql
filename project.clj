@@ -7,7 +7,8 @@
                  [com.walmartlabs/lacinia "0.20.0"]
                  [com.walmartlabs/lacinia-pedestal "0.3.0"]
                  [org.clojure/data.json "0.2.6"]
-                 [grafter "0.9.0"]]
+                 [grafter "0.9.0"]
+                 [org.clojure/tools.cli "0.3.5"]]
   :main ^:skip-aot graphql-qb.main
   :target-path "target/%s"
   :profiles {:uberjar {:aot :all}})

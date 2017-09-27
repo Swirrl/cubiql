@@ -9,21 +9,27 @@
     :dimensions  {:type        (list :dim)
                   :resolve     :resolve-dataset-dimensions
                   :description "Dimensions within the dataset"}
-    :measures    {:type (list :measure) :description "Measure types within the dataset"}}}
+    :measures    {:type (list :measure)
+                  :resolve :resolve-dataset-measures
+                  :description "Measure types within the dataset"}}}
 
   :dim
   {:fields
    {:uri    {:type :uri :description "URI of the dimension"}
-    :values {:type (list :dim_value) :description "Code list of values for the dimension"}}}
+    :values {:type (list :dim_value) :description "Code list of values for the dimension"}
+    :enum_name {:type String :description "Name of the correspondign enum value"}}}
 
   :measure
   {:fields
-   {:uri {:type :uri :description "URI of the measure"}}}
+   {:uri {:type :uri :description "URI of the measure"}
+    :label {:type String :description "Label for the measure"}
+    :enum_name {:type String :description "Name of the corresponding enum value"}}}
 
   :dim_value
   {:fields
    {:uri   {:type :uri :description "URI of the dimension value"}
-    :label {:type String :description "Label for the dimension value"}}}}
+    :label {:type String :description "Label for the dimension value"}
+    :enum_name {:type String :description "Name of the corresponding enum value"}}}}
 
  :interfaces
  {:dataset_meta
@@ -33,7 +39,8 @@
     :title       {:type String :description "Dataset title"}
     :description {:type String :description "Dataset description"}
     :schema      {:type String :description "Name of the GraphQL query root field corresponding to this dataset"}
-    :dimensions  {:type (list :dim) :description "Dimensions within the dataset"}}}}
+    :dimensions  {:type (list :dim) :description "Dimensions within the dataset"}
+    :measures {:type (list :measure) :description "Measure types within the dataset"}}}}
 
  :enums
  {:sort_direction

@@ -31,24 +31,40 @@
         enc (Base64/getEncoder)]
     (.encodeToString enc bytes)))
 
+(defn get-identifier-segments [label]
+  (let [segments (re-seq #"[a-zA-Z0-9]+" (str label))]
+    (if (empty? segments)
+      (throw (IllegalArgumentException. (format "Cannot construct identifier from label '%s'" label)))
+      (let [first-char (ffirst segments)]
+        (if (Character/isDigit first-char)
+          (cons "a" segments)
+          segments)))))
+
+(defn- segments->schema-key [segments]
+  (->> segments
+       (map string/lower-case)
+       (string/join "_")
+       (keyword)))
+
+(defn- segments->enum-value [segments]
+  (->> segments
+       (map string/upper-case)
+       (string/join "_")
+       (keyword)))
+
 (defn dataset-label->schema-name [label]
-  (keyword (string/join "_" (cons "dataset" (map string/lower-case (string/split label #"\s+"))))))
+  (segments->schema-key (cons "dataset" (get-identifier-segments label))))
 
 (defn label->field-name [label]
-  (keyword (string/join "_" (map string/lower-case (string/split (str label) #"\s+")))))
+  (segments->schema-key (get-identifier-segments label)))
 
 (defn ->field-name [{:keys [label]}]
   (label->field-name label))
 
 (def label->enum-name label->field-name)
 
-(defn has-valid-name-first-char? [name]
-  (boolean (re-find #"^[_a-zA-Z]" name)))
-
 (defn enum-label->value-name [label]
-  (let [name (string/join "_" (map string/upper-case (string/split (str label) #"\s+")))
-        valid-name (if (has-valid-name-first-char? name) name (str "a_" name))]
-    (keyword valid-name)))
+  (segments->enum-value (get-identifier-segments label)))
 
 (defn field-name->type-name [field-name ds-schema]
   (keyword (str (name ds-schema) "_" (name field-name) "_type")))

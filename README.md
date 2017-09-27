@@ -70,9 +70,21 @@ You'll see something like:
 
 ## Running yourself
 
-    $ java -jar graphql-qb-0.1.0-standalone.jar [PORT]
+    $ java -jar graphql-qb-0.1.0-standalone.jar OPTIONS
 
-If not specified the server will be hosted on the default port 8080.
+The available options are:
+
+|  Name    | Default |
+|----------|---------|
+| port     | 8080    |
+| endpoint |         |
+
+For example to run the server against a remote SPARQL endpoint on port 9000:
+
+    $ java -jar graphql-qb-standalone.jar --port 9000 --endpoint http://remote-endpoint/sparql/query
+
+
+If the endpoint is not specified the build-in test data will be used.
 
 The server hosts a GraphQL endpoint at http://localhost:PORT/graphql which follows the
 protocol described [here](http://graphql.org/learn/serving-over-http/).

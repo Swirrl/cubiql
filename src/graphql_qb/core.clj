@@ -12,8 +12,8 @@
   (:import [java.net URI]))
 
 (defn get-enum-items [repo {:keys [ds-uri uri] :as dim}]
-  (let [results (sp/query "get-enum-values.sparql" {:ds ds-uri :dim uri} repo)]
-    (mapv (fn [{:keys [member label priority] :as m}]
+  (let [results (util/distinct-by :member (sp/query "get-enum-values.sparql" {:ds ds-uri :dim uri} repo))]
+    (mapv (fn [{:keys [member label priority]}]
             (types/->EnumItem member label (types/enum-label->value-name label) priority))
          results)))
 
@@ -32,45 +32,50 @@
 
 (defn get-dimensions
   [repo {:keys [uri schema] :as ds}]
-  (let [base-dims (sp/query "get-dimensions.sparql" {:ds uri} repo)]
-    (map (fn [bindings]
-           (let [dim (-> bindings
-                         (assoc :ds-uri uri)
-                         (assoc :schema schema)
-                         (rename-key :dim :uri))
-                 type (get-dimension-type repo dim ds)
-                 dim-rec (types/map->Dimension (assoc dim :type type))]
-             (assoc dim-rec :field-name (->field-name dim))))
-         base-dims)))
+  (let [results (util/distinct-by :dim (sp/query "get-dimensions.sparql" {:ds uri} repo))]
+    (mapv (fn [bindings]
+            (let [dim (-> bindings
+                          (assoc :ds-uri uri)
+                          (assoc :schema schema)
+                          (rename-key :dim :uri))
+                  type (get-dimension-type repo dim ds)
+                  dim-rec (types/map->Dimension (assoc dim :type type))]
+              (assoc dim-rec :field-name (->field-name dim))))
+          results)))
 
 (defn is-measure-numeric? [repo ds-uri measure-uri]
-  (let [results (sp/query "sample-observation-measure.sparql" {:ds ds-uri :mt measure-uri} repo)]
-    (number? (:value (first results)))))
+  (let [results (vec (sp/query "sample-observation-measure.sparql" {:ds ds-uri :mt measure-uri} repo))]
+    (number? (:measure (first results)))))
 
 (defn get-measure-types [repo {:keys [uri] :as ds}]
-  (let [results (sp/query "get-measure-types.sparql" {:ds uri} repo)]
+  (let [results (vec (sp/query "get-measure-types.sparql" {:ds uri} repo))]
     (map-indexed (fn [idx {:keys [mt label] :as bindings}]
                    (let [measure-type (types/->MeasureType mt label (inc idx) (is-measure-numeric? repo uri mt))]
                      (assoc measure-type :field-name (->field-name bindings)))) results)))
 
-(defn dimension-enum-value->graphql [{:keys [value label] :as item}]
-  {:uri (str value) :label (str label)})
+(defn dimension-enum-value->graphql [{:keys [value label name] :as item}]
+  {:uri (str value) :label (str label) :enum_name (clojure.core/name name)})
+
+(defn dimension-measure->graphql [{:keys [uri label] :as measure}]
+  {:uri   uri
+   :label (str label)
+   :enum_name  (name (:name (types/to-enum-value measure)))})
+
+(def measure->graphql dimension-measure->graphql)
+
+(defn dimension->graphql [{:keys [type] :as dim}]
+  (let [base-dim (dimension-measure->graphql dim)]
+    (if (types/is-enum-type? type)
+      (assoc base-dim :values (map dimension-enum-value->graphql (:values type)))
+      base-dim)))
 
 (defn resolve-dataset-dimensions [{:keys [repo] :as context} _args ds-field]
   (let [dims (get-dimensions repo ds-field)]
-    (map (fn [{:keys [uri type]}]
-           {:uri (str uri)
-            :values (if (types/is-enum-type? type)
-                      (map dimension-enum-value->graphql (:values type)))})
-         dims)))
+    (map dimension->graphql dims)))
 
-(defn get-dataset [repo uri]
-  (if-let [{:keys [title] :as ds} (first (sp/query "get-datasets.sparql" {:ds uri} repo))]
-    (-> ds
-        (assoc :schema (name (dataset-label->schema-name title))))))
-
-(defn resolve-dataset [uri {:keys [repo] :as context} _args _field]
-  (get-dataset repo uri))
+(defn resolve-dataset-measures [{:keys [repo] :as context} _args ds-field]
+  (let [measures (get-measure-types repo ds-field)]
+    (map measure->graphql measures)))
 
 (defn get-order-by [order-by-dim-measures]
   (if (empty? order-by-dim-measures)
@@ -309,14 +314,15 @@
                (assoc :schema (name (dataset-label->schema-name title)))))
          results)))
 
+(defn- transform-dataset-result [repo {:keys [uri title description] :as ds}]
+  (let [schema (dataset-label->schema-name title)
+        measures (get-measure-types repo {:uri uri})
+        dims (get-dimensions repo {:uri uri :schema schema})]
+    (types/->Dataset uri title description dims measures)))
+
 (defn find-datasets [repo]
   (let [results (sp/query "get-datasets.sparql" repo)]
-    (map (fn [{:keys [uri title description] :as ds}]
-           (let [schema (dataset-label->schema-name title)
-                 dims (get-dimensions repo {:uri uri :schema schema})
-                 measures (get-measure-types repo {:uri uri})]
-             (types/->Dataset uri title description dims measures)))
-         results)))
+    (mapv #(transform-dataset-result repo %) results)))
 
 (def custom-scalars
   {:SparqlCursor
@@ -334,19 +340,28 @@
    :uri {:parse (lschema/as-conformer #(URI. %))
          :serialize (lschema/as-conformer str)}})
 
+(defn dataset->graphql [{:keys [uri title description dimensions measures] :as dataset}]
+  {:uri uri
+   :title title
+   :description description
+   :schema (types/dataset-schema dataset)
+   :dimensions (map dimension->graphql dimensions)
+   :measures (map measure->graphql measures)})
+
 (defn get-schema [datasets]
   (let [base-schema (read-edn-resource "base-schema.edn")
         base-schema (assoc base-schema :scalars custom-scalars)
         ds-schemas (map schema/get-dataset-schema datasets)
         combined-schema (reduce (fn [acc schema] (merge-with merge acc schema)) base-schema ds-schemas)
-        schema-resolvers (into {} (map (fn [{:keys [uri] :as ds}]
-                                         [(schema/dataset-resolver ds) (fn [context args field]
-                                                                         (resolve-dataset uri context args field))])
+        schema-resolvers (into {} (map (fn [dataset]
+                                         [(schema/dataset-resolver dataset) (fn [context args field]
+                                                                              (dataset->graphql dataset))])
                                        datasets))
         query-resolvers (merge {:resolve-observations resolve-observations
                                 :resolve-observations-page resolve-observations-page
                                 :resolve-datasets resolve-datasets
                                 :resolve-dataset-dimensions resolve-dataset-dimensions
+                                :resolve-dataset-measures resolve-dataset-measures
                                 :resolve-observations-min (partial resolve-observations-aggregation :min)
                                 :resolve-observations-max (partial resolve-observations-aggregation :max)
                                 :resolve-observations-sum (partial resolve-observations-aggregation :sum)
