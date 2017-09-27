@@ -59,4 +59,5 @@
    :resolve :resolve-datasets
    :args
             {:dimensions {:type :filter}
+             :measures   {:type :filter}
              :uri        {:type :uri}}}}}

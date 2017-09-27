@@ -230,24 +230,50 @@
   (if (empty? dims-and)
     ""
     (let [and-clauses (map-indexed (fn [idx uri]
-                                     (let [comp-var (str "?comp" (inc idx))]
+                                     (let [comp-var (str "?compD" (inc idx))]
                                        (str
                                         "?struct qb:component " comp-var ". \n"
                                         comp-var " a qb:ComponentSpecification .\n"
                                         comp-var " qb:dimension <" (str uri) "> .\n")))
                             dims-and)]
-      (str
-       "  ?ds qb:structure ?struct ."
-       "  ?struct a qb:DataStructureDefinition ."
-       (string/join "\n" and-clauses)))))
+      (str (string/join "\n" and-clauses)))))
 
 (defn get-dimensions-or [{dims-or :or}]
   (if (empty? dims-or)
-    "  ?ds a qb:DataSet ."
+    ""
     (let [union-clauses (map (fn [dim]
                                (str "{ ?struct qb:component ?comp ."
                                     "  ?comp qb:dimension <" dim "> . }"))
                              dims-or)]
+      (str
+       "{ SELECT DISTINCT ?ds WHERE {"
+       "  ?ds a qb:DataSet ."
+       "  ?ds qb:structure ?struct ."
+       "  ?struct a qb:DataStructureDefinition ."
+       (string/join " UNION " union-clauses)
+       "} }"))))
+
+(defn get-measures-filter [{meas-and :and}]
+  (if (empty? meas-and)
+    ""
+    (let [and-clauses (map-indexed (fn [idx uri]
+                                     (let [comp-var (str "?compM" (inc idx))]
+                                       (str
+                                        "?struct qb:component " comp-var ". \n"
+                                        comp-var " a qb:ComponentSpecification .\n"
+                                        comp-var " qb:measure <" (str uri) "> .\n")))
+                            meas-and)]
+      (str (string/join "\n" and-clauses)))))
+
+
+
+(defn get-measures-or [{meas-or :or}]
+  (if (empty? meas-or)
+    ""
+    (let [union-clauses (map (fn [meas]
+                               (str "{ ?struct qb:component ?comp ."
+                                    "  ?comp qb:measure <" meas "> . }"))
+                             meas-or)]
       (str
        "{ SELECT DISTINCT ?ds WHERE {"
        "  ?ds a qb:DataSet ."
@@ -261,10 +287,15 @@
    "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>"
    "PREFIX qb: <http://purl.org/linked-data/cube#>"
    "SELECT ?ds ?title ?description WHERE {"
+   "  ?ds a qb:DataSet ."
    (get-dimensions-or dimensions)
+   (get-measures-or measures)
    "  ?ds rdfs:label ?title ."
    "  ?ds rdfs:comment ?description ."
+   "  ?ds qb:structure ?struct ."
+   "  ?struct a qb:DataStructureDefinition ."
    (get-dimensions-filter dimensions)
+   (get-measures-filter measures)
    (if (some? uri)
      (str "FILTER(?ds = <" uri ">) ."))
    "}"))
