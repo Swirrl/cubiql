@@ -11,5 +11,4 @@ SELECT ?member ?label ?priority WHERE {
   ?comp qb:codeList ?list .
   ?list skos:member ?member .
   ?member rdfs:label ?label .
-  OPTIONAL { ?member ui:sortPriority ?priority }
 }
