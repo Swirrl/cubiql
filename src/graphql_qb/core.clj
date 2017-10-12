@@ -97,11 +97,6 @@
                                           val-uri (types/from-graphql dim field-value)]
                                       (str "?obs <" uri "> <" val-uri "> .")))
                                   constrained-dims)
-        measure-type-patterns (map (fn [{:keys [uri] :as mt}]
-                                     (str
-                                      "  ?obs qb:measureType <" (str uri) "> . \n" 
-                                      "  ?obs <" (str uri) "> ?" (types/->query-var-name mt) " ."))                                   
-                                   measure-types)
         binds (map (fn [{:keys [field-name] :as dim}]
                      (let [field-value (get query-dimensions field-name)                           
                            val-uri (types/from-graphql dim field-value)
@@ -116,7 +111,8 @@
     (str
      "  ?obs a qb:Observation ."
      "  ?obs qb:dataSet <" ds-uri "> ."
-     (string/join "\n" measure-type-patterns)
+     "  ?obs qb:measureType ?mp ."
+     "  ?obs ?mp ?mv ."
      (string/join "\n" constrained-patterns)
      (string/join "\n" query-patterns)
      (string/join "\n" order-by-patterns)
@@ -198,13 +194,15 @@
         total-matches (:total_matches observations-field)
         query (get-observation-page-query ds-uri dimensions query-dimensions measures limit offset order-by-dim-measures)
         results (repo/query repo query)
-        matches (mapv (fn [{:keys [obs] :as bindings}]
-                        (let [field-values (map (fn [{:keys [field-name] :as ft}]                                                    
-                                                  (let [result-key (keyword (types/->query-var-name ft))
-                                                        value (get bindings result-key)]
-                                                    [field-name (types/to-graphql ft value)]))
-                                                (concat dimensions measures))]
-                          (into {:uri obs} field-values)))
+        matches (mapv (fn [{:keys [obs mp mv] :as bindings}]
+                        (let [dimension-values (map (fn [{:keys [field-name] :as ft}]
+                                                      (let [result-key (keyword (types/->query-var-name ft))
+                                                            value (get bindings result-key)]
+                                                        [field-name (types/to-graphql ft value)]))
+                                                    dimensions)
+                              {measure-field :field-name :as obs-measure} (first (filter #(= mp (:uri %)) measures))
+                              measure-value (types/to-graphql obs-measure mv)]
+                          (into {:uri obs measure-field measure-value} dimension-values)))
                       results)
         next-page (calculate-next-page-offset offset limit total-matches)]
     {:next_page next-page
