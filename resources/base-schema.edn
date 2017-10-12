@@ -55,6 +55,21 @@
     :and {:type        (list :uri)
           :description "List of URIs which must all be contained within matching datasets."}}}
 
+  :dimvalue
+  {:fields
+   {:dimension {:type :uri}
+    :value     {:type :uri}
+    :level     {:type :uri}
+    }
+   }
+  
+  :dimvaluefilter
+  {:fields
+   {:or  {:type        (list :dimvalue)
+          :description "List of URIs for which at least one must be contained within matching datasets."}
+    :and {:type        (list :dimvalue)
+          :description "List of URIs which must all be contained within matching datasets."}}}
+  
   :page_selector
   {:fields
    {:first {:type Int :description "Number of results to retrive."}
@@ -67,4 +82,6 @@
    :args
             {:dimensions {:type :filter}
              :measures   {:type :filter}
+             :attributes {:type :filter}
+             :data       {:type :dimvaluefilter}
              :uri        {:type :uri}}}}}

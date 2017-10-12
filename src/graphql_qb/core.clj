@@ -235,26 +235,26 @@
   (if (empty? dims-and)
     ""
     (let [and-clauses (map-indexed (fn [idx uri]
-                                     (let [comp-var (str "?compD" (inc idx))]
+                                     (let [comp-var (str "?compDim" (inc idx))]
                                        (str
                                         "?struct qb:component " comp-var ". \n"
                                         comp-var " a qb:ComponentSpecification .\n"
                                         comp-var " qb:dimension <" (str uri) "> .\n")))
                             dims-and)]
-      (str (string/join "\n" and-clauses)))))
+      (str (string/join and-clauses)))))
 
 (defn get-dimensions-or [{dims-or :or}]
   (if (empty? dims-or)
     ""
     (let [union-clauses (map (fn [dim]
-                               (str "{ ?struct qb:component ?comp ."
-                                    "  ?comp qb:dimension <" dim "> . }"))
+                               (str "{ ?struct qb:component ?comp . \n"
+                                    "  ?comp qb:dimension <" dim "> . }\n"))
                              dims-or)]
       (str
-       "{ SELECT DISTINCT ?ds WHERE {"
-       "  ?ds a qb:DataSet ."
-       "  ?ds qb:structure ?struct ."
-       "  ?struct a qb:DataStructureDefinition ."
+       "{ SELECT DISTINCT ?ds WHERE {\n"
+       "  ?ds a qb:DataSet .\n"
+       "  ?ds qb:structure ?struct .\n"
+       "  ?struct a qb:DataStructureDefinition .\n"
        (string/join " UNION " union-clauses)
        "} }"))))
 
@@ -262,13 +262,13 @@
   (if (empty? meas-and)
     ""
     (let [and-clauses (map-indexed (fn [idx uri]
-                                     (let [comp-var (str "?compM" (inc idx))]
+                                     (let [comp-var (str "?compMeas" (inc idx))]
                                        (str
                                         "?struct qb:component " comp-var ". \n"
                                         comp-var " a qb:ComponentSpecification .\n"
                                         comp-var " qb:measure <" (str uri) "> .\n")))
                             meas-and)]
-      (str (string/join "\n" and-clauses)))))
+      (str (string/join and-clauses)))))
 
 
 
@@ -276,37 +276,113 @@
   (if (empty? meas-or)
     ""
     (let [union-clauses (map (fn [meas]
-                               (str "{ ?struct qb:component ?comp ."
-                                    "  ?comp qb:measure <" meas "> . }"))
+                               (str "{ ?struct qb:component ?comp .\n"
+                                    "  ?comp qb:measure <" meas "> . }\n"))
                              meas-or)]
       (str
-       "{ SELECT DISTINCT ?ds WHERE {"
-       "  ?ds a qb:DataSet ."
-       "  ?ds qb:structure ?struct ."
-       "  ?struct a qb:DataStructureDefinition ."
+       "{ SELECT DISTINCT ?ds WHERE {\n"
+       "  ?ds a qb:DataSet .\n"
+       "  ?ds qb:structure ?struct .\n"
+       "  ?struct a qb:DataStructureDefinition .\n"
        (string/join " UNION " union-clauses)
        "} }"))))
 
-(defn get-datasets-query [dimensions measures uri]
+(defn get-attributes-filter [{attr-and :and}]
+  (if (empty? attr-and)
+    ""
+    (let [and-clauses (map-indexed (fn [idx uri]
+                                     (let [comp-var (str "?compAttr" (inc idx))]
+                                       (str
+                                        "?struct qb:component " comp-var ". \n"
+                                        comp-var " a qb:ComponentSpecification .\n"
+                                        comp-var " qb:attribute <" (str uri) "> .\n")))
+                            attr-and)]
+      (str (string/join and-clauses)))))
+
+
+
+(defn get-attributes-or [{attr-or :or}]
+  (if (empty? attr-or)
+    ""
+    (let [union-clauses (map (fn [attr]
+                               (str "{ ?struct qb:component ?comp .\n"
+                                    "  ?comp qb:attribute <" attr "> . }\n"))
+                             attr-or)]
+      (str
+       "{ SELECT DISTINCT ?ds WHERE {\n"
+       "  ?ds a qb:DataSet .\n"
+       "  ?ds qb:structure ?struct .\n"
+       "  ?struct a qb:DataStructureDefinition .\n"
+       (string/join " UNION " union-clauses)
+       "} }"))))
+
+
+(defn get-data-filter [{data-and :and}]
+  (if (empty? data-and)
+    ""
+    (let [and-clauses (map-indexed (fn [idx {dim :dimension val :value lev :level}]
+                                     (let [incidx (str (inc idx))]
+                                       (str " ?struct qb:component ?comp" incidx " .\n"
+                                            " ?comp" incidx " qb:dimension <" dim "> .\n"
+                                            " ?comp" incidx " qb:codeList ?cl" incidx ".\n"
+                                            (if (some? val)
+                                              (str " ?cl" incidx " skos:member <" val ">.\n")) 
+                                            (if (some? lev)
+                                              (str " ?cl" incidx " skos:member ?mem" incidx ".\n" 
+                                                   " ?mem" incidx " <http://publishmydata.com/def/ontology/spatial/memberOf> <" lev ">.\n")))
+                                         ))
+                        data-and)]
+      (str (string/join and-clauses)))))
+
+
+(defn get-data-or [{data-or :or}]
+  (if (empty? data-or)
+    ""
+    (let [union-clauses (map (fn [{dim :dimension val :value lev :level}]
+                               (str "{ ?struct qb:component ?comp .\n"
+                                    "  ?comp qb:dimension <" dim "> .\n"
+                                    "  ?comp qb:codeList ?cl.\n"
+                                    (if (some? val)
+                                      (str "  ?cl skos:member <" val ">.\n")) 
+                                    (if (some? lev)
+                                      (str "  ?cl skos:member ?mem.\n" 
+                                           "  ?mem <http://publishmydata.com/def/ontology/spatial/memberOf> <" lev ">.\n"))                                                                
+                                    "}\n"))
+                             data-or)]
+    (str
+       "{ SELECT DISTINCT ?ds WHERE {\n"
+       "  ?ds a qb:DataSet .\n"
+       "  ?ds qb:structure ?struct .\n"
+       "  ?struct a qb:DataStructureDefinition .\n"
+       (string/join " UNION " union-clauses)
+       "} }"))))
+
+(defn get-datasets-query [dimensions measures attributes data uri]
   (str
-   "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>"
-   "PREFIX qb: <http://purl.org/linked-data/cube#>"
-   "SELECT ?ds ?title ?description WHERE {"
-   "  ?ds a qb:DataSet ."
+   "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\n"
+   "PREFIX qb: <http://purl.org/linked-data/cube#>\n"
+   "PREFIX skos: <http://www.w3.org/2004/02/skos/core#>\n"
+   "SELECT DISTINCT ?ds ?title ?description WHERE {\n"
+   "  ?ds a qb:DataSet .\n"
    (get-dimensions-or dimensions)
    (get-measures-or measures)
-   "  ?ds rdfs:label ?title ."
-   "  ?ds rdfs:comment ?description ."
-   "  ?ds qb:structure ?struct ."
-   "  ?struct a qb:DataStructureDefinition ."
+   (get-attributes-or attributes)
+   (get-data-or data)
+   "  ?ds rdfs:label ?title .\n"
+   "  ?ds rdfs:comment ?description .\n"
+   "  ?ds qb:structure ?struct .\n"
+   "  ?struct a qb:DataStructureDefinition .\n"
    (get-dimensions-filter dimensions)
    (get-measures-filter measures)
+   (get-attributes-filter attributes)
+   (get-data-filter data)
    (if (some? uri)
      (str "FILTER(?ds = <" uri ">) ."))
    "}"))
 
-(defn resolve-datasets [{:keys [repo]} {:keys [dimensions measures uri] :as args} _parent]
-  (let [q (get-datasets-query dimensions measures uri)
+(defn resolve-datasets [{:keys [repo]} {:keys [dimensions measures attributes data uri] :as args} _parent]
+  (println (get-datasets-query dimensions measures attributes data uri))
+  (let [q (get-datasets-query dimensions measures attributes data uri)
         results (repo/query repo q)]
     (map (fn [{:keys [title] :as bindings}]
            (-> bindings
