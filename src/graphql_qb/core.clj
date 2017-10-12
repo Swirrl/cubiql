@@ -241,6 +241,7 @@
                             dims-and)]
       (str (string/join and-clauses)))))
 
+;;Added by Dimitris
 (defn get-dimensions-or [{dims-or :or}]
   (if (empty? dims-or)
     ""
@@ -256,6 +257,8 @@
        (string/join " UNION " union-clauses)
        "} }"))))
 
+
+;;Added by Dimitris
 (defn get-measures-filter [{meas-and :and}]
   (if (empty? meas-and)
     ""
@@ -269,7 +272,7 @@
       (str (string/join and-clauses)))))
 
 
-
+;;Added by Dimitris
 (defn get-measures-or [{meas-or :or}]
   (if (empty? meas-or)
     ""
@@ -285,6 +288,7 @@
        (string/join " UNION " union-clauses)
        "} }"))))
 
+;;Added by Dimitris
 (defn get-attributes-filter [{attr-and :and}]
   (if (empty? attr-and)
     ""
@@ -298,7 +302,7 @@
       (str (string/join and-clauses)))))
 
 
-
+;;Added by Dimitris
 (defn get-attributes-or [{attr-or :or}]
   (if (empty? attr-or)
     ""
@@ -314,7 +318,7 @@
        (string/join " UNION " union-clauses)
        "} }"))))
 
-
+;;Added by Dimitris
 (defn get-data-filter [{data-and :and}]
   (if (empty? data-and)
     ""
@@ -322,7 +326,7 @@
                                      (let [incidx (str (inc idx))]
                                        (str " ?struct qb:component ?comp" incidx " .\n"
                                             " ?comp" incidx " qb:dimension <" dim "> .\n"
-                                            " ?comp" incidx " qb:codeList ?cl" incidx ".\n"
+                                            " ?comp" incidx " qb:codeList ?cl" incidx ".\n" ;;the codelist should contain only the values used at the dataset
                                             (if (some? val)
                                               (str " ?cl" incidx " skos:member <" val ">.\n")) 
                                             (if (some? lev)
@@ -332,14 +336,14 @@
                         data-and)]
       (str (string/join and-clauses)))))
 
-
+;;Added by Dimitris
 (defn get-data-or [{data-or :or}]
   (if (empty? data-or)
     ""
     (let [union-clauses (map (fn [{dim :dimension val :value lev :level}]
                                (str "{ ?struct qb:component ?comp .\n"
                                     "  ?comp qb:dimension <" dim "> .\n"
-                                    "  ?comp qb:codeList ?cl.\n"
+                                    "  ?comp qb:codeList ?cl.\n" ;;the codelist should contain only the values used at the dataset
                                     (if (some? val)
                                       (str "  ?cl skos:member <" val ">.\n")) 
                                     (if (some? lev)
@@ -355,6 +359,7 @@
        (string/join " UNION " union-clauses)
        "} }"))))
 
+;;Modified by Dimitris
 (defn get-datasets-query [dimensions measures attributes data uri]
   (str
    "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\n"

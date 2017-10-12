@@ -55,6 +55,7 @@
     :and {:type        (list :uri)
           :description "List of URIs which must all be contained within matching datasets."}}}
 
+  ;;Added by Dimitris
   :dimvalue
   {:fields
    {:dimension {:type :uri}
@@ -63,6 +64,7 @@
     }
    }
   
+  ;;Added by Dimitris
   :dimvaluefilter
   {:fields
    {:or  {:type        (list :dimvalue)
@@ -81,7 +83,7 @@
    :resolve :resolve-datasets
    :args
             {:dimensions {:type :filter}
-             :measures   {:type :filter}
-             :attributes {:type :filter}
-             :data       {:type :dimvaluefilter}
+             :measures   {:type :filter} ;;Added by Dimitris
+             :attributes {:type :filter} ;;Added by Dimitris
+             :data       {:type :dimvaluefilter} ;;Added by Dimitris
              :uri        {:type :uri}}}}}
