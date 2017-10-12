@@ -15,16 +15,8 @@ way than through SPARQL.
 We have hosted an example graphql-qb service
 at
 [graphql-qb.publishmydata.com](http://graphql-qb.publishmydata.com/)
-which is currently loaded with two example linked datasets, taken
+which is currently using data from 
 from [statistics.gov.scot](http://statistics.gov.scot/).
-
-The original datasets can be found and browsed at:
-
-- http://statistics.gov.scot/data/earnings
-- http://statistics.gov.scot/data/healthy-life-expectancy
-
-Service which hosts a GraphQL endpoint with a schema generated from an
-RDF dataset definition.
 
 ### Example Queries
 
