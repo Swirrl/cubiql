@@ -56,21 +56,21 @@
           :description "List of URIs which must all be contained within matching datasets."}}}
 
   ;;Added by Dimitris
-  :dimvalue
+  :componentvalue
   {:fields
-   {:dimension {:type :uri}
-    :value     {:type :uri}
-    :level     {:type :uri}
+   {:component {:type :uri :description "The URI of a dimension or attribute"}
+    :value     {:type :uri :description "The URI of a dimension/attribute value"}
+    :level     {:type :uri :description "The URI of a hierarchical level of dimension/attribute value"}
     }
    }
   
   ;;Added by Dimitris
-  :dimvaluefilter
+  :valuefilter
   {:fields
-   {:or  {:type        (list :dimvalue)
-          :description "List of URIs for which at least one must be contained within matching datasets."}
-    :and {:type        (list :dimvalue)
-          :description "List of URIs which must all be contained within matching datasets."}}}
+   {:or  {:type        (list :componentvalue)
+          :description "List of :componentvalues for which at least one must be contained within matching datasets."}
+    :and {:type        (list :componentvalue)
+          :description "List of :componentvalues which must all be contained within matching datasets."}}}
   
   :page_selector
   {:fields
@@ -85,5 +85,5 @@
             {:dimensions {:type :filter}
              :measures   {:type :filter} ;;Added by Dimitris
              :attributes {:type :filter} ;;Added by Dimitris
-             :data       {:type :dimvaluefilter} ;;Added by Dimitris
+             :data       {:type :valuefilter} ;;Added by Dimitris
              :uri        {:type :uri}}}}}

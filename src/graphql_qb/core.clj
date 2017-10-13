@@ -333,11 +333,11 @@
 (defn get-data-filter [{data-and :and}]
   (if (empty? data-and)
     ""
-    (let [and-clauses (map-indexed (fn [idx {dim :dimension val :value lev :level}]
+    (let [and-clauses (map-indexed (fn [idx {comp :component val :value lev :level}]
                                      (let [incidx (str (inc idx))]
                                        (str " ?struct qb:component ?comp" incidx " .\n"
-                                            " ?comp" incidx " qb:dimension <" dim "> .\n"
-                                            " ?comp" incidx " qb:codeList ?cl" incidx ".\n" ;;the codelist should contain only the values used at the dataset
+                                            " ?comp" incidx " qb:dimension|qb:attribute <" comp "> .\n" ;;the component can be either a dimension or attribute
+                                            " ?comp" incidx " qb:codeList ?cl" incidx ".\n" ;the codelist should contain ONLY the values used at the dataset
                                             (if (some? val)
                                               (str " ?cl" incidx " skos:member <" val ">.\n")) 
                                             (if (some? lev)
@@ -351,10 +351,10 @@
 (defn get-data-or [{data-or :or}]
   (if (empty? data-or)
     ""
-    (let [union-clauses (map (fn [{dim :dimension val :value lev :level}]
+    (let [union-clauses (map (fn [{comp :component val :value lev :level}]
                                (str "{ ?struct qb:component ?comp .\n"
-                                    "  ?comp qb:dimension <" dim "> .\n"
-                                    "  ?comp qb:codeList ?cl.\n" ;;the codelist should contain only the values used at the dataset
+                                    "  ?comp qb:dimension|qb:attribute <" comp "> .\n" ;;the component can be either a dimension or attribute
+                                    "  ?comp qb:codeList ?cl.\n" ;;the codelist should contain ONLY the values used at the dataset
                                     (if (some? val)
                                       (str "  ?cl skos:member <" val ">.\n")) 
                                     (if (some? lev)
@@ -395,7 +395,6 @@
    "}"))
 
 (defn resolve-datasets [{:keys [repo]} {:keys [dimensions measures attributes data uri] :as args} _parent]
-  (println (get-datasets-query dimensions measures attributes data uri))
   (let [q (get-datasets-query dimensions measures attributes data uri)
         results (repo/query repo q)]
     (map (fn [{:keys [title] :as bindings}]
