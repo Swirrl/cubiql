@@ -333,16 +333,13 @@
 (defn get-data-filter [{data-and :and}]
   (if (empty? data-and)
     ""
-    (let [and-clauses (map-indexed (fn [idx {comp :component val :value lev :level}]
+    (let [and-clauses (map-indexed (fn [idx {comp :component val :value}]
                                      (let [incidx (str (inc idx))]
                                        (str " ?struct qb:component ?comp" incidx " .\n"
                                             " ?comp" incidx " qb:dimension|qb:attribute <" comp "> .\n" ;;the component can be either a dimension or attribute
                                             " ?comp" incidx " qb:codeList ?cl" incidx ".\n" ;the codelist should contain ONLY the values used at the dataset
                                             (if (some? val)
-                                              (str " ?cl" incidx " skos:member <" val ">.\n")) 
-                                            (if (some? lev)
-                                              (str " ?cl" incidx " skos:member ?mem" incidx ".\n" 
-                                                   " ?mem" incidx " <http://publishmydata.com/def/ontology/spatial/memberOf> <" lev ">.\n")))
+                                              (str " ?cl" incidx " skos:member <" val ">.\n")))
                                          ))
                         data-and)]
       (str (string/join and-clauses)))))
@@ -357,9 +354,6 @@
                                     "  ?comp qb:codeList ?cl.\n" ;;the codelist should contain ONLY the values used at the dataset
                                     (if (some? val)
                                       (str "  ?cl skos:member <" val ">.\n")) 
-                                    (if (some? lev)
-                                      (str "  ?cl skos:member ?mem.\n" 
-                                           "  ?mem <http://publishmydata.com/def/ontology/spatial/memberOf> <" lev ">.\n"))                                                                
                                     "}\n"))
                              data-or)]
     (str

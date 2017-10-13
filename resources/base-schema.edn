@@ -59,8 +59,7 @@
   :componentvalue
   {:fields
    {:component {:type :uri :description "The URI of a dimension or attribute"}
-    :value     {:type :uri :description "The URI of a dimension/attribute value"}
-    :level     {:type :uri :description "The URI of a hierarchical level of dimension/attribute value"}
+    :value     {:type :uri :description "The URI of a dimension/attribute value"}  
     }
    }
   
