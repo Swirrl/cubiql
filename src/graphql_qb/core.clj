@@ -348,7 +348,7 @@
 (defn get-data-or [{data-or :or}]
   (if (empty? data-or)
     ""
-    (let [union-clauses (map (fn [{comp :component val :value lev :level}]
+    (let [union-clauses (map (fn [{comp :component val :value}]
                                (str "{ ?struct qb:component ?comp .\n"
                                     "  ?comp qb:dimension|qb:attribute <" comp "> .\n" ;;the component can be either a dimension or attribute
                                     "  ?comp qb:codeList ?cl.\n" ;;the codelist should contain ONLY the values used at the dataset
