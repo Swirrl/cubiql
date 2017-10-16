@@ -1,0 +1,16 @@
+language: clojure
+lein: 2.7.1
+jdk:
+  - oraclejdk8
+
+after_success:
+  - lein uberjar
+
+deploy:
+  provider: releases
+  api_key: "$RELEASE_OAUTH_TOKEN"
+  file: "target/uberjar/graphql-qb-$TRAVIS_TAG-standalone.jar"
+  skip_cleanup: true
+  on:
+    tags: true
+    condition: $TRAVIS_TAG =~ ^[0-9]+\.[0-9]+\.[0-9]+$
