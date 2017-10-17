@@ -19,7 +19,7 @@
           (concat dimension-schemas measure-type-schemas))))
 
 (defn dataset-observation-filter-schema [{:keys [dimensions] :as dataset}]
-  (apply merge (map types/->schema-element dimensions)))
+  (apply merge (map types/->input-schema-element dimensions)))
 
 (defn dataset-resolver [dataset]
   (let [schema (types/dataset-schema dataset)]
@@ -45,7 +45,6 @@
 
         observation-type-name (types/field-name->type-name :observation schema)
         observation-result-type-name (types/field-name->type-name :observation_result schema)
-        observation-dims-type-name (types/field-name->type-name :observation_dimensions schema)
         observation-results-page-type-name (types/field-name->type-name :observation_results_page schema)
         
         dataset-enums (types/get-enums dataset)
@@ -67,7 +66,7 @@
         :measures {:type '(list :measure)
                    :description "Measure types within the dataset"}
         :observations {:type observation-result-type-name
-                       :args {:dimensions {:type observation-dims-type-name}
+                       :args {:dimensions {:type observation-filter-type-name}
                               :order {:type (list 'list (types/type-name dimensions-measures-fields-enum))}
                               :order_spec {:type field-orderings-type-name}}
                        :resolve :resolve-observations

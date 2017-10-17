@@ -29,7 +29,14 @@
   {:fields
    {:uri   {:type :uri :description "URI of the dimension value"}
     :label {:type String :description "Label for the dimension value"}
-    :enum_name {:type String :description "Name of the corresponding enum value"}}}}
+    :enum_name {:type String :description "Name of the corresponding enum value"}}}
+
+  :ref_period
+  {:fields
+   {:uri {:type :uri :description "URI of the reference period"}
+    :label {:type String :description "Label for the reference period"}
+    :start {:type :DateTime :description "Start time for the period"}
+    :end {:type :DateTime :description "End time for the period"}}}}
 
  :interfaces
  {:dataset_meta

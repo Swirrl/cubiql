@@ -3,7 +3,8 @@
   (:require [clojure.string :as string]
             [graphql-qb.util :as util])
   (:import [java.net URI]
-           [java.util Base64]))
+           [java.util Base64]
+           [java.time.format DateTimeFormatter]))
 
 (defn parse-year [year-str]
   (let [year (Integer/parseInt year-str)]
@@ -30,6 +31,12 @@
   (let [bytes (util/long->bytes offset)
         enc (Base64/getEncoder)]
     (.encodeToString enc bytes)))
+
+(defn parse-datetime [dt-string]
+  (.parse DateTimeFormatter/ISO_OFFSET_DATE_TIME dt-string))
+
+(defn serialise-datetime [dt]
+  (.format DateTimeFormatter/ISO_OFFSET_DATE_TIME dt))
 
 (defn get-identifier-segments [label]
   (let [segments (re-seq #"[a-zA-Z0-9]+" (str label))]
@@ -75,12 +82,14 @@
   (get-order-by-bgps [this]))
 
 (defprotocol SchemaType
+  (input-type-name [this])
   (type-name [this]))
 
 (defprotocol EnumTypeSource
   (get-enums [this]))
 
 (defprotocol SchemaElement
+  (->input-schema-element [this])
   (->schema-element [this]))
 
 (defprotocol TypeMapper
@@ -99,6 +108,7 @@
   (get-enums [_this] nil)
   
   SchemaType
+  (input-type-name [this] (type-name this))
   (type-name [_this] :ref_area))
 
 (extend RefAreaType TypeMapper id-mapper)
@@ -108,7 +118,8 @@
   (get-enums [_this] nil)
   
   SchemaType
-  (type-name [_this] :year))
+  (input-type-name [this] :year)
+  (type-name [_this] :ref_period))
 
 (extend RefPeriodType TypeMapper id-mapper)
 
@@ -116,6 +127,7 @@
 
 (defrecord EnumType [schema enum-name values]
   SchemaType
+  (input-type-name [this] (type-name this))
   (type-name [this]
     (field-name->type-name enum-name schema))
   
@@ -163,10 +175,14 @@
     (to-graphql type binding))
 
   SchemaType
-  (type-name [this]
+  (input-type-name [this] (input-type-name type))
+  (type-name [_this]
     (type-name type))
 
   SchemaElement
+  (->input-schema-element [this]
+    {(->field-name this) {:type (input-type-name this)
+                          :description (some-> (or doc label) str)}})
   (->schema-element [this]
     {(->field-name this) {:type (type-name this)
                           :description (some-> (or doc label) str)}})

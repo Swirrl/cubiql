@@ -316,7 +316,11 @@
     :serialize (lschema/as-conformer types/serialise-geography)}
 
    :uri {:parse (lschema/as-conformer #(URI. %))
-         :serialize (lschema/as-conformer str)}})
+         :serialize (lschema/as-conformer str)}
+
+   :DateTime
+   {:parse (lschema/as-conformer types/parse-datetime)
+    :serialize (lschema/as-conformer types/serialise-datetime)}})
 
 (defn dataset->graphql [{:keys [uri title description dimensions measures] :as dataset}]
   {:uri uri
@@ -357,4 +361,3 @@
         schema (get-schema datasets)]
     {:schema (lschema/compile schema)
      :datasets datasets}))
-
