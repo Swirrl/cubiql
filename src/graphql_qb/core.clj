@@ -115,14 +115,14 @@
                             free-dims)
         order-by-patterns (mapcat (fn [[dm _]] (types/get-order-by-bgps dm)) order-by-dims-measures)]
     (str
-     "  ?obs a qb:Observation ."
-     "  ?obs qb:dataSet <" ds-uri "> ."
-     "  ?obs qb:measureType ?mp ."
-     "  ?obs ?mp ?mv ."
-     constrained-patterns
-     (string/join "\n" query-patterns)
-     (string/join "\n" order-by-patterns)
-     (string/join "\n" binds))))
+      (string/join "\n" binds)
+      "  ?obs a qb:Observation ."
+      "  ?obs qb:dataSet <" ds-uri "> ."
+      constrained-patterns
+      (string/join "\n" query-patterns)
+      "  ?obs qb:measureType ?mp ."
+      "  ?obs ?mp ?mv ."
+      (string/join "\n" order-by-patterns))))
 
 (defn get-observation-query [ds-uri ds-dimensions query-dimensions order-by-dim-measures]
   (str
