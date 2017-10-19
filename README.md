@@ -18,6 +18,8 @@ at
 which is currently using data from 
 from [statistics.gov.scot](http://statistics.gov.scot/).
 
+The graphql endpoint for this service can be found at: `http://graphql-qb.publishmydata.com/graphql`
+
 ### Example Queries
 
 - Dataset Discovery
