@@ -123,7 +123,7 @@
   
   SchemaType
   (input-type-name [this] :ref_period_filter)
-  (type-name [_this] :year))
+  (type-name [_this] :uri))
 
 (extend RefPeriodType TypeMapper id-mapper)
 
