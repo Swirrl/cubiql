@@ -6,17 +6,12 @@
            [java.util Base64]
            [java.time.format DateTimeFormatter]))
 
-(defn parse-year [year-str]
-  (let [year (Integer/parseInt year-str)]
-    (URI. (str "http://reference.data.gov.uk/id/year/" year))))
-
 (defn parse-geography [geo-code]
   (URI. (str "http://statistics.gov.scot/id/statistical-geography/" geo-code)))
 
 (defn uri->last-path-segment [uri]
   (last (string/split (.getPath uri) #"/")))
 
-(def serialise-year uri->last-path-segment)
 (def serialise-geography uri->last-path-segment)
 
 (defn parse-sparql-cursor [base64-str]
@@ -159,12 +154,11 @@
 (defn format-sparql-datetime [dt]
   (str "\"" (serialise-datetime dt) "\"^^xsd:dateTime"))
 
-(defn get-ref-period-filter [obs-var-name dim-uri dim-var-name {:keys [uri year starts_before starts_after ends_before ends_after] :as filter}]
+(defn get-ref-period-filter [obs-var-name dim-uri dim-var-name {:keys [uri starts_before starts_after ends_before ends_after] :as filter}]
   (if (nil? filter)
     ""
     (let [obs-var (str "?" obs-var-name)
           uri-tp (if uri (str obs-var " <" dim-uri "> <" uri "> ."))
-          year-tp (if year (str obs-var " <" dim-uri "> <" year "> ."))
           start-filter (if (and (nil? starts_before) (nil? starts_after) (nil? ends_before) (nil? ends_after))
                          ""
                          (let [period-var (str "?" dim-var-name "period")
@@ -189,7 +183,7 @@
                                                  (when (some? ends_after)
                                                    (str "FILTER(" end-time-var " >= " (format-sparql-datetime ends_after) ")"))))]
                            (str obs-var " <" dim-uri "> " period-var " ." begin-filter end-filter)))]
-      (str uri-tp year-tp start-filter))))
+      (str uri-tp start-filter))))
 
 (defrecord Dimension [uri ds-uri schema label doc order type]
   SparqlQueryable

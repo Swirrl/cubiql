@@ -309,10 +309,6 @@
    {:parse (lschema/as-conformer types/parse-sparql-cursor)
     :serialize (lschema/as-conformer types/serialise-sparql-cursor)}
 
-   :year
-   {:parse (lschema/as-conformer types/parse-year)
-    :serialize (lschema/as-conformer types/serialise-year)}
-
    :ref_area
    {:parse (lschema/as-conformer types/parse-geography)
     :serialize (lschema/as-conformer types/serialise-geography)}

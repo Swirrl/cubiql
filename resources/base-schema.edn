@@ -65,7 +65,6 @@
   :ref_period_filter
   {:fields
    {:uri {:type :uri :description "URI of the reference period"}
-    :year {:type :year :description "Year for the year period"}
     :starts_before {:type :DateTime :description "Latest start time for the reference period"}
     :starts_after {:type :DateTime :description "Earliest start time for the reference period"}
     :ends_before {:type :DateTime :description "Latest end time for the reference period"}
