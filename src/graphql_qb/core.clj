@@ -91,11 +91,9 @@
 (defn get-dimension-filter-bgps [ds-dimensions query-dimensions]
   (let [is-query-dimension? (fn [{:keys [field-name]}] (contains? query-dimensions field-name))
         constrained-dims (filter is-query-dimension? ds-dimensions)
-        constrained-bgps (map (fn [{:keys [field-name uri] :as dim}]
-                                (let [field-value (get query-dimensions field-name)
-                                      val-uri (types/from-graphql dim field-value)]
-                                  (str "?obs <" uri "> <" val-uri "> .")))
-                              constrained-dims)]
+        constrained-bgps (map (fn [{:keys [field-name] :as dim}]
+                                (let [field-value (get query-dimensions field-name)]
+                                  (types/get-filter-bgps dim field-value))) constrained-dims)]
     (string/join " " constrained-bgps)))
 
 (defn get-observation-query-bgps [ds-uri ds-dimensions query-dimensions order-by-dims-measures]
@@ -104,10 +102,8 @@
         free-dims (remove is-query-dimension? ds-dimensions)
         constrained-patterns (get-dimension-filter-bgps ds-dimensions query-dimensions)
         binds (map (fn [{:keys [field-name] :as dim}]
-                     (let [field-value (get query-dimensions field-name)                           
-                           val-uri (types/from-graphql dim field-value)
-                           var-name (types/->query-var-name dim)]
-                       (str "BIND(<" val-uri "> as ?" var-name ") .")))
+                     (let [field-value (get query-dimensions field-name)]
+                       (types/get-projection-bgps dim field-value)))
                    constrained-dims)
         query-patterns (map (fn [{:keys [uri] :as dim}]
                               (let [var-name (types/->query-var-name dim)]
@@ -128,6 +124,8 @@
   (str
    "PREFIX qb: <http://purl.org/linked-data/cube#>"
    "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>"
+   "PREFIX time: <http://www.w3.org/2006/time#>"
+   "PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>"
    "SELECT * WHERE {"
    (get-observation-query-bgps ds-uri ds-dimensions query-dimensions order-by-dim-measures)
    "} " (get-order-by order-by-dim-measures)))
@@ -141,6 +139,8 @@
   (str
    "PREFIX qb: <http://purl.org/linked-data/cube#>"
    "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>"
+   "PREFIX time: <http://www.w3.org/2006/time#>"
+   "PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>"
    "SELECT (COUNT(*) as ?c) WHERE {"
    "  ?obs a qb:Observation ."
    "  ?obs qb:dataSet <" ds-uri "> ."
@@ -225,6 +225,8 @@
         sparql-fn (string/upper-case (name aggregation-fn))
         q (str
            "PREFIX qb: <http://purl.org/linked-data/cube#>"
+           "PREFIX time: <http://www.w3.org/2006/time#>"
+           "PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>"
            "SELECT (" sparql-fn "(?" measure-var-name ") AS ?" (name aggregation-fn) ") WHERE {"
            "  ?obs a qb:Observation ."
            "  ?obs qb:dataSet <" ds-uri "> ."

@@ -15,7 +15,9 @@
    "measure_properties.nt"
    "healthy_life_expectancy.nt"
    "healthy_life_expectancy_metadata.nt"
-   "resources/geo-labels.nt"))
+   "resources/geo-labels.nt"
+   "earnings-periods.nt"
+   "healthy-life-expectancy-periods.nt"))
 
 (defn get-scotland-repo []
   (repo/sparql-repo "https://production-drafter-sg.publishmydata.com/v1/sparql/live"))

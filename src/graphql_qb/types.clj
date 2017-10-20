@@ -76,10 +76,14 @@
 (defn field-name->type-name [field-name ds-schema]
   (keyword (str (name ds-schema) "_" (name field-name) "_type")))
 
+(defprotocol SparqlFilterable
+  (get-filter-bgps [this graphql-filter]))
+
 (defprotocol SparqlQueryable
   (->query-var-name [this])
   (->order-by-var-name [this])
-  (get-order-by-bgps [this]))
+  (get-order-by-bgps [this])
+  (get-projection-bgps [this sparql-value]))
 
 (defprotocol SchemaType
   (input-type-name [this])
@@ -118,8 +122,8 @@
   (get-enums [_this] nil)
   
   SchemaType
-  (input-type-name [this] :year)
-  (type-name [_this] :ref_period))
+  (input-type-name [this] :ref_period_filter)
+  (type-name [_this] :year))
 
 (extend RefPeriodType TypeMapper id-mapper)
 
@@ -152,6 +156,41 @@
 (defn is-ref-period-type? [type]
   (instance? RefPeriodType type))
 
+(defn format-sparql-datetime [dt]
+  (str "\"" (serialise-datetime dt) "\"^^xsd:dateTime"))
+
+(defn get-ref-period-filter [obs-var-name dim-uri dim-var-name {:keys [uri year starts_before starts_after ends_before ends_after] :as filter}]
+  (if (nil? filter)
+    ""
+    (let [obs-var (str "?" obs-var-name)
+          uri-tp (if uri (str obs-var " <" dim-uri "> <" uri "> ."))
+          year-tp (if year (str obs-var " <" dim-uri "> <" year "> ."))
+          start-filter (if (and (nil? starts_before) (nil? starts_after) (nil? ends_before) (nil? ends_after))
+                         ""
+                         (let [period-var (str "?" dim-var-name "period")
+                               begin-var (str period-var "begin")
+                               end-var (str period-var "end")
+                               begin-time-var (str period-var "time")
+                               end-time-var (str end-var "time")
+                               begin-filter (if (and (nil? starts_before) (nil? starts_after))
+                                              ""
+                                              (str period-var " time:hasBeginning " begin-var " ."
+                                                   begin-var " time:inXSDDateTime " begin-time-var " ."
+                                                   (when (some? starts_before)
+                                                     (str "FILTER(" begin-time-var " <= " (format-sparql-datetime starts_before) ")"))
+                                                   (when (some? starts_after)
+                                                     (str "FILTER(" begin-time-var " >= " (format-sparql-datetime starts_after) ")"))))
+                               end-filter (if (and (nil? ends_before) (nil? ends_after))
+                                            ""
+                                            (str period-var " time:hasEnd " end-var " ."
+                                                 end-var " time:inXSDDateTime " end-time-var " ."
+                                                 (when (some? ends_before)
+                                                   (str "FILTER(" end-time-var " <= " (format-sparql-datetime ends_before) ")"))
+                                                 (when (some? ends_after)
+                                                   (str "FILTER(" end-time-var " >= " (format-sparql-datetime ends_after) ")"))))]
+                           (str obs-var " <" dim-uri "> " period-var " ." begin-filter end-filter)))]
+      (str uri-tp year-tp start-filter))))
+
 (defrecord Dimension [uri ds-uri schema label doc order type]
   SparqlQueryable
   (->query-var-name [_this]
@@ -166,6 +205,29 @@
     (if (is-ref-area-type? type)
       [(str "OPTIONAL { ?"(->query-var-name this) " rdfs:label ?" (->order-by-var-name this) " }")]
       []))
+
+  (get-projection-bgps [this sparql-value]
+    (cond
+      (is-enum-type? type)
+      (str "BIND(<" (from-graphql type sparql-value) "> as ?" (->query-var-name this) ")")
+
+      (is-ref-area-type? type)
+      (str "BIND(<" (from-graphql type sparql-value) "> as ?" (->query-var-name this) ")")
+
+      (is-ref-period-type? type)
+      (str "?obs <" uri "> ?" (->query-var-name this) " .")))
+
+  SparqlFilterable
+  (get-filter-bgps [this graphql-value]
+    (cond
+      (is-enum-type? type)
+      (str "?obs <" uri "> <" (from-graphql this graphql-value) "> .")
+
+      (is-ref-area-type? type)
+      (str "?obs <" uri "> <" (from-graphql this graphql-value) "> .")
+
+      (is-ref-period-type? type)
+      (get-ref-period-filter "obs" uri (->query-var-name this) graphql-value)))
 
   TypeMapper
   (from-graphql [this graphql-value]
