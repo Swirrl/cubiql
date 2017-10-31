@@ -1,10 +1,6 @@
-# graphql-qb
+# CubiQL
 
-A proof of concept [GraphQL](http://graphql.org/) service for
-querying [Linked Data Cubes](https://www.w3.org/TR/vocab-data-cube/)
-that was produced as part of
-the [Open Gov Intelligence](http://www.opengovintelligence.eu/)
-project.
+CubiQL (formerly called graphql-qb) is a proof of concept [GraphQL](http://graphql.org/) service for querying [Linked Data Cubes](https://www.w3.org/TR/vocab-data-cube/) that was produced as part of the [Open Gov Intelligence](http://www.opengovintelligence.eu/) project.
 
 The primary aim of graphql-qb is to facilitate the querying of
 multidimensional QB datasets through GraphQL in an easier more familiar
