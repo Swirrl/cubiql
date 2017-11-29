@@ -60,6 +60,10 @@
        {:uri {:type :uri :description "Dataset URI"}
         :title {:type 'String :description "Dataset title"}
         :description {:type 'String :description "Dataset description"}
+        :licence     {:type :uri :description "URI of the licence the dataset is published under"}
+        :issued      {:type :DateTime :description "When the dataset was issued"}
+        :modified    {:type :DateTime :description "When the dataset was last modified"}
+        :publisher   {:type :uri :description "URI of the publisher of the dataset"}
         :schema {:type 'String :description "Name of the GraphQL query root field corresponding to this dataset"}
         :dimensions {:type '(list :dim)
                      :description "Dimensions within the dataset"}

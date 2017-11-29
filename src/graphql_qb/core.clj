@@ -276,10 +276,15 @@
   (str
    "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>"
    "PREFIX qb: <http://purl.org/linked-data/cube#>"
-   "SELECT ?ds ?title ?description WHERE {"
+   "PREFIX dcterms: <http://purl.org/dc/terms/>"
+   "SELECT ?ds ?title ?description ?licence ?issued ?modified ?publisher WHERE {"
    (get-dimensions-or dimensions)
    "  ?ds rdfs:label ?title ."
    "  ?ds rdfs:comment ?description ."
+   "  OPTIONAL { ?ds dcterms:license ?licence }"
+   "  OPTIONAL { ?ds dcterms:issued ?issued }"
+   "  OPTIONAL { ?ds dcterms:modified ?modified }"
+   "  OPTIONAL { ?ds dcterms:publisher ?publisher }"
    (get-dimensions-filter dimensions)
    (if (some? uri)
      (str "FILTER(?ds = <" uri ">) ."))
@@ -291,6 +296,8 @@
     (map (fn [{:keys [title] :as bindings}]
            (-> bindings
                (rename-key :ds :uri)
+               (update :issued #(some-> % types/date->datetime))
+               (update :modified #(some-> % types/date->datetime))
                (assoc :schema (name (dataset-label->schema-name title)))))
          results)))
 
@@ -320,13 +327,10 @@
    {:parse (lschema/as-conformer types/parse-datetime)
     :serialize (lschema/as-conformer types/serialise-datetime)}})
 
-(defn dataset->graphql [{:keys [uri title description dimensions measures] :as dataset}]
-  {:uri uri
-   :title title
-   :description description
-   :schema (types/dataset-schema dataset)
-   :dimensions (map dimension->graphql dimensions)
-   :measures (map measure->graphql measures)})
+(defn dataset->graphql [context {:keys [uri dimensions measures] :as dataset}]
+  (let [ds (first (resolve-datasets context {:uri uri} nil))]
+    (merge ds {:dimensions (map dimension->graphql dimensions)
+               :measures (map measure->graphql measures)})))
 
 (defn get-schema [datasets]
   (let [base-schema (read-edn-resource "base-schema.edn")
@@ -335,7 +339,7 @@
         combined-schema (reduce (fn [acc schema] (merge-with merge acc schema)) base-schema ds-schemas)
         schema-resolvers (into {} (map (fn [dataset]
                                          [(schema/dataset-resolver dataset) (fn [context args field]
-                                                                              (dataset->graphql dataset))])
+                                                                              (dataset->graphql context dataset))])
                                        datasets))
         query-resolvers (merge {:resolve-observations resolve-observations
                                 :resolve-observations-page resolve-observations-page

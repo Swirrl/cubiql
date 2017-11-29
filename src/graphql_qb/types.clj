@@ -4,7 +4,8 @@
             [graphql-qb.util :as util])
   (:import [java.net URI]
            [java.util Base64]
-           [java.time.format DateTimeFormatter]))
+           [java.time.format DateTimeFormatter]
+           [java.time ZonedDateTime ZoneOffset]))
 
 (defn parse-geography [geo-code]
   (URI. (str "http://statistics.gov.scot/id/statistical-geography/" geo-code)))
@@ -26,6 +27,11 @@
   (let [bytes (util/long->bytes offset)
         enc (Base64/getEncoder)]
     (.encodeToString enc bytes)))
+
+(defn date->datetime
+  "Converts a java.util.Date to a java.time.ZonedDateTime."
+  [date]
+  (ZonedDateTime/ofInstant (.toInstant date) ZoneOffset/UTC))
 
 (defn parse-datetime [dt-string]
   (.parse DateTimeFormatter/ISO_OFFSET_DATE_TIME dt-string))
