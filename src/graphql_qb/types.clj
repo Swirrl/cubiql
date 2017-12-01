@@ -1,7 +1,8 @@
 (ns graphql-qb.types
   "Functions for mapping DSD elements to/from GraphQL types"
   (:require [clojure.string :as string]
-            [graphql-qb.util :as util])
+            [graphql-qb.util :as util]
+            [com.walmartlabs.lacinia.schema :as lschema])
   (:import [java.net URI]
            [java.util Base64]
            [java.time.format DateTimeFormatter]
@@ -298,3 +299,19 @@
 
 (defn build-enum [schema enum-name values]
   (->EnumType schema enum-name (mapv to-enum-value values)))
+
+(def custom-scalars
+  {:SparqlCursor
+        {:parse     (lschema/as-conformer parse-sparql-cursor)
+         :serialize (lschema/as-conformer serialise-sparql-cursor)}
+
+   :ref_area
+        {:parse     (lschema/as-conformer parse-geography)
+         :serialize (lschema/as-conformer serialise-geography)}
+
+   :uri {:parse     (lschema/as-conformer #(URI. %))
+         :serialize (lschema/as-conformer str)}
+
+   :DateTime
+        {:parse     (lschema/as-conformer parse-datetime)
+         :serialize (lschema/as-conformer serialise-datetime)}})

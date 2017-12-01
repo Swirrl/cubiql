@@ -311,22 +311,6 @@
   (let [results (sp/query "get-datasets.sparql" repo)]
     (mapv #(transform-dataset-result repo %) results)))
 
-(def custom-scalars
-  {:SparqlCursor
-   {:parse (lschema/as-conformer types/parse-sparql-cursor)
-    :serialize (lschema/as-conformer types/serialise-sparql-cursor)}
-
-   :ref_area
-   {:parse (lschema/as-conformer types/parse-geography)
-    :serialize (lschema/as-conformer types/serialise-geography)}
-
-   :uri {:parse (lschema/as-conformer #(URI. %))
-         :serialize (lschema/as-conformer str)}
-
-   :DateTime
-   {:parse (lschema/as-conformer types/parse-datetime)
-    :serialize (lschema/as-conformer types/serialise-datetime)}})
-
 (defn dataset->graphql [context {:keys [uri dimensions measures] :as dataset}]
   (let [ds (first (resolve-datasets context {:uri uri} nil))]
     (merge ds {:dimensions (map dimension->graphql dimensions)
@@ -334,7 +318,7 @@
 
 (defn get-schema [datasets]
   (let [base-schema (read-edn-resource "base-schema.edn")
-        base-schema (assoc base-schema :scalars custom-scalars)
+        base-schema (assoc base-schema :scalars types/custom-scalars)
         ds-schemas (map schema/get-dataset-schema datasets)
         combined-schema (reduce (fn [acc schema] (merge-with merge acc schema)) base-schema ds-schemas)
         schema-resolvers (into {} (map (fn [dataset]
