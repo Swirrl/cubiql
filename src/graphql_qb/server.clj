@@ -3,7 +3,12 @@
             [graphql-qb.data :as data]
             [graphql-qb.util :as util]
             [com.walmartlabs.lacinia.pedestal :as lp]
-            [io.pedestal.http :as server]))
+            [io.pedestal.http :as http]))
+
+(def cors-config {:allowed-origins (constantly true)
+                  :creds           false
+                  :max-age         (* 60 60 2)                          ;2 hours
+                  :methods         "GET, POST, OPTIONS"})
 
 (defn create-server
   ([port] (create-server port (data/get-test-repo)))
@@ -14,8 +19,10 @@
                :port        port
                :graphiql    true}
          service-map (lp/service-map schema opts)]
-     (server/create-server service-map))))
+     (-> service-map
+         (assoc ::http/allowed-origins cors-config)
+         (http/create-server)))))
 
 (defn start-server [port repo]
-  (server/start (create-server port repo)))
+  (http/start (create-server port repo)))
 
