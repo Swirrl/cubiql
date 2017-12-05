@@ -12,8 +12,9 @@
          uri->dataset (util/keyed-by :uri datasets)
          opts {:app-context {:repo repo :uri->dataset uri->dataset}
                :port        port
-               :graphiql    true}]
-     (lp/pedestal-service schema opts))))
+               :graphiql    true}
+         service-map (lp/service-map schema opts)]
+     (server/create-server service-map))))
 
 (defn start-server [port repo]
   (server/start (create-server port repo)))
