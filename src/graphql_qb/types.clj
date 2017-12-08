@@ -72,8 +72,12 @@
 
 (def label->enum-name label->field-name)
 
-(defn enum-label->value-name [label]
-  (segments->enum-value (get-identifier-segments label)))
+(defn enum-label->value-name
+  ([label]
+   (segments->enum-value (get-identifier-segments label)))
+  ([label n]
+    (let [label-segments (get-identifier-segments label)]
+      (segments->enum-value (concat label-segments [(str n)])))))
 
 (defn field-name->type-name [field-name ds-schema]
   (keyword (str (name ds-schema) "_" (name field-name) "_type")))

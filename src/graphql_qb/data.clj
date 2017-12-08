@@ -20,7 +20,7 @@
    "healthy-life-expectancy-periods.nt"))
 
 (defn get-scotland-repo []
-  (repo/sparql-repo "https://production-drafter-sg.publishmydata.com/v1/sparql/live"))
+  (repo/sparql-repo "https://staging-drafter-sg.publishmydata.com/v1/sparql/live"))
 
 (defn fetch-geo-labels
   "Fetches the labels for all areas found across all observations and

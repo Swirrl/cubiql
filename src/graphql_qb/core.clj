@@ -12,10 +12,18 @@
   (:import [java.net URI]))
 
 (defn get-enum-items [repo {:keys [ds-uri uri] :as dim}]
-  (let [results (util/distinct-by :member (sp/query "get-enum-values.sparql" {:ds ds-uri :dim uri} repo))]
-    (mapv (fn [{:keys [member label priority]}]
-            (types/->EnumItem member label (types/enum-label->value-name label) priority))
-         results)))
+  (let [results (util/distinct-by :member (sp/query "get-enum-values.sparql" {:ds ds-uri :dim uri} repo))
+        by-enum-name (group-by #(types/enum-label->value-name (:label %)) results)
+        items (mapcat (fn [[enum-name item-results]]
+                        (if (= 1 (count item-results))
+                          (map (fn [{:keys [member label priority]}]
+                                 (types/->EnumItem member label enum-name priority))
+                               item-results)
+                          (map-indexed (fn [n {:keys [member label priority]}]
+                                         (types/->EnumItem member label (types/enum-label->value-name label (inc n)) priority))
+                                       item-results)))
+                      by-enum-name)]
+    (vec items)))
 
 (defn get-dimension-type [repo {:keys [uri label] :as dim} {:keys [schema] :as ds}]
   (cond
