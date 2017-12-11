@@ -5,7 +5,6 @@ SELECT ?dim ?order ?label ?doc ?ds WHERE {
   ?struct a qb:DataStructureDefinition .
   ?struct qb:component ?comp .
   ?comp a qb:ComponentSpecification .
-  ?comp qb:order ?order .
   ?comp qb:dimension ?dim .
   ?dim rdfs:label ?label .
   OPTIONAL { ?dim rdfs:comment ?doc }

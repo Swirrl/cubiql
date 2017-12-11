@@ -40,16 +40,18 @@
 
 (defn get-dimensions
   [repo {:keys [uri schema] :as ds}]
-  (let [results (util/distinct-by :dim (sp/query "get-dimensions.sparql" {:ds uri} repo))]
-    (mapv (fn [bindings]
-            (let [dim (-> bindings
-                          (assoc :ds-uri uri)
-                          (assoc :schema schema)
-                          (rename-key :dim :uri))
-                  type (get-dimension-type repo dim ds)
-                  dim-rec (types/map->Dimension (assoc dim :type type))]
-              (assoc dim-rec :field-name (->field-name dim))))
-          results)))
+  (let [results (util/distinct-by :dim (sp/query "get-dimensions.sparql" {:ds uri} repo))
+        dims (map-indexed (fn [idx bindings]
+                            (let [dim (-> bindings
+                                          (assoc :ds-uri uri)
+                                          (assoc :schema schema)
+                                          (assoc :order (inc idx))
+                                          (rename-key :dim :uri))
+                                  type (get-dimension-type repo dim ds)
+                                  dim-rec (types/map->Dimension (assoc dim :type type))]
+                              (assoc dim-rec :field-name (->field-name dim))))
+                          results)]
+    (vec dims)))
 
 (defn is-measure-numeric? [repo ds-uri measure-uri]
   (let [results (vec (sp/query "sample-observation-measure.sparql" {:ds ds-uri :mt measure-uri} repo))]
