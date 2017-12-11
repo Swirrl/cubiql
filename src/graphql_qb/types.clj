@@ -4,9 +4,10 @@
             [graphql-qb.util :as util]
             [com.walmartlabs.lacinia.schema :as lschema])
   (:import [java.net URI]
-           [java.util Base64]
+           [java.util Base64 Date]
            [java.time.format DateTimeFormatter]
-           [java.time ZonedDateTime ZoneOffset]))
+           [java.time ZonedDateTime ZoneOffset]
+           (org.openrdf.model Literal)))
 
 (defn parse-geography [geo-code]
   (URI. (str "http://statistics.gov.scot/id/statistical-geography/" geo-code)))
@@ -33,6 +34,21 @@
   "Converts a java.util.Date to a java.time.ZonedDateTime."
   [date]
   (ZonedDateTime/ofInstant (.toInstant date) ZoneOffset/UTC))
+
+(defn grafter-date->datetime
+  "Converts all known date literal representations used by Grafter into the corresponding
+   DateTime."
+  [dt]
+  (cond
+    (instance? Date dt)
+    (date->datetime dt)
+
+    (instance? Literal dt)
+    (let [date (.. dt (calendarValue) (toGregorianCalendar) (getTime))]
+      (date->datetime date))
+
+    :else
+    (throw (IllegalArgumentException. (str "Unexpected date representation: " dt)))))
 
 (defn parse-datetime [dt-string]
   (.parse DateTimeFormatter/ISO_OFFSET_DATE_TIME dt-string))

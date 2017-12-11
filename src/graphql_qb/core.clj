@@ -304,8 +304,8 @@
     (map (fn [{:keys [title] :as bindings}]
            (-> bindings
                (rename-key :ds :uri)
-               (update :issued #(some-> % types/date->datetime))
-               (update :modified #(some-> % types/date->datetime))
+               (update :issued #(some-> % types/grafter-date->datetime))
+               (update :modified #(some-> % types/grafter-date->datetime))
                (assoc :schema (name (dataset-label->schema-name title)))))
          results)))
 
