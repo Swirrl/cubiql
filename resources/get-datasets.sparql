@@ -2,6 +2,6 @@ PREFIX qb: <http://purl.org/linked-data/cube#>
 SELECT ?uri ?title ?description WHERE {
   ?ds qb:structure ?struct .
   ?ds <http://purl.org/dc/terms/title> ?title .
-  ?ds <http://www.w3.org/2000/01/rdf-schema#comment> ?description .
+  OPTIONAL { ?ds <http://www.w3.org/2000/01/rdf-schema#comment> ?description . }
   BIND(?ds as ?uri)
 }

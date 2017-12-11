@@ -55,60 +55,60 @@
     {:enums enums-schema
      :objects
      {schema
-      {:implements [:dataset_meta]
+      {:implements  [:dataset_meta]
        :fields
-       {:uri {:type :uri :description "Dataset URI"}
-        :title {:type 'String :description "Dataset title"}
-        :description {:type 'String :description "Dataset description"}
-        :licence     {:type :uri :description "URI of the licence the dataset is published under"}
-        :issued      {:type :DateTime :description "When the dataset was issued"}
-        :modified    {:type :DateTime :description "When the dataset was last modified"}
-        :publisher   {:type :uri :description "URI of the publisher of the dataset"}
-        :schema {:type 'String :description "Name of the GraphQL query root field corresponding to this dataset"}
-        :dimensions {:type '(list :dim)
-                     :description "Dimensions within the dataset"}
-        :measures {:type '(list :measure)
-                   :description "Measure types within the dataset"}
-        :observations {:type observation-result-type-name
-                       :args {:dimensions {:type observation-filter-type-name}
-                              :order {:type (list 'list (types/type-name dimensions-measures-fields-enum))}
-                              :order_spec {:type field-orderings-type-name}}
-                       :resolve :resolve-observations
+       {:uri          {:type :uri :description "Dataset URI"}
+        :title        {:type 'String :description "Dataset title"}
+        :description  {:type 'String :description "Dataset description"}
+        :licence      {:type :uri :description "URI of the licence the dataset is published under"}
+        :issued       {:type :DateTime :description "When the dataset was issued"}
+        :modified     {:type :DateTime :description "When the dataset was last modified"}
+        :publisher    {:type :uri :description "URI of the publisher of the dataset"}
+        :schema       {:type 'String :description "Name of the GraphQL query root field corresponding to this dataset"}
+        :dimensions   {:type        '(list :dim)
+                       :description "Dimensions within the dataset"}
+        :measures     {:type        '(list :measure)
+                       :description "Measure types within the dataset"}
+        :observations {:type        observation-result-type-name
+                       :args        {:dimensions {:type observation-filter-type-name}
+                                     :order      {:type (list 'list (types/type-name dimensions-measures-fields-enum))}
+                                     :order_spec {:type field-orderings-type-name}}
+                       :resolve     :resolve-observations
                        :description "Observations matching the given criteria"}}
-       :description description}
+       :description (or description "")}
 
       observation-result-type-name
       {:fields
-       {:sparql {:type 'String :description "SPARQL query used to retrieve matching observations."}
-        :page {:type observation-results-page-type-name
-               :args {:after {:type :SparqlCursor}
-                      :first {:type 'Int}}
-               :description "Page of results to retrieve."
-               :resolve :resolve-observations-page}
-        :aggregations {:type aggregation-fields-type-name}
+       {:sparql        {:type 'String :description "SPARQL query used to retrieve matching observations."}
+        :page          {:type        observation-results-page-type-name
+                        :args        {:after {:type :SparqlCursor}
+                                      :first {:type 'Int}}
+                        :description "Page of results to retrieve."
+                        :resolve     :resolve-observations-page}
+        :aggregations  {:type aggregation-fields-type-name}
         :total_matches {:type 'Int}}}
 
       observation-results-page-type-name
       {:fields
        {:next_page {:type :SparqlCursor :description "Cursor to the next page of results"}
-        :count {:type 'Int}
-        :result {:type (list 'list observation-type-name) :description "List of observations on this page"}}}
+        :count     {:type 'Int}
+        :result    {:type (list 'list observation-type-name) :description "List of observations on this page"}}}
 
       aggregation-fields-type-name
       {:fields
-       {:max {:type 'Float
-              :args {:measure {:type (list 'non-null aggregation-types-type-name) :description "The measure to aggregate"}}
-              :resolve :resolve-observations-max}
-        :min {:type 'Float
-              :args {:measure {:type (list 'non-null aggregation-types-type-name):description "The measure to aggregate"}}
-              :resolve :resolve-observations-min}
-        :sum {:type 'Float
-              :args {:measure {:type (list 'non-null aggregation-types-type-name) :description "The measure to aggregate"}}
-              :resolve :resolve-observations-sum}
-        :average {:type 'Float
-                  :args {:measure {:type (list 'non-null aggregation-types-type-name) :description "The measure to aggregate"}}
+       {:max     {:type    'Float
+                  :args    {:measure {:type (list 'non-null aggregation-types-type-name) :description "The measure to aggregate"}}
+                  :resolve :resolve-observations-max}
+        :min     {:type    'Float
+                  :args    {:measure {:type (list 'non-null aggregation-types-type-name) :description "The measure to aggregate"}}
+                  :resolve :resolve-observations-min}
+        :sum     {:type    'Float
+                  :args    {:measure {:type (list 'non-null aggregation-types-type-name) :description "The measure to aggregate"}}
+                  :resolve :resolve-observations-sum}
+        :average {:type    'Float
+                  :args    {:measure {:type (list 'non-null aggregation-types-type-name) :description "The measure to aggregate"}}
                   :resolve :resolve-observations-average}}}
-      
+
       observation-type-name
       {:fields observation-schema}}
 
@@ -121,6 +121,6 @@
 
      :queries
      {schema
-      {:type schema
+      {:type    schema
        :resolve resolver-name}}}))
 
