@@ -312,6 +312,10 @@
 (defn build-enum [schema enum-name values]
   (->EnumType schema enum-name (mapv to-enum-value values)))
 
+(defn graphql-enum->dimension-measure [{:keys [dimensions measures] :as dataset} enum]
+  (let [dm-enum (build-enum :ignored :ignored (concat dimensions measures))]
+    (from-graphql dm-enum enum)))
+
 (def custom-scalars
   {:SparqlCursor
         {:parse     (lschema/as-conformer parse-sparql-cursor)

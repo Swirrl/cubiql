@@ -8,7 +8,8 @@
             [graphql-qb.util :refer [read-edn-resource rename-key] :as util]
             [graphql-qb.types :refer :all :as types]
             [clojure.pprint :as pprint]
-            [graphql-qb.schema :as schema])
+            [graphql-qb.schema :as schema]
+            [graphql-qb.queries :as queries])
   (:import [java.net URI]))
 
 (defn get-enum-items [repo {:keys [ds-uri uri] :as dim}]
@@ -87,78 +88,8 @@
   (let [measures (get-measure-types repo ds-field)]
     (map measure->graphql measures)))
 
-(defn get-order-by [order-by-dim-measures]
-  (if (empty? order-by-dim-measures)
-    ""
-    (let [orderings (map (fn [[dm sort-direction]]
-                           (let [var (str "?" (types/->order-by-var-name dm))]
-                             (if (= :DESC sort-direction)
-                               (str "DESC(" var ")")
-                               var)))
-                         order-by-dim-measures)]
-      (str "ORDER BY " (string/join " " orderings)))))
-
-(defn get-dimension-filter-bgps [ds-dimensions query-dimensions]
-  (let [is-query-dimension? (fn [{:keys [field-name]}] (contains? query-dimensions field-name))
-        constrained-dims (filter is-query-dimension? ds-dimensions)
-        constrained-bgps (map (fn [{:keys [field-name] :as dim}]
-                                (let [field-value (get query-dimensions field-name)]
-                                  (types/get-filter-bgps dim field-value))) constrained-dims)]
-    (string/join " " constrained-bgps)))
-
-(defn get-observation-query-bgps [ds-uri ds-dimensions query-dimensions order-by-dims-measures]
-  (let [is-query-dimension? (fn [{:keys [field-name]}] (contains? query-dimensions field-name))
-        constrained-dims (filter is-query-dimension? ds-dimensions)
-        free-dims (remove is-query-dimension? ds-dimensions)
-        constrained-patterns (get-dimension-filter-bgps ds-dimensions query-dimensions)
-        binds (map (fn [{:keys [field-name] :as dim}]
-                     (let [field-value (get query-dimensions field-name)]
-                       (types/get-projection-bgps dim field-value)))
-                   constrained-dims)
-        query-patterns (map (fn [{:keys [uri] :as dim}]
-                              (let [var-name (types/->query-var-name dim)]
-                                (str "?obs <" uri "> ?" var-name " .")))
-                            free-dims)
-        order-by-patterns (mapcat (fn [[dm _]] (types/get-order-by-bgps dm)) order-by-dims-measures)]
-    (str
-      (string/join "\n" binds)
-      "  ?obs a qb:Observation ."
-      "  ?obs qb:dataSet <" ds-uri "> ."
-      constrained-patterns
-      (string/join "\n" query-patterns)
-      "  ?obs qb:measureType ?mp ."
-      "  ?obs ?mp ?mv ."
-      (string/join "\n" order-by-patterns))))
-
-(defn get-observation-query [ds-uri ds-dimensions query-dimensions order-by-dim-measures]
-  (str
-   "PREFIX qb: <http://purl.org/linked-data/cube#>"
-   "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>"
-   "PREFIX time: <http://www.w3.org/2006/time#>"
-   "PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>"
-   "SELECT * WHERE {"
-   (get-observation-query-bgps ds-uri ds-dimensions query-dimensions order-by-dim-measures)
-   "} " (get-order-by order-by-dim-measures)))
-
-(defn get-observation-page-query [ds-uri ds-dimensions query-dimensions limit offset order-by-dim-measures]
-  (str
-   (get-observation-query ds-uri ds-dimensions query-dimensions order-by-dim-measures)
-   " LIMIT " limit " OFFSET " offset))
-
-(defn get-observation-count-query [ds-uri ds-dimensions query-dimensions]
-  (str
-   "PREFIX qb: <http://purl.org/linked-data/cube#>"
-   "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>"
-   "PREFIX time: <http://www.w3.org/2006/time#>"
-   "PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>"
-   "SELECT (COUNT(*) as ?c) WHERE {"
-   "  ?obs a qb:Observation ."
-   "  ?obs qb:dataSet <" ds-uri "> ."
-   (get-dimension-filter-bgps ds-dimensions query-dimensions)
-   "}"))
-
 (defn get-observation-count [repo ds-uri ds-dimensions query-dimensions]
-  (let [query (get-observation-count-query ds-uri ds-dimensions query-dimensions)
+  (let [query (queries/get-observation-count-query ds-uri ds-dimensions query-dimensions)
         results (repo/query repo query)]
     (:c (first results))))
 
@@ -176,13 +107,9 @@
     (if (> total-matches next-offset)
       next-offset)))
 
-(defn graphql-enum->dimension-measure [{:keys [dimensions measures] :as dataset} enum]
-  (let [dm-enum (types/build-enum :ignored :ignored (concat dimensions measures))]
-    (types/from-graphql dm-enum enum)))
-
 (defn get-dimension-measure-ordering [dataset sorts sort-spec]
   (map (fn [dm-enum]
-         (let [dm (graphql-enum->dimension-measure dataset dm-enum)
+         (let [dm (types/graphql-enum->dimension-measure dataset dm-enum)
                field (types/->field-name dm)
                sort-dir (get sort-spec field :ASC)]
            [dm sort-dir]))
@@ -194,7 +121,7 @@
   (let [{:keys [dimensions] :as dataset} (get uri->dataset uri)
           total-matches (get-observation-count repo uri dimensions query-dimensions)
           ordered-dim-measures (get-dimension-measure-ordering dataset order-by order-spec)
-          query (get-observation-query uri dimensions query-dimensions ordered-dim-measures)]
+          query (queries/get-observation-query uri dimensions query-dimensions ordered-dim-measures)]
       {::query-dimensions query-dimensions
        ::order-by-dimension-measures ordered-dim-measures
        ::dataset ds-field
@@ -210,7 +137,7 @@
         limit (get-limit args)
         offset (get-offset args)
         total-matches (:total_matches observations-field)
-        query (get-observation-page-query ds-uri dimensions query-dimensions limit offset order-by-dim-measures)
+        query (queries/get-observation-page-query ds-uri dimensions query-dimensions limit offset order-by-dim-measures)
         results (repo/query repo query)
         matches (mapv (fn [{:keys [obs mp mv] :as bindings}]
                         (let [dimension-values (map (fn [{:keys [field-name] :as ft}]
@@ -228,21 +155,8 @@
      :result matches}))
 
 (defn exec-observation-aggregation [repo uri->dataset measure query-dimensions ds-uri aggregation-fn]
-  (let [{:keys [dimensions] :as dataset} (get uri->dataset ds-uri)
-        agg-measure (graphql-enum->dimension-measure dataset measure)
-        measure-var-name (types/->query-var-name agg-measure)
-        dimension-bgps (get-dimension-filter-bgps dimensions query-dimensions)
-        sparql-fn (string/upper-case (name aggregation-fn))
-        q (str
-           "PREFIX qb: <http://purl.org/linked-data/cube#>"
-           "PREFIX time: <http://www.w3.org/2006/time#>"
-           "PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>"
-           "SELECT (" sparql-fn "(?" measure-var-name ") AS ?" (name aggregation-fn) ") WHERE {"
-           "  ?obs a qb:Observation ."
-           "  ?obs qb:dataSet <" ds-uri "> ."
-           dimension-bgps
-           "  ?obs <" (:uri agg-measure) "> ?" measure-var-name " ."
-           "}")
+  (let [dataset (get uri->dataset ds-uri)
+        q (queries/get-observation-aggregation-query aggregation-fn measure dataset query-dimensions)
         results (repo/query repo q)]
     (get (first results) aggregation-fn)))
 
@@ -252,56 +166,8 @@
                                         {:keys [query-dimensions ds-uri] :as aggregation-field}]
   (exec-observation-aggregation repo uri->dataset measure query-dimensions ds-uri aggregation-fn))
 
-(defn get-dimensions-filter [{dims-and :and}]
-  (if (empty? dims-and)
-    ""
-    (let [and-clauses (map-indexed (fn [idx uri]
-                                     (let [comp-var (str "?comp" (inc idx))]
-                                       (str
-                                        "?struct qb:component " comp-var ". \n"
-                                        comp-var " a qb:ComponentSpecification .\n"
-                                        comp-var " qb:dimension <" (str uri) "> .\n")))
-                            dims-and)]
-      (str
-       "  ?ds qb:structure ?struct ."
-       "  ?struct a qb:DataStructureDefinition ."
-       (string/join "\n" and-clauses)))))
-
-(defn get-dimensions-or [{dims-or :or}]
-  (if (empty? dims-or)
-    "  ?ds a qb:DataSet ."
-    (let [union-clauses (map (fn [dim]
-                               (str "{ ?struct qb:component ?comp ."
-                                    "  ?comp qb:dimension <" dim "> . }"))
-                             dims-or)]
-      (str
-       "{ SELECT DISTINCT ?ds WHERE {"
-       "  ?ds a qb:DataSet ."
-       "  ?ds qb:structure ?struct ."
-       "  ?struct a qb:DataStructureDefinition ."
-       (string/join " UNION " union-clauses)
-       "} }"))))
-
-(defn get-datasets-query [dimensions measures uri]
-  (str
-   "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>"
-   "PREFIX qb: <http://purl.org/linked-data/cube#>"
-   "PREFIX dcterms: <http://purl.org/dc/terms/>"
-   "SELECT ?ds ?title ?description ?licence ?issued ?modified ?publisher WHERE {"
-   (get-dimensions-or dimensions)
-   "  ?ds rdfs:label ?title ."
-   "  OPTIONAL { ?ds rdfs:comment ?description . }"
-   "  OPTIONAL { ?ds dcterms:license ?licence }"
-   "  OPTIONAL { ?ds dcterms:issued ?issued }"
-   "  OPTIONAL { ?ds dcterms:modified ?modified }"
-   "  OPTIONAL { ?ds dcterms:publisher ?publisher }"
-   (get-dimensions-filter dimensions)
-   (if (some? uri)
-     (str "FILTER(?ds = <" uri ">) ."))
-   "}"))
-
 (defn resolve-datasets [{:keys [repo]} {:keys [dimensions measures uri] :as args} _parent]
-  (let [q (get-datasets-query dimensions measures uri)
+  (let [q (queries/get-datasets-query dimensions measures uri)
         results (repo/query repo q)]
     (map (fn [{:keys [title] :as bindings}]
            (-> bindings
