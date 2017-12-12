@@ -9,14 +9,6 @@
            [java.time ZonedDateTime ZoneOffset]
            (org.openrdf.model Literal)))
 
-(defn parse-geography [geo-code]
-  (URI. (str "http://statistics.gov.scot/id/statistical-geography/" geo-code)))
-
-(defn uri->last-path-segment [uri]
-  (last (string/split (.getPath uri) #"/")))
-
-(def serialise-geography uri->last-path-segment)
-
 (defn parse-sparql-cursor [base64-str]
   (let [bytes (.decode (Base64/getDecoder) base64-str)
         offset (util/bytes->long bytes)]
@@ -135,7 +127,7 @@
   
   SchemaType
   (input-type-name [this] (type-name this))
-  (type-name [_this] :ref_area))
+  (type-name [_this] :uri))
 
 (extend RefAreaType TypeMapper id-mapper)
 
@@ -324,10 +316,6 @@
   {:SparqlCursor
         {:parse     (lschema/as-conformer parse-sparql-cursor)
          :serialize (lschema/as-conformer serialise-sparql-cursor)}
-
-   :ref_area
-        {:parse     (lschema/as-conformer parse-geography)
-         :serialize (lschema/as-conformer serialise-geography)}
 
    :uri {:parse     (lschema/as-conformer #(URI. %))
          :serialize (lschema/as-conformer str)}
