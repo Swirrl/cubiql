@@ -74,7 +74,9 @@
 
 (defn get-dimensions-or [{dims-or :or}]
   (if (empty? dims-or)
-    "  ?ds a qb:DataSet ."
+    (str "{ SELECT DISTINCT ?ds WHERE {"
+         "  ?ds a qb:DataSet ."
+         "} }")
     (let [union-clauses (map (fn [dim]
                                (str "{ ?struct qb:component ?comp ."
                                     "  ?comp qb:dimension <" dim "> . }"))
