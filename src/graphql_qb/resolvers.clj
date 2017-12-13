@@ -21,7 +21,7 @@
        sorts))
 
 (defn resolve-observations-count [context _args ds-field]
-  (let [repo (context/get-repository repo)
+  (let [repo (context/get-repository context)
         query-dimensions (::query-dimensions ds-field)
         uri (get-in ds-field [::dataset :uri])
         {:keys [dimensions]} (context/get-dataset context uri)]
