@@ -1,7 +1,7 @@
 (ns graphql-qb.server
   (:require [graphql-qb.core :as core]
             [graphql-qb.data :as data]
-            [graphql-qb.util :as util]
+            [graphql-qb.context :as context]
             [com.walmartlabs.lacinia.pedestal :as lp]
             [io.pedestal.http :as http]))
 
@@ -14,8 +14,8 @@
   ([port] (create-server port (data/get-test-repo)))
   ([port repo]
    (let [{:keys [schema datasets]} (core/build-schema-context repo)
-         uri->dataset (util/keyed-by :uri datasets)
-         opts {:app-context {:repo repo :uri->dataset uri->dataset}
+         context (context/create repo datasets)
+         opts {:app-context context
                :port        port
                :graphiql    true}
          service-map (lp/service-map schema opts)]

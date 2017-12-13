@@ -4,7 +4,8 @@
             [grafter.rdf.repository :as repo]
             [clojure.string :as string]
             [graphql-qb.util :as util]
-            [grafter.rdf.sparql :as sp]))
+            [grafter.rdf.sparql :as sp]
+            [graphql-qb.context :as context]))
 
 (defn get-observation-count [repo ds-uri ds-dimensions query-dimensions]
   (let [query (queries/get-observation-count-query ds-uri ds-dimensions query-dimensions)
@@ -19,16 +20,17 @@
            [dm sort-dir]))
        sorts))
 
-(defn resolve-observations-count [{:keys [repo uri->dataset] :as context} _args ds-field]
-  (let [query-dimensions (::query-dimensions ds-field)
+(defn resolve-observations-count [context _args ds-field]
+  (let [repo (context/get-repository repo)
+        query-dimensions (::query-dimensions ds-field)
         uri (get-in ds-field [::dataset :uri])
-        {:keys [dimensions] :as dataset} (get uri->dataset uri)]
+        {:keys [dimensions]} (context/get-dataset context uri)]
     (get-observation-count repo uri dimensions query-dimensions)))
 
-(defn resolve-observations [{:keys [uri->dataset] :as context}
+(defn resolve-observations [context
                             {query-dimensions :dimensions order-by :order order-spec :order_spec :as args}
                             {:keys [uri] :as ds-field}]
-  (let [{:keys [dimensions] :as dataset} (get uri->dataset uri)
+  (let [{:keys [dimensions] :as dataset} (context/get-dataset context uri)
         ordered-dim-measures (get-dimension-measure-ordering dataset order-by order-spec)
         query (queries/get-observation-query uri dimensions query-dimensions ordered-dim-measures)]
     {::query-dimensions            query-dimensions
@@ -51,11 +53,12 @@
     (if (> total-matches next-offset)
       next-offset)))
 
-(defn resolve-observations-page [{:keys [repo uri->dataset] :as context} args observations-field]
-  (let [query-dimensions (::query-dimensions observations-field)
+(defn resolve-observations-page [context args observations-field]
+  (let [repo (context/get-repository context)
+        query-dimensions (::query-dimensions observations-field)
         order-by-dim-measures (::order-by-dimension-measures observations-field)
         ds-uri (get-in observations-field [::dataset :uri])
-        {:keys [dimensions measures]} (get uri->dataset ds-uri)
+        {:keys [dimensions measures]} (context/get-dataset context ds-uri)
         limit (get-limit args)
         offset (get-offset args)
         total-matches (:total_matches observations-field)
@@ -76,8 +79,9 @@
      :count (count matches)
      :result matches}))
 
-(defn resolve-datasets [{:keys [repo]} {:keys [dimensions measures uri] :as args} _parent]
-  (let [q (queries/get-datasets-query dimensions measures uri)
+(defn resolve-datasets [context {:keys [dimensions measures uri] :as args} _parent]
+  (let [repo (context/get-repository context)
+        q (queries/get-datasets-query dimensions measures uri)
         results (repo/query repo q)]
     (map (fn [{:keys [title] :as bindings}]
            (-> bindings
@@ -87,20 +91,22 @@
                (assoc :schema (name (types/dataset-label->schema-name title)))))
          results)))
 
-(defn exec-observation-aggregation [repo uri->dataset measure query-dimensions ds-uri aggregation-fn]
-  (let [dataset (get uri->dataset ds-uri)
-        q (queries/get-observation-aggregation-query aggregation-fn measure dataset query-dimensions)
+(defn exec-observation-aggregation [repo dataset measure query-dimensions aggregation-fn]
+  (let [q (queries/get-observation-aggregation-query aggregation-fn measure dataset query-dimensions)
         results (repo/query repo q)]
     (get (first results) aggregation-fn)))
 
 (defn resolve-observations-aggregation [aggregation-fn
-                                        {:keys [repo uri->dataset] :as context}
+                                        context
                                         {:keys [measure] :as args}
                                         {:keys [query-dimensions ds-uri] :as aggregation-field}]
-  (exec-observation-aggregation repo uri->dataset measure query-dimensions ds-uri aggregation-fn))
+  (let [repo (context/get-repository context)
+        dataset (context/get-dataset context ds-uri)]
+    (exec-observation-aggregation repo dataset measure query-dimensions aggregation-fn)))
 
-(defn resolve-dataset-measures [{:keys [repo] :as context} _args {:keys [uri] :as ds-field}]
-  (let [results (sp/query "get-measure-types.sparql" {:ds uri} repo)]
+(defn resolve-dataset-measures [context _args {:keys [uri] :as ds-field}]
+  (let [repo (context/get-repository context)
+        results (sp/query "get-measure-types.sparql" {:ds uri} repo)]
     (mapv (fn [{:keys [mt label]}]
             {:uri       mt
              :label     (str label)
@@ -124,11 +130,11 @@
 
 (def measure->graphql dimension-measure->graphql)
 
-(defn resolve-dataset [{:keys [uri->dataset] :as context} {:keys [uri dimensions measures] :as dataset}]
-  (let [ds (get uri->dataset uri)]
+(defn resolve-dataset [context {:keys [uri dimensions measures] :as dataset}]
+  (let [ds (context/get-dataset context uri)]
     (merge ds {:dimensions (map dimension->graphql dimensions)
                :measures (map measure->graphql measures)})))
 
-(defn resolve-dataset-dimensions [{:keys [uri->dataset] :as context} _args {:keys [uri] :as ds-field}]
-  (let [{:keys [dimensions] :as ds} (get uri->dataset uri)]
+(defn resolve-dataset-dimensions [context _args {:keys [uri] :as ds-field}]
+  (let [{:keys [dimensions]} (context/get-dataset context uri)]
     (map dimension->graphql dimensions)))
