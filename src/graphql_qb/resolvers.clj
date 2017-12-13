@@ -87,8 +87,9 @@
                (assoc :schema (name (types/dataset-label->schema-name title)))))
          results)))
 
-(defn exec-observation-aggregation [repo dataset measure query-dimensions aggregation-fn]
-  (let [q (queries/get-observation-aggregation-query aggregation-fn measure dataset query-dimensions)
+(defn exec-observation-aggregation [repo dataset measure-enum-value query-dimensions aggregation-fn]
+  (let [aggregation-measure (types/graphql-enum->dimension-measure dataset measure-enum-value)
+        q (queries/get-observation-aggregation-query aggregation-fn aggregation-measure dataset query-dimensions)
         results (repo/query repo q)]
     (get (first results) aggregation-fn)))
 

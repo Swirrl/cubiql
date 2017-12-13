@@ -122,9 +122,8 @@
       (str "FILTER(?ds = <" uri ">) ."))
     "}"))
 
-(defn get-observation-aggregation-query [aggregation-fn measure-enum-value {ds-uri :uri dimensions :dimensions :as dataset} query-dimensions]
-  (let [aggregation-measure (types/graphql-enum->dimension-measure dataset measure-enum-value)
-        measure-var-name (types/->query-var-name aggregation-measure)
+(defn get-observation-aggregation-query [aggregation-fn aggregation-measure {ds-uri :uri dimensions :dimensions :as dataset} query-dimensions]
+  (let [measure-var-name (types/->query-var-name aggregation-measure)
         dimension-bgps (get-dimension-filter-bgps dimensions query-dimensions)
         sparql-fn (string/upper-case (name aggregation-fn))]
     (str
