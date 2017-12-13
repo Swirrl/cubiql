@@ -19,18 +19,22 @@
            [dm sort-dir]))
        sorts))
 
-(defn resolve-observations [{:keys [repo uri->dataset] :as context}
+(defn resolve-observations-count [{:keys [repo uri->dataset] :as context} _args ds-field]
+  (let [query-dimensions (::query-dimensions ds-field)
+        uri (get-in ds-field [::dataset :uri])
+        {:keys [dimensions] :as dataset} (get uri->dataset uri)]
+    (get-observation-count repo uri dimensions query-dimensions)))
+
+(defn resolve-observations [{:keys [uri->dataset] :as context}
                             {query-dimensions :dimensions order-by :order order-spec :order_spec :as args}
                             {:keys [uri] :as ds-field}]
   (let [{:keys [dimensions] :as dataset} (get uri->dataset uri)
-        total-matches (get-observation-count repo uri dimensions query-dimensions)
         ordered-dim-measures (get-dimension-measure-ordering dataset order-by order-spec)
         query (queries/get-observation-query uri dimensions query-dimensions ordered-dim-measures)]
     {::query-dimensions            query-dimensions
      ::order-by-dimension-measures ordered-dim-measures
      ::dataset                     ds-field
      :sparql                       (string/join (string/split query #"\n"))
-     :total_matches                total-matches
      :aggregations                 {:query-dimensions query-dimensions :ds-uri uri}}))
 
 (def default-limit 10)

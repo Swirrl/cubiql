@@ -86,7 +86,8 @@
                         :description "Page of results to retrieve."
                         :resolve     :resolve-observations-page}
         :aggregations  {:type aggregation-fields-type-name}
-        :total_matches {:type 'Int}}}
+        :total_matches {:type 'Int
+                        :resolve :resolve-observations-count}}}
 
       observation-results-page-type-name
       {:fields
