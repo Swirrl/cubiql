@@ -90,7 +90,6 @@
                                                                               (resolvers/resolve-dataset context dataset))])
                                        datasets))
         query-resolvers (merge {:resolve-observations resolvers/resolve-observations
-                                :resolve-observations-count resolvers/resolve-observations-count
                                 :resolve-observations-page resolvers/resolve-observations-page
                                 :resolve-datasets resolvers/resolve-datasets
                                 :resolve-dataset-dimensions resolvers/resolve-dataset-dimensions
