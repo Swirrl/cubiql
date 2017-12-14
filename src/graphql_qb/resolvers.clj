@@ -1,7 +1,6 @@
 (ns graphql-qb.resolvers
   (:require [graphql-qb.queries :as queries]
             [graphql-qb.types :as types]
-            [grafter.rdf.repository :as repo]
             [clojure.string :as string]
             [graphql-qb.util :as util]
             [grafter.rdf.sparql :as sp]
