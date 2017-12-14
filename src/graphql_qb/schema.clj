@@ -1,5 +1,6 @@
 (ns graphql-qb.schema
-  (:require [graphql-qb.types :as types]))
+  (:require [graphql-qb.types :as types]
+            [graphql-qb.resolvers :as resolvers]))
 
 (def observation-uri-type-schema
   {:type :uri
@@ -25,9 +26,17 @@
   (let [schema (types/dataset-schema dataset)]
     (keyword (str "resolve_" (name schema)))))
 
+(defn aggregation-resolver-name [dataset aggregation-fn]
+  (let [schema (types/dataset-schema dataset)]
+    (keyword (str "resolve_" (name schema) "_observations_aggregation_" (name aggregation-fn)))))
+
 (defn get-dataset-sort-specification-schema [{:keys [dimensions measures] :as dataset}]
   (into {} (map (fn [m] [(types/->field-name m)
                          {:type :sort_direction}]) (concat dimensions measures))))
+
+(defn create-aggregation-resolver [aggregation-fn aggregation-measures-enum]
+  (let [inner-resolver (partial resolvers/resolve-observations-aggregation aggregation-fn)]
+    (resolvers/wrap-resolver inner-resolver {:measure aggregation-measures-enum})))
 
 (defn get-dataset-schema [{:keys [description dimensions measures] :as dataset}]
   (let [schema (types/dataset-schema dataset)
@@ -98,16 +107,16 @@
       {:fields
        {:max     {:type    'Float
                   :args    {:measure {:type (list 'non-null aggregation-types-type-name) :description "The measure to aggregate"}}
-                  :resolve :resolve-observations-max}
+                  :resolve (aggregation-resolver-name dataset :max)}
         :min     {:type    'Float
                   :args    {:measure {:type (list 'non-null aggregation-types-type-name) :description "The measure to aggregate"}}
-                  :resolve :resolve-observations-min}
+                  :resolve (aggregation-resolver-name dataset :min)}
         :sum     {:type    'Float
                   :args    {:measure {:type (list 'non-null aggregation-types-type-name) :description "The measure to aggregate"}}
-                  :resolve :resolve-observations-sum}
+                  :resolve (aggregation-resolver-name dataset :sum)}
         :average {:type    'Float
                   :args    {:measure {:type (list 'non-null aggregation-types-type-name) :description "The measure to aggregate"}}
-                  :resolve :resolve-observations-average}}}
+                  :resolve (aggregation-resolver-name dataset :avg)}}}
 
       observation-type-name
       {:fields observation-schema}}
@@ -122,5 +131,13 @@
      :queries
      {schema
       {:type    schema
-       :resolve resolver-name}}}))
+       :resolve resolver-name}}
+
+     :resolvers
+     {(dataset-resolver dataset) (fn [context args field]
+                                   (resolvers/resolve-dataset context dataset))
+      (aggregation-resolver-name dataset :max) (create-aggregation-resolver :max aggregation-measures-enum)
+      (aggregation-resolver-name dataset :min) (create-aggregation-resolver :min aggregation-measures-enum)
+      (aggregation-resolver-name dataset :sum) (create-aggregation-resolver :sum aggregation-measures-enum)
+      (aggregation-resolver-name dataset :avg) (create-aggregation-resolver :avg aggregation-measures-enum)}}))
 

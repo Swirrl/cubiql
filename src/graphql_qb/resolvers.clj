@@ -87,11 +87,28 @@
                (assoc :schema (name (types/dataset-label->schema-name title)))))
          results)))
 
-(defn exec-observation-aggregation [repo dataset measure-enum-value query-dimensions aggregation-fn]
-  (let [aggregation-measure (types/graphql-enum->dimension-measure dataset measure-enum-value)
-        q (queries/get-observation-aggregation-query aggregation-fn aggregation-measure dataset query-dimensions)
+(defn exec-observation-aggregation [repo dataset measure query-dimensions aggregation-fn]
+  (let [q (queries/get-observation-aggregation-query aggregation-fn measure dataset query-dimensions)
         results (repo/query repo q)]
     (get (first results) aggregation-fn)))
+
+(defn resolve-arguments [args type-mapping]
+  ;;TODO: deal with nested type mappings
+  (into {} (map (fn [[k graphql-value]]
+                  (if-let [type (get type-mapping k)]
+                    [k (types/from-graphql type graphql-value)]
+                    [k graphql-value]))
+                args)))
+
+(defn wrap-resolver
+  "Returns a resolver function which resolves the incoming GraphQL arguments according to the given
+   type mapping (e.g. resolves enum values to their underlying values). Updates the argument maps with the
+   resolved values and invokes the inner resolver function"
+  [resolver-fn type-mapping]
+  (fn [context args field]
+    (let [resolved-args (resolve-arguments args type-mapping)
+          updated-args (merge args resolved-args)]
+      (resolver-fn context updated-args field))))
 
 (defn resolve-observations-aggregation [aggregation-fn
                                         context

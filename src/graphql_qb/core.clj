@@ -84,22 +84,14 @@
   (let [base-schema (read-edn-resource "base-schema.edn")
         base-schema (assoc base-schema :scalars types/custom-scalars)
         ds-schemas (map schema/get-dataset-schema datasets)
-        combined-schema (reduce (fn [acc schema] (merge-with merge acc schema)) base-schema ds-schemas)
-        schema-resolvers (into {} (map (fn [dataset]
-                                         [(schema/dataset-resolver dataset) (fn [context args field]
-                                                                              (resolvers/resolve-dataset context dataset))])
-                                       datasets))
+        {:keys [resolvers] :as combined-schema} (reduce (fn [acc schema] (merge-with merge acc schema)) base-schema ds-schemas)
         query-resolvers (merge {:resolve-observations resolvers/resolve-observations
                                 :resolve-observations-page resolvers/resolve-observations-page
                                 :resolve-datasets resolvers/resolve-datasets
                                 :resolve-dataset-dimensions resolvers/resolve-dataset-dimensions
-                                :resolve-dataset-measures resolvers/resolve-dataset-measures
-                                :resolve-observations-min (partial resolvers/resolve-observations-aggregation :min)
-                                :resolve-observations-max (partial resolvers/resolve-observations-aggregation :max)
-                                :resolve-observations-sum (partial resolvers/resolve-observations-aggregation :sum)
-                                :resolve-observations-average (partial resolvers/resolve-observations-aggregation :avg)}
-                               schema-resolvers)]
-    (attach-resolvers combined-schema query-resolvers)))
+                                :resolve-dataset-measures resolvers/resolve-dataset-measures}
+                               resolvers)]
+    (attach-resolvers (dissoc combined-schema :resolvers) query-resolvers)))
 
 (defn dump-schema [repo]
   (let [datasets (find-datasets repo)
