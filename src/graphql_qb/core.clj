@@ -77,8 +77,8 @@
 
 (defn find-datasets [repo]
   (let [q (queries/get-datasets-query nil nil nil)
-        results (repo/query repo q)]
-    (mapv #(transform-dataset-result repo % true) results)))
+        results (util/eager-query repo q)]
+    (map #(transform-dataset-result repo % true) results)))
 
 (defn get-schema [datasets]
   (let [base-schema (read-edn-resource "base-schema.edn")

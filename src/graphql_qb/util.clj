@@ -1,6 +1,7 @@
 (ns graphql-qb.util
   (:require [clojure.java.io :as io]
-            [clojure.edn :as edn])
+            [clojure.edn :as edn]
+            [grafter.rdf.repository :as repo])
   (:import [java.io PushbackReader]
            [java.nio ByteBuffer]))
 
@@ -51,3 +52,10 @@
 (defn bytes->long [bytes]
   {:pre [(= 8 (alength bytes))]}
   (.. (ByteBuffer/wrap bytes) (getLong)))
+
+(defn eager-query
+  "Executes a SPARQL query against the given repository and eagerly evaluates the results. This prevents
+   connections being left open by lazy sequence operators."
+  [repo sparql-string]
+  (with-open [conn (repo/->connection repo)]
+    (doall (repo/query conn sparql-string))))
