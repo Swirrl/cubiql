@@ -29,8 +29,15 @@
     :label {:type String :description "Label for the measure"}
     :enum_name {:type String :description "Name of the corresponding enum value"}}}
 
-  :dim_value
-  {:fields
+  :unmapped_dim_value
+  {:implements [:resource]
+   :fields
+   {:uri   {:type :uri :description "URI of the dimension value"}
+    :label {:type String :description "Label for the dimension value"}}}
+
+  :enum_dim_value
+  {:implements [:resource]
+   :fields
    {:uri   {:type :uri :description "URI of the dimension value"}
     :label {:type String :description "Label for the dimension value"}
     :enum_name {:type String :description "Name of the corresponding enum value"}}}
@@ -51,12 +58,21 @@
     :description {:type String :description "Dataset description"}
     :schema      {:type String :description "Name of the GraphQL query root field corresponding to this dataset"}
     :dimensions  {:type (list :dim) :description "Dimensions within the dataset"}
-    :measures {:type (list :measure) :description "Measure types within the dataset"}}}}
+    :measures {:type (list :measure) :description "Measure types within the dataset"}}}
+  :resource
+  {:description "Resource with a URI and optional label"
+   :fields
+   {:uri {:type :uri :description "URI of the resource"}
+    :label {:type String :description "Optional label"}}}}
 
  :enums
  {:sort_direction
   {:description "Which direction to sort a dimension or measure in"
    :values      [:ASC :DESC]}}
+
+ :unions
+ {:dim_value
+  {:members [:enum_dim_value :unmapped_dim_value]}}
 
  :input-objects
  {:filter

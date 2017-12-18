@@ -1,6 +1,7 @@
 (ns graphql-qb.queries
   (:require [clojure.string :as string]
-            [graphql-qb.types :as types]))
+            [graphql-qb.types :as types]
+            [grafter.rdf.sparql :as sp]))
 
 (defn get-order-by [order-by-dim-measures]
   (if (empty? order-by-dim-measures)
@@ -136,3 +137,7 @@
       dimension-bgps
       "  ?obs <" (:uri aggregation-measure) "> ?" measure-var-name " ."
       "}")))
+
+(defn get-unmapped-dimension-values [repo {:keys [uri] :as dataset}]
+  (let [results (vec (sp/query "get-unmapped-dimension-values.sparql" {:ds uri} repo))]
+    (group-by :dim results)))

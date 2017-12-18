@@ -8,13 +8,14 @@
             [clojure.pprint :as pprint]
             [graphql-qb.schema :as schema]
             [graphql-qb.resolvers :as resolvers]
-            [graphql-qb.queries :as queries]
-            [grafter.rdf.repository :as repo])
+            [graphql-qb.queries :as queries])
   (:import [java.net URI]))
 
-(defn get-enum-items [repo {:keys [ds-uri uri] :as dim}]
-  (let [results (util/distinct-by :member (sp/query "get-enum-values.sparql" {:ds ds-uri :dim uri} repo))
-        by-enum-name (group-by #(types/enum-label->value-name (:label %)) results)
+(defn get-dimension-code-list [repo {:keys [ds-uri uri] :as dim}]
+  (util/distinct-by :member (vec (sp/query "get-enum-values.sparql" {:ds ds-uri :dim uri} repo))))
+
+(defn code-list->enum-items [code-list]
+  (let [by-enum-name (group-by #(types/enum-label->value-name (:label %)) code-list)
         items (mapcat (fn [[enum-name item-results]]
                         (if (= 1 (count item-results))
                           (map (fn [{:keys [member label priority]}]
@@ -26,14 +27,18 @@
                       by-enum-name)]
     (vec items)))
 
+(defn get-enum-items [repo dimension]
+  (let [code-list (get-dimension-code-list repo dimension)]
+    (code-list->enum-items code-list)))
+
 (defn get-dimension-type [repo {:keys [uri label] :as dim} {:keys [schema] :as ds}]
   (cond
     (= (URI. "http://purl.org/linked-data/sdmx/2009/dimension#refArea") uri)
-    (types/->RefAreaType)
-    
+    (types/->RefAreaType nil)
+
     (= (URI. "http://purl.org/linked-data/sdmx/2009/dimension#refPeriod") uri)
-    (types/->RefPeriodType)
-    
+    (types/->RefPeriodType nil)
+
     :else
     (let [items (get-enum-items repo dim)
           enum-name (types/label->enum-name label)]
@@ -41,7 +46,7 @@
 
 (defn get-dimensions
   [repo {:keys [uri schema] :as ds}]
-  (let [results (util/distinct-by :dim (sp/query "get-dimensions.sparql" {:ds uri} repo))
+  (let [results (util/distinct-by :dim (vec (sp/query "get-dimensions.sparql" {:ds uri} repo)))
         dims (map-indexed (fn [idx bindings]
                             (let [dim (-> bindings
                                           (assoc :ds-uri uri)

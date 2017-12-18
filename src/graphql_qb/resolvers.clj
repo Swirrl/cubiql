@@ -4,7 +4,8 @@
             [clojure.string :as string]
             [graphql-qb.util :as util]
             [grafter.rdf.sparql :as sp]
-            [graphql-qb.context :as context]))
+            [graphql-qb.context :as context]
+            [com.walmartlabs.lacinia.schema :as ls]))
 
 (defn get-observation-count [repo ds-uri ds-dimensions query-dimensions]
   (let [query (queries/get-observation-count-query ds-uri ds-dimensions query-dimensions)
@@ -119,35 +120,41 @@
 
 (defn resolve-dataset-measures [context _args {:keys [uri] :as ds-field}]
   (let [repo (context/get-repository context)
-        results (sp/query "get-measure-types.sparql" {:ds uri} repo)]
-    (mapv (fn [{:keys [mt label]}]
-            {:uri       mt
-             :label     (str label)
-             :enum_name (name (types/enum-label->value-name (str label)))})
-          results)))
+        results (vec (sp/query "get-measure-types.sparql" {:ds uri} repo))]
+    (map (fn [{:keys [mt label]}]
+           {:uri       mt
+            :label     (str label)
+            :enum_name (name (types/enum-label->value-name (str label)))})
+         results)))
 
 (defn dimension-enum-value->graphql [{:keys [value label name] :as item}]
-  {:uri (str value) :label (str label) :enum_name (clojure.core/name name)})
+  (ls/tag-with-type
+    {:uri (str value) :label (str label) :enum_name (clojure.core/name name)}
+    :enum_dim_value))
 
 (defn dimension-measure->graphql [{:keys [uri label] :as measure}]
   {:uri   uri
    :label (str label)
    :enum_name  (name (:name (types/to-enum-value measure)))})
 
-
-(defn dimension->graphql [{:keys [type] :as dim}]
+(defn dimension->graphql [unmapped-dimensions {:keys [uri type] :as dim}]
   (let [base-dim (dimension-measure->graphql dim)]
     (if (types/is-enum-type? type)
       (assoc base-dim :values (map dimension-enum-value->graphql (:values type)))
-      base-dim)))
+      (let [code-list (get unmapped-dimensions uri)]
+        (assoc base-dim :values (map (fn [member] (ls/tag-with-type (util/rename-key member :member :uri) :unmapped_dim_value)) code-list))))))
 
 (def measure->graphql dimension-measure->graphql)
 
 (defn resolve-dataset [context {:keys [uri dimensions measures] :as dataset}]
-  (let [ds (context/get-dataset context uri)]
-    (merge ds {:dimensions (map dimension->graphql dimensions)
-               :measures (map measure->graphql measures)})))
+  (let [ds (context/get-dataset context uri)
+        repo (context/get-repository context)
+        unmapped-dimensions (queries/get-unmapped-dimension-values repo dataset)]
+    (merge ds {:dimensions (map #(dimension->graphql unmapped-dimensions %) dimensions)
+               :measures   (map measure->graphql measures)})))
 
 (defn resolve-dataset-dimensions [context _args {:keys [uri] :as ds-field}]
-  (let [{:keys [dimensions]} (context/get-dataset context uri)]
-    (map dimension->graphql dimensions)))
+  (let [{:keys [dimensions]} (context/get-dataset context uri)
+        repo (context/get-repository context)
+        unmapped-dimensions (queries/get-unmapped-dimension-values repo ds-field)]
+    (map #(dimension->graphql unmapped-dimensions %) dimensions)))

@@ -121,7 +121,7 @@
   {:from-graphql (fn [_this v] v)
    :to-graphql (fn [_this v] v)})
 
-(defrecord RefAreaType []
+(defrecord RefAreaType [code-list]
   EnumTypeSource
   (get-enums [_this] nil)
   
@@ -131,7 +131,7 @@
 
 (extend RefAreaType TypeMapper id-mapper)
 
-(defrecord RefPeriodType []
+(defrecord RefPeriodType [code-list]
   EnumTypeSource
   (get-enums [_this] nil)
   
