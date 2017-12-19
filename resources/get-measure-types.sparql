@@ -1,6 +1,6 @@
 PREFIX qb: <http://purl.org/linked-data/cube#>
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
-SELECT ?mt ?label WHERE {
+SELECT ?ds ?mt ?label WHERE {
   ?ds qb:structure ?struct .
   ?struct qb:component ?comp .
   ?comp qb:measure ?mt .

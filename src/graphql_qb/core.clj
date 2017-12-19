@@ -8,11 +8,8 @@
             [clojure.pprint :as pprint]
             [graphql-qb.schema :as schema]
             [graphql-qb.resolvers :as resolvers]
-            [graphql-qb.queries :as queries])
-  (:import [java.net URI]))
-
-(defn get-dimension-code-list [repo {:keys [ds-uri uri] :as dim}]
-  (util/distinct-by :member (vec (sp/query "get-enum-values.sparql" {:ds ds-uri :dim uri} repo))))
+            [graphql-qb.queries :as queries]
+            [graphql-qb.vocabulary :as vocab]))
 
 (defn code-list->enum-items [code-list]
   (let [by-enum-name (group-by #(types/enum-label->value-name (:label %)) code-list)
@@ -27,63 +24,99 @@
                       by-enum-name)]
     (vec items)))
 
-(defn get-enum-items [repo dimension]
-  (let [code-list (get-dimension-code-list repo dimension)]
-    (code-list->enum-items code-list)))
+(defn get-dataset-enum-dimensions [enum-dim-values]
+  (map (fn [[dim values]]
+         (let [{:keys [label doc]} (first values)
+               code-list (map #(util/rename-key % :vallabel :label) values)
+               items (code-list->enum-items code-list)
+               enum-name (types/label->field-name label)]
+           {:uri   dim
+            :label (str label)
+            :doc (str doc)
+            :type {:enum-name enum-name :values items}}))
+       (group-by :dim enum-dim-values)))
 
-(defn get-dimension-type [repo {:keys [uri label] :as dim} {:keys [schema] :as ds}]
-  (cond
-    (= (URI. "http://purl.org/linked-data/sdmx/2009/dimension#refArea") uri)
-    (types/->RefAreaType nil)
+;;TODO: get known dimensions label/docs from database
+(def ref-area-dim
+  {:uri vocab/sdmx:refArea
+   :label "Reference Area"
+   :doc "Reference area"
+   :type (types/->RefAreaType nil)})
 
-    (= (URI. "http://purl.org/linked-data/sdmx/2009/dimension#refPeriod") uri)
-    (types/->RefPeriodType nil)
+(def ref-period-dim
+  {:uri vocab/sdmx:refPeriod
+   :label "Reference Period"
+   :doc "Reference period"
+   :type (types/->RefPeriodType nil)})
 
-    :else
-    (let [items (get-enum-items repo dim)
-          enum-name (types/label->enum-name label)]
-      (types/->EnumType schema enum-name items))))
+(defn get-dataset-dimensions [ds-uri schema has-ref-area-dim? has-ref-period-dim? enum-dims]
+  (let [known-dims (remove nil? [(if has-ref-area-dim? ref-area-dim) (if has-ref-period-dim? ref-period-dim)])
+        enum-dims (map (fn [dim]
+                         (update dim :type #(types/map->EnumType (assoc % :schema schema))))
+                       enum-dims)
+        dims (concat known-dims enum-dims)]
+    (map-indexed (fn [index dim]
+                   (-> dim
+                       (assoc :ds-uri ds-uri)
+                       (assoc :schema schema)
+                       (assoc :order (inc index))
+                       (types/map->Dimension)))
+                 dims)))
 
-(defn get-dimensions
-  [repo {:keys [uri schema] :as ds}]
-  (let [results (util/distinct-by :dim (vec (sp/query "get-dimensions.sparql" {:ds uri} repo)))
-        dims (map-indexed (fn [idx bindings]
-                            (let [dim (-> bindings
-                                          (assoc :ds-uri uri)
-                                          (assoc :schema schema)
-                                          (assoc :order (inc idx))
-                                          (rename-key :dim :uri))
-                                  type (get-dimension-type repo dim ds)
-                                  dim-rec (types/map->Dimension (assoc dim :type type))]
-                              (assoc dim-rec :field-name (->field-name dim))))
-                          results)]
-    (vec dims)))
+(defn get-dataset-measures-mapping [measure-results]
+  (util/map-values (fn [ds-measures]
+                     (map-indexed (fn [idx {:keys [mt label is-numeric?]}]
+                                    (types/->MeasureType mt label (inc idx) is-numeric?))
+                                  ds-measures))
+                   (group-by :ds measure-results)))
 
-(defn is-measure-numeric? [repo ds-uri measure-uri]
-  (let [results (vec (sp/query "sample-observation-measure.sparql" {:ds ds-uri :mt measure-uri} repo))]
-    (number? (:measure (first results)))))
+(defn construct-datasets [datasets dataset-enum-values dataset-measures ref-area-datasets ref-period-datasets]
+  (let [dataset-enum-values (group-by :ds dataset-enum-values)]
+    (map (fn [{uri :ds :as dataset}]
+           (let [{:keys [title description issued modified publisher licence]} dataset
+                 schema (types/dataset-schema dataset)
+                 enum-dim-values (get dataset-enum-values uri)
+                 measures-mapping (get-dataset-measures-mapping dataset-measures)
+                 has-ref-area-dim? (contains? ref-area-datasets uri)
+                 has-ref-period-dim? (contains? ref-period-datasets uri)
+                 enum-dims (get-dataset-enum-dimensions enum-dim-values)
+                 dimensions (get-dataset-dimensions uri schema has-ref-area-dim? has-ref-period-dim? enum-dims)
+                 measures (or (get measures-mapping uri) [])
+                 d (types/->Dataset uri title description dimensions measures)]
+             (assoc d
+               :issued (some-> issued (types/grafter-date->datetime))
+               :modified (some-> modified (types/grafter-date->datetime))
+               :publisher publisher
+               :licence licence)))
+         datasets)))
 
-(defn get-measure-types [repo {:keys [uri] :as ds}]
-  (let [results (vec (sp/query "get-measure-types.sparql" {:ds uri} repo))]
-    (map-indexed (fn [idx {:keys [mt label] :as bindings}]
-                   (let [measure-type (types/->MeasureType mt label (inc idx) (is-measure-numeric? repo uri mt))]
-                     (assoc measure-type :field-name (->field-name bindings)))) results)))
+(defn get-numeric-measures [repo measures]
+  (into #{} (filter (fn [measure-uri]
+                      (let [results (vec (sp/query "sample-observation-measure.sparql" {:mt measure-uri} repo))]
+                        (number? (:measure (first results)))))
+                    measures)))
 
-(defn- transform-dataset-result [repo {:keys [ds title description issued modified licence publisher] :as dataset} get-dims-and-measures]
-  (let [uri ds
-        schema (dataset-label->schema-name title)
-        measures (if get-dims-and-measures (get-measure-types repo {:uri uri}))
-        dims (if get-dims-and-measures (get-dimensions repo {:uri uri :schema schema}))]
-    (assoc (types/->Dataset uri title description dims measures)
-      :issued (some-> issued (types/grafter-date->datetime))
-      :modified (some-> modified (types/grafter-date->datetime))
-      :publisher publisher
-      :licence licence)))
+(defn get-dataset-measures [repo]
+  (let [results (vec (sp/query "get-measure-types.sparql" repo))
+        measure-type-uris (distinct (map :mt results))
+        numeric-measures (get-numeric-measures repo measure-type-uris)]
+    (map (fn [{:keys [mt] :as measure}]
+           (assoc measure :is-numeric? (contains? numeric-measures mt)))
+         results)))
 
-(defn find-datasets [repo]
-  (let [q (queries/get-datasets-query nil nil nil)
-        results (util/eager-query repo q)]
-    (map #(transform-dataset-result repo % true) results)))
+(defn get-all-datasets [repo]
+  "1. Find all datasets
+   2. Find URIs for all datasets containing refArea and refPeriod dimensions
+   3. Get all dimension values for all enum dimensions
+   4. Get all dataset measures
+   5. Construct datasets"
+  (let [datasets-query (queries/get-datasets-query nil nil nil)
+        datasets (util/eager-query repo datasets-query)
+        dataset-enum-values (vec (sp/query "get-all-enum-dimension-values.sparql" repo))
+        dataset-measures (get-dataset-measures repo)
+        ref-area-datasets (queries/get-datasets-containing-ref-area-dimension repo)
+        ref-period-datasets (queries/get-datasets-containing-ref-period-dimension repo)]
+    (construct-datasets datasets dataset-enum-values dataset-measures ref-area-datasets ref-period-datasets)))
 
 (defn get-schema [datasets]
   (let [base-schema (read-edn-resource "base-schema.edn")
@@ -99,12 +132,12 @@
     (attach-resolvers (dissoc combined-schema :resolvers) query-resolvers)))
 
 (defn dump-schema [repo]
-  (let [datasets (find-datasets repo)
+  (let [datasets (get-all-datasets repo)
         schema (get-schema datasets)]
     (pprint/pprint schema)))
 
 (defn build-schema-context [repo]
-  (let [datasets (find-datasets repo)
+  (let [datasets (get-all-datasets repo)
         schema (get-schema datasets)]
     {:schema (lschema/compile schema)
      :datasets datasets}))

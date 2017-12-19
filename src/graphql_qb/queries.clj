@@ -1,7 +1,9 @@
 (ns graphql-qb.queries
   (:require [clojure.string :as string]
             [graphql-qb.types :as types]
-            [grafter.rdf.sparql :as sp]))
+            [grafter.rdf.sparql :as sp]
+            [graphql-qb.vocabulary :refer :all])
+  (:import (java.net URI)))
 
 (defn get-order-by [order-by-dim-measures]
   (if (empty? order-by-dim-measures)
@@ -141,3 +143,13 @@
 (defn get-unmapped-dimension-values [repo {:keys [uri] :as dataset}]
   (let [results (vec (sp/query "get-unmapped-dimension-values.sparql" {:ds uri} repo))]
     (group-by :dim results)))
+
+(defn get-datasets-containing-dimension [repo dimension-uri]
+  (let [results (vec (sp/query "get-datasets-with-dimension.sparql" {:dim dimension-uri} repo))]
+    (into #{} (map :ds results))))
+
+(defn get-datasets-containing-ref-area-dimension [repo]
+  (get-datasets-containing-dimension repo sdmx:refArea))
+
+(defn get-datasets-containing-ref-period-dimension [repo]
+  (get-datasets-containing-dimension repo sdmx:refPeriod))

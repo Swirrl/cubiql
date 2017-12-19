@@ -1,11 +1,18 @@
 PREFIX qb: <http://purl.org/linked-data/cube#>
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
-SELECT ?dim ?order ?label ?doc ?ds WHERE {
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+
+SELECT * WHERE {
   ?ds qb:structure ?struct .
   ?struct a qb:DataStructureDefinition .
   ?struct qb:component ?comp .
   ?comp a qb:ComponentSpecification .
   ?comp qb:dimension ?dim .
+  FILTER(?dim != <http://purl.org/linked-data/sdmx/2009/dimension#refArea>)
+  FILTER(?dim != <http://purl.org/linked-data/sdmx/2009/dimension#refPeriod>)
   ?dim rdfs:label ?label .
   OPTIONAL { ?dim rdfs:comment ?doc }
+  ?comp qb:codeList ?list .
+  ?list skos:member ?member .
+  OPTIONAL { ?member rdfs:label ?vallabel . }
 }
