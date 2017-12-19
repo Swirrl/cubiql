@@ -22,9 +22,13 @@
 (defn dataset-observation-filter-schema [{:keys [dimensions] :as dataset}]
   (apply merge (map types/->input-schema-element dimensions)))
 
-(defn dataset-resolver [dataset]
+(defn dataset-resolver-name [dataset]
   (let [schema (types/dataset-schema dataset)]
     (keyword (str "resolve_" (name schema)))))
+
+(defn dataset-dimensions-resolver-name [dataset]
+  (let [schema (types/dataset-schema dataset)]
+    (keyword (str "resolve_" (name schema) "_dimensions"))))
 
 (defn aggregation-resolver-name [dataset aggregation-fn]
   (let [schema (types/dataset-schema dataset)]
@@ -60,7 +64,7 @@
         all-enums (concat dataset-enums [aggregation-measures-enum dimensions-measures-fields-enum])
         enums-schema (apply merge (map enum->schema all-enums))
 
-        resolver-name (dataset-resolver dataset)]
+        resolver-name (dataset-resolver-name dataset)]
     {:enums enums-schema
      :objects
      {schema
@@ -75,6 +79,7 @@
         :publisher    {:type :uri :description "URI of the publisher of the dataset"}
         :schema       {:type 'String :description "Name of the GraphQL query root field corresponding to this dataset"}
         :dimensions   {:type        '(list :dim)
+                       :resolve (dataset-dimensions-resolver-name dataset)
                        :description "Dimensions within the dataset"}
         :measures     {:type        '(list :measure)
                        :description "Measure types within the dataset"}
@@ -134,10 +139,12 @@
        :resolve resolver-name}}
 
      :resolvers
-     {(dataset-resolver dataset) (fn [context args field]
-                                   (resolvers/resolve-dataset context dataset))
-      (aggregation-resolver-name dataset :max) (create-aggregation-resolver :max aggregation-measures-enum)
-      (aggregation-resolver-name dataset :min) (create-aggregation-resolver :min aggregation-measures-enum)
-      (aggregation-resolver-name dataset :sum) (create-aggregation-resolver :sum aggregation-measures-enum)
-      (aggregation-resolver-name dataset :avg) (create-aggregation-resolver :avg aggregation-measures-enum)}}))
+     {(dataset-resolver-name dataset) (fn [context args field]
+                                        (resolvers/resolve-dataset context dataset))
+      (dataset-dimensions-resolver-name dataset) (fn [context args _field]
+                                                   (resolvers/resolve-dataset-dimensions context args dataset))
+      (aggregation-resolver-name dataset :max)   (create-aggregation-resolver :max aggregation-measures-enum)
+      (aggregation-resolver-name dataset :min)   (create-aggregation-resolver :min aggregation-measures-enum)
+      (aggregation-resolver-name dataset :sum)   (create-aggregation-resolver :sum aggregation-measures-enum)
+      (aggregation-resolver-name dataset :avg)   (create-aggregation-resolver :avg aggregation-measures-enum)}}))
 

@@ -146,12 +146,8 @@
 
 (def measure->graphql dimension-measure->graphql)
 
-(defn resolve-dataset [context {:keys [uri dimensions measures] :as dataset}]
-  (let [ds (context/get-dataset context uri)
-        repo (context/get-repository context)
-        unmapped-dimensions (queries/get-unmapped-dimension-values repo dataset)]
-    (merge ds {:dimensions (map #(dimension->graphql unmapped-dimensions %) dimensions)
-               :measures   (map measure->graphql measures)})))
+(defn resolve-dataset [context {:keys [uri] :as dataset}]
+  (context/get-dataset context uri))
 
 (defn resolve-dataset-dimensions [context _args {:keys [uri] :as ds-field}]
   (let [{:keys [dimensions]} (context/get-dataset context uri)
