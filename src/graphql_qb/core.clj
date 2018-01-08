@@ -49,13 +49,14 @@
                        (assoc :ds-uri ds-uri)
                        (assoc :schema schema)
                        (assoc :order (inc index))
+                       (assoc :field-name (types/->field-name dim))
                        (types/map->Dimension)))
                  dims)))
 
 (defn get-dataset-measures-mapping [measure-results]
   (util/map-values (fn [ds-measures]
-                     (map-indexed (fn [idx {:keys [mt label is-numeric?]}]
-                                    (types/->MeasureType mt label (inc idx) is-numeric?))
+                     (map-indexed (fn [idx {:keys [mt label is-numeric? field-name]}]
+                                    (assoc (types/->MeasureType mt label (inc idx) is-numeric?) :field-name field-name))
                                   ds-measures))
                    (group-by :ds measure-results)))
 
@@ -88,7 +89,9 @@
         measure-type-uris (distinct (map :mt results))
         numeric-measures (get-numeric-measures repo measure-type-uris)]
     (map (fn [{:keys [mt] :as measure}]
-           (assoc measure :is-numeric? (contains? numeric-measures mt)))
+           (-> measure
+               (assoc :is-numeric? (contains? numeric-measures mt))
+               (assoc :field-name (types/->field-name measure))))
          results)))
 
 (defn collect-dimensions-results [known-dimension-types results]

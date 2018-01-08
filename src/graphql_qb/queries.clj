@@ -2,8 +2,7 @@
   (:require [clojure.string :as string]
             [graphql-qb.types :as types]
             [grafter.rdf.sparql :as sp]
-            [graphql-qb.vocabulary :refer :all])
-  (:import (java.net URI)))
+            [graphql-qb.vocabulary :refer :all]))
 
 (defn get-order-by [order-by-dim-measures]
   (if (empty? order-by-dim-measures)
