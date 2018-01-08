@@ -36,21 +36,10 @@
             :type {:enum-name enum-name :values items}}))
        (group-by :dim enum-dim-values)))
 
-;;TODO: get known dimensions label/docs from database
-(def ref-area-dim
-  {:uri vocab/sdmx:refArea
-   :label "Reference Area"
-   :doc "Reference area"
-   :type (types/->RefAreaType)})
-
-(def ref-period-dim
-  {:uri vocab/sdmx:refPeriod
-   :label "Reference Period"
-   :doc "Reference period"
-   :type (types/->RefPeriodType)})
-
-(defn get-dataset-dimensions [ds-uri schema has-ref-area-dim? has-ref-period-dim? enum-dims]
-  (let [known-dims (remove nil? [(if has-ref-area-dim? ref-area-dim) (if has-ref-period-dim? ref-period-dim)])
+(defn get-dataset-dimensions [ds-uri schema known-dimensions known-dimension-members enum-dims]
+  (let [known-dims (filter (fn [{:keys [uri]}]
+                             (contains? (get known-dimension-members uri) ds-uri))
+                           known-dimensions)
         enum-dims (map (fn [dim]
                          (update dim :type #(types/map->EnumType (assoc % :schema schema))))
                        enum-dims)
@@ -70,17 +59,15 @@
                                   ds-measures))
                    (group-by :ds measure-results)))
 
-(defn construct-datasets [datasets dataset-enum-values dataset-measures ref-area-datasets ref-period-datasets]
+(defn construct-datasets [datasets dataset-enum-values dataset-measures known-dimensions known-dimension-members]
   (let [dataset-enum-values (group-by :ds dataset-enum-values)]
     (map (fn [{uri :ds :as dataset}]
            (let [{:keys [title description issued modified publisher licence]} dataset
                  schema (types/dataset-schema dataset)
                  enum-dim-values (get dataset-enum-values uri)
                  measures-mapping (get-dataset-measures-mapping dataset-measures)
-                 has-ref-area-dim? (contains? ref-area-datasets uri)
-                 has-ref-period-dim? (contains? ref-period-datasets uri)
                  enum-dims (get-dataset-enum-dimensions enum-dim-values)
-                 dimensions (get-dataset-dimensions uri schema has-ref-area-dim? has-ref-period-dim? enum-dims)
+                 dimensions (get-dataset-dimensions uri schema known-dimensions known-dimension-members enum-dims)
                  measures (or (get measures-mapping uri) [])
                  d (types/->Dataset uri title description dimensions measures)]
              (assoc d
@@ -104,19 +91,37 @@
            (assoc measure :is-numeric? (contains? numeric-measures mt)))
          results)))
 
+(defn collect-dimensions-results [known-dimension-types results]
+  (let [dim-results (group-by :dim results)
+        m (map (fn [[dim-uri type]]
+                 (if-let [{:keys [label comment]} (first (get dim-results dim-uri))]
+                   {:uri dim-uri :type type :label (str label) :doc (str comment)}))
+               known-dimension-types)]
+    (remove #(nil? (second %)) m)))
+
+(defn get-known-dimensions [repo known-dimension-types]
+  (let [q (queries/get-dimensions-query (map first known-dimension-types))
+        results (util/eager-query repo q)]
+    (collect-dimensions-results known-dimension-types results)))
+
 (defn get-all-datasets [repo]
   "1. Find all datasets
-   2. Find URIs for all datasets containing refArea and refPeriod dimensions
-   3. Get all dimension values for all enum dimensions
-   4. Get all dataset measures
-   5. Construct datasets"
+   2. Lookup details of ref area and ref period dimensions
+   3. Find URIs for all datasets containing refArea and refPeriod dimensions
+   4. Get all dimension values for all enum dimensions
+   5. Get all dataset measures
+   6. Construct datasets"
   (let [datasets-query (queries/get-datasets-query nil nil nil)
         datasets (util/eager-query repo datasets-query)
+        known-dimension-types [[vocab/sdmx:refArea (types/->RefAreaType)]
+                               [vocab/sdmx:refPeriod (types/->RefPeriodType)]]
+        known-dimensions (get-known-dimensions repo known-dimension-types)
+        known-dimension-members (into {} (map (fn [[dim-uri _type]]
+                                                [dim-uri (queries/get-datasets-containing-dimension repo dim-uri)])
+                                              known-dimension-types))
         dataset-enum-values (vec (sp/query "get-all-enum-dimension-values.sparql" repo))
-        dataset-measures (get-dataset-measures repo)
-        ref-area-datasets (queries/get-datasets-containing-ref-area-dimension repo)
-        ref-period-datasets (queries/get-datasets-containing-ref-period-dimension repo)]
-    (construct-datasets datasets dataset-enum-values dataset-measures ref-area-datasets ref-period-datasets)))
+        dataset-measures (get-dataset-measures repo)]
+    (construct-datasets datasets dataset-enum-values dataset-measures known-dimensions known-dimension-members)))
 
 (defn get-schema [datasets]
   (let [base-schema (read-edn-resource "base-schema.edn")

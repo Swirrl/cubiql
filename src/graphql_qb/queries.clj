@@ -148,8 +148,13 @@
   (let [results (vec (sp/query "get-datasets-with-dimension.sparql" {:dim dimension-uri} repo))]
     (into #{} (map :ds results))))
 
-(defn get-datasets-containing-ref-area-dimension [repo]
-  (get-datasets-containing-dimension repo sdmx:refArea))
-
-(defn get-datasets-containing-ref-period-dimension [repo]
-  (get-datasets-containing-dimension repo sdmx:refPeriod))
+(defn get-dimensions-query [dim-uris]
+  (str
+    "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>"
+    "PREFIX qb: <http://purl.org/linked-data/cube#>"
+    "SELECT ?dim ?label ?comment WHERE {"
+    "  VALUES ?dim { " (string/join " " (map #(str "<" % ">") dim-uris)) " }"
+    "  ?dim a qb:DimensionProperty ."
+    "  ?dim rdfs:label ?label ."
+    "  OPTIONAL { ?dim rdfs:comment ?comment }"
+    "}"))
