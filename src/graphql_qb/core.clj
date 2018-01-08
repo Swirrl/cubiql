@@ -41,13 +41,13 @@
   {:uri vocab/sdmx:refArea
    :label "Reference Area"
    :doc "Reference area"
-   :type (types/->RefAreaType nil)})
+   :type (types/->RefAreaType)})
 
 (def ref-period-dim
   {:uri vocab/sdmx:refPeriod
    :label "Reference Period"
    :doc "Reference period"
-   :type (types/->RefPeriodType nil)})
+   :type (types/->RefPeriodType)})
 
 (defn get-dataset-dimensions [ds-uri schema has-ref-area-dim? has-ref-period-dim? enum-dims]
   (let [known-dims (remove nil? [(if has-ref-area-dim? ref-area-dim) (if has-ref-period-dim? ref-period-dim)])
