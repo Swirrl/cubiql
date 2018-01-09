@@ -5,7 +5,8 @@
             [graphql-qb.util :as util]
             [grafter.rdf.sparql :as sp]
             [graphql-qb.context :as context]
-            [com.walmartlabs.lacinia.schema :as ls]))
+            [com.walmartlabs.lacinia.schema :as ls]
+            [graphql-qb.query-model :as qm]))
 
 (defn get-observation-count [repo ds-uri ds-dimensions query-dimensions]
   (let [query (queries/get-observation-count-query ds-uri ds-dimensions query-dimensions)
@@ -88,7 +89,8 @@
          results)))
 
 (defn exec-observation-aggregation [repo dataset measure query-dimensions aggregation-fn]
-  (let [q (queries/get-observation-aggregation-query aggregation-fn measure dataset query-dimensions)
+  (let [model (queries/get-observation-filter-model (:dimensions dataset) query-dimensions)
+        q (qm/get-observation-aggregation-query model aggregation-fn (:uri dataset) (:uri measure))
         results (util/eager-query repo q)]
     (get (first results) aggregation-fn)))
 

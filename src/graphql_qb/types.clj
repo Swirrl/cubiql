@@ -2,7 +2,9 @@
   "Functions for mapping DSD elements to/from GraphQL types"
   (:require [clojure.string :as string]
             [graphql-qb.util :as util]
-            [com.walmartlabs.lacinia.schema :as lschema])
+            [com.walmartlabs.lacinia.schema :as lschema]
+            [graphql-qb.query-model :as qm]
+            [graphql-qb.vocabulary :refer [time:hasBeginning time:hasEnd time:inXSDDateTime rdfs:label]])
   (:import [java.net URI]
            [java.util Base64 Date]
            [java.time.format DateTimeFormatter]
@@ -91,13 +93,11 @@
   (keyword (str (name ds-schema) "_" (name field-name) "_type")))
 
 (defprotocol SparqlFilterable
-  (get-filter-bgps [this graphql-filter]))
+  (apply-filter [this model graphql-value]))
 
 (defprotocol SparqlQueryable
   (->query-var-name [this])
-  (->order-by-var-name [this])
-  (get-order-by-bgps [this])
-  (get-projection-bgps [this sparql-value]))
+  (apply-order-by [this model direction]))
 
 (defprotocol SchemaType
   (input-type-name [this])
@@ -170,77 +170,56 @@
 (defn is-ref-period-type? [type]
   (instance? RefPeriodType type))
 
-(defn format-sparql-datetime [dt]
-  (str "\"" (serialise-datetime dt) "\"^^xsd:dateTime"))
+(defn maybe-add-period-filter [model dim-key dim-uri interval-key filter-fn dt]
+  (if (some? dt)
+    (let [key-path [[dim-key dim-uri] interval-key [:time time:inXSDDateTime]]]
+      (-> model
+          (qm/add-binding key-path ::qm/var)
+          (qm/add-filter (map first key-path) [filter-fn dt])))
+    model))
 
-(defn get-ref-period-filter [obs-var-name dim-uri dim-var-name {:keys [uri starts_before starts_after ends_before ends_after] :as filter}]
+(defn apply-ref-period-filter [model dim-key dim-uri {:keys [uri starts_before starts_after ends_before ends_after] :as filter}]
   (if (nil? filter)
-    ""
-    (let [obs-var (str "?" obs-var-name)
-          uri-tp (if uri (str obs-var " <" dim-uri "> <" uri "> ."))
-          start-filter (if (and (nil? starts_before) (nil? starts_after) (nil? ends_before) (nil? ends_after))
-                         ""
-                         (let [period-var (str "?" dim-var-name "period")
-                               begin-var (str period-var "begin")
-                               end-var (str period-var "end")
-                               begin-time-var (str period-var "time")
-                               end-time-var (str end-var "time")
-                               begin-filter (if (and (nil? starts_before) (nil? starts_after))
-                                              ""
-                                              (str period-var " time:hasBeginning " begin-var " ."
-                                                   begin-var " time:inXSDDateTime " begin-time-var " ."
-                                                   (when (some? starts_before)
-                                                     (str "FILTER(" begin-time-var " <= " (format-sparql-datetime starts_before) ")"))
-                                                   (when (some? starts_after)
-                                                     (str "FILTER(" begin-time-var " >= " (format-sparql-datetime starts_after) ")"))))
-                               end-filter (if (and (nil? ends_before) (nil? ends_after))
-                                            ""
-                                            (str period-var " time:hasEnd " end-var " ."
-                                                 end-var " time:inXSDDateTime " end-time-var " ."
-                                                 (when (some? ends_before)
-                                                   (str "FILTER(" end-time-var " <= " (format-sparql-datetime ends_before) ")"))
-                                                 (when (some? ends_after)
-                                                   (str "FILTER(" end-time-var " >= " (format-sparql-datetime ends_after) ")"))))]
-                           (str obs-var " <" dim-uri "> " period-var " ." begin-filter end-filter)))]
-      (str uri-tp start-filter))))
+    (qm/add-binding model [[dim-key dim-uri]] ::qm/var)
+    (let [model (if (some? uri) (qm/add-binding model [[dim-key dim-uri]] uri) model)]
+      (if (and (nil? starts_before) (nil? starts_after) (nil? ends_before) (nil? ends_after))
+        (qm/add-binding model [[dim-key dim-uri]] ::qm/var)
+        ;; add bindings/filter for each filter
+        (-> model
+            (maybe-add-period-filter dim-key dim-uri [:begin time:hasBeginning] '<= starts_before)
+            (maybe-add-period-filter dim-key dim-uri [:begin time:hasBeginning] '>= starts_after)
+            (maybe-add-period-filter dim-key dim-uri [:end time:hasEnd] '<= ends_before)
+            (maybe-add-period-filter dim-key dim-uri [:end time:hasEnd] '>= ends_after))))))
 
 (defrecord Dimension [uri ds-uri schema label doc order type]
   SparqlQueryable
   (->query-var-name [_this]
     (str "dim" order))
-  
-  (->order-by-var-name [this]
-    (if (is-ref-area-type? type)
-      (str "dim" order "label")
-      (->query-var-name this)))
 
-  (get-order-by-bgps [this]
-    (if (is-ref-area-type? type)
-      [(str "OPTIONAL { ?"(->query-var-name this) " rdfs:label ?" (->order-by-var-name this) " }")]
-      []))
-
-  (get-projection-bgps [this sparql-value]
-    (cond
-      (is-enum-type? type)
-      (str "BIND(<" (from-graphql type sparql-value) "> as ?" (->query-var-name this) ")")
-
-      (is-ref-area-type? type)
-      (str "BIND(<" (from-graphql type sparql-value) "> as ?" (->query-var-name this) ")")
-
-      (is-ref-period-type? type)
-      (str "?obs <" uri "> ?" (->query-var-name this) " .")))
+  (apply-order-by [_this model direction]
+    (let [dim-key (keyword (str "dim" order))]
+      (if (is-ref-area-type? type)
+        ;;TODO: make label binding optional
+        (-> model
+            (qm/add-binding [[dim-key uri] [:label rdfs:label]] ::qm/var)
+            (qm/add-order-by {direction [dim-key :label]}))
+        ;;NOTE: binding should have already been added
+        (qm/add-order-by model {direction [dim-key]}))))
 
   SparqlFilterable
-  (get-filter-bgps [this graphql-value]
-    (cond
-      (is-enum-type? type)
-      (str "?obs <" uri "> <" (from-graphql this graphql-value) "> .")
+  (apply-filter [this model graphql-value]
+    (let [dim-key (keyword (str "dim" order))]
+      (cond
+        (is-enum-type? type)
+        (let [value (if (nil? graphql-value) ::qm/var (from-graphql this graphql-value))]
+          (qm/add-binding model [[dim-key uri]] value))
 
-      (is-ref-area-type? type)
-      (str "?obs <" uri "> <" (from-graphql this graphql-value) "> .")
+        (is-ref-area-type? type)
+        (let [value (if (nil? graphql-value) ::qm/var (from-graphql this graphql-value))]
+          (qm/add-binding model [[dim-key uri]] value))
 
-      (is-ref-period-type? type)
-      (get-ref-period-filter "obs" uri (->query-var-name this) graphql-value)))
+        (is-ref-period-type? type)
+        (apply-ref-period-filter model dim-key uri graphql-value))))
 
   TypeMapper
   (from-graphql [this graphql-value]
@@ -275,11 +254,8 @@
   (->query-var-name [_this]
     (str "mt" order))
 
-  (->order-by-var-name [this]
-    (->query-var-name this))
-
-  (get-order-by-bgps [this]
-    [])
+  (apply-order-by [this model direction]
+    (qm/add-order-by model {direction [:mv]}))
 
   TypeMapper
   (from-graphql [this graphql-value]
