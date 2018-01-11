@@ -9,7 +9,7 @@
            [java.util Base64 Date]
            [java.time.format DateTimeFormatter]
            [java.time ZonedDateTime ZoneOffset]
-           (org.openrdf.model Literal)))
+           [org.openrdf.model Literal]))
 
 (defn parse-sparql-cursor [base64-str]
   (let [bytes (.decode (Base64/getDecoder) base64-str)
@@ -96,7 +96,6 @@
   (apply-filter [this model graphql-value]))
 
 (defprotocol SparqlQueryable
-  (->query-var-name [this])
   (apply-order-by [this model direction]))
 
 (defprotocol SchemaType
@@ -137,7 +136,7 @@
   
   SchemaType
   (input-type-name [_this] :ref_period_filter)
-  (type-name [_this] :uri))
+  (type-name [_this] :ref_period))
 
 (extend RefPeriodType TypeMapper id-mapper)
 
@@ -191,10 +190,12 @@
             (maybe-add-period-filter dim-key dim-uri [:end time:hasEnd] '<= ends_before)
             (maybe-add-period-filter dim-key dim-uri [:end time:hasEnd] '>= ends_after))))))
 
+(defprotocol SparqlResultProjector
+  (apply-projection [this model selections])
+  (project-result [this sparql-binding]))
+
 (defrecord Dimension [uri ds-uri schema label doc order type]
   SparqlQueryable
-  (->query-var-name [_this]
-    (str "dim" order))
 
   (apply-order-by [_this model direction]
     (let [dim-key (keyword (str "dim" order))]
@@ -220,6 +221,26 @@
 
         (is-ref-period-type? type)
         (apply-ref-period-filter model dim-key uri graphql-value))))
+
+  SparqlResultProjector
+  (apply-projection [_this model selections]
+    (if (is-ref-period-type? type)
+      (let [dim-key (keyword (str "dim" order))]
+        (-> model
+            (qm/add-binding [[dim-key uri]] ::qm/var)
+            (qm/add-binding [[dim-key uri] [:label rdfs:label]] ::qm/var)
+            (qm/add-binding [[dim-key uri] [:begin time:hasBeginning] [:time time:inXSDDateTime]] ::qm/var)
+            (qm/add-binding [[dim-key uri] [:end time:hasEnd] [:time time:inXSDDateTime]] ::qm/var)))
+      model))
+
+  (project-result [_this bindings]
+    (let [dim-key (keyword (str "dim" order))]
+      (if (is-ref-period-type? type)
+        {:uri   (get bindings dim-key)
+         :label (get bindings (keyword (qm/key-path->var-name [dim-key :label])))
+         :start (some-> (get bindings (keyword (qm/key-path->var-name [dim-key :begin :time]))) grafter-date->datetime)
+         :end   (some-> (get bindings (keyword (qm/key-path->var-name [dim-key :end :time]))) grafter-date->datetime)}
+        (get bindings dim-key))))
 
   TypeMapper
   (from-graphql [this graphql-value]
@@ -251,11 +272,17 @@
 
 (defrecord MeasureType [uri label order is-numeric?]
   SparqlQueryable
-  (->query-var-name [_this]
-    (str "mt" order))
-
   (apply-order-by [this model direction]
     (qm/add-order-by model {direction [:mv]}))
+
+  ;;TODO: name of measure variable is currently hard-coded in the query generator functions
+  ;;in query-model namespace. Move it into here.
+  SparqlResultProjector
+  (apply-projection [_this model selections]
+    model)
+
+  (project-result [_this binding]
+    (:mv binding))
 
   TypeMapper
   (from-graphql [this graphql-value]

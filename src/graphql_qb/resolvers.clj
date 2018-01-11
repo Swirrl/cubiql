@@ -28,7 +28,7 @@
         {:keys [dimensions] :as dataset} (context/get-dataset context uri)
         total-matches (get-observation-count repo uri dimensions query-dimensions)
         ordered-dim-measures (get-dimension-measure-ordering dataset order-by order-spec)
-        query (queries/get-observation-query uri dimensions query-dimensions ordered-dim-measures)]
+        query (queries/get-observation-query uri dataset query-dimensions ordered-dim-measures)]
     {::query-dimensions            query-dimensions
      ::order-by-dimension-measures ordered-dim-measures
      ::dataset                     ds-field
@@ -55,16 +55,15 @@
         query-dimensions (::query-dimensions observations-field)
         order-by-dim-measures (::order-by-dimension-measures observations-field)
         ds-uri (get-in observations-field [::dataset :uri])
-        {:keys [dimensions measures]} (context/get-dataset context ds-uri)
+        {:keys [dimensions measures] :as dataset} (context/get-dataset context ds-uri)
         limit (get-limit args)
         offset (get-offset args)
         total-matches (:total_matches observations-field)
-        query (queries/get-observation-page-query ds-uri dimensions query-dimensions limit offset order-by-dim-measures)
+        query (queries/get-observation-page-query ds-uri dataset query-dimensions limit offset order-by-dim-measures)
         results (util/eager-query repo query)
         matches (mapv (fn [{:keys [obs mp mv] :as bindings}]
                         (let [dimension-values (map (fn [{:keys [field-name] :as ft}]
-                                                      (let [result-key (keyword (types/->query-var-name ft))
-                                                            value (get bindings result-key)]
+                                                      (let [value (types/project-result ft bindings)]
                                                         [field-name (types/to-graphql ft value)]))
                                                     dimensions)
                               {measure-field :field-name :as obs-measure} (first (filter #(= mp (:uri %)) measures))
