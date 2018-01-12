@@ -47,7 +47,13 @@
    {:uri {:type :uri :description "URI of the reference period"}
     :label {:type String :description "Label for the reference period"}
     :start {:type :DateTime :description "Start time for the period"}
-    :end {:type :DateTime :description "End time for the period"}}}}
+    :end {:type :DateTime :description "End time for the period"}}}
+
+  :ref_area
+  {:implements [:resource]
+   :fields
+   {:uri {:type :uri :description "URI of the reference area"}
+    :label {:type String :description "Label for the reference area"}}}}
 
  :interfaces
  {:dataset_meta

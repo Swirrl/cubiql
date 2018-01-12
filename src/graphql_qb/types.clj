@@ -125,8 +125,8 @@
   (get-enums [_this] nil)
   
   SchemaType
-  (input-type-name [this] (type-name this))
-  (type-name [_this] :uri))
+  (input-type-name [this] :uri)
+  (type-name [_this] :ref_area))
 
 (extend RefAreaType TypeMapper id-mapper)
 
@@ -224,23 +224,35 @@
 
   SparqlResultProjector
   (apply-projection [_this model selections]
-    (if (is-ref-period-type? type)
+    (cond
+      (is-ref-period-type? type)
       (let [dim-key (keyword (str "dim" order))]
         (-> model
             (qm/add-binding [[dim-key uri]] ::qm/var)
             (qm/add-binding [[dim-key uri] [:label rdfs:label]] ::qm/var)
             (qm/add-binding [[dim-key uri] [:begin time:hasBeginning] [:time time:inXSDDateTime]] ::qm/var)
             (qm/add-binding [[dim-key uri] [:end time:hasEnd] [:time time:inXSDDateTime]] ::qm/var)))
-      model))
+
+      (is-ref-area-type? type)
+      (let [dim-key (keyword (str "dim" order))]
+        (qm/add-binding model [[dim-key uri] [:label rdfs:label]] ::qm/var))
+
+      :else model))
 
   (project-result [_this bindings]
     (let [dim-key (keyword (str "dim" order))]
-      (if (is-ref-period-type? type)
+      (cond
+        (is-ref-period-type? type)
         {:uri   (get bindings dim-key)
          :label (get bindings (keyword (qm/key-path->var-name [dim-key :label])))
          :start (some-> (get bindings (keyword (qm/key-path->var-name [dim-key :begin :time]))) grafter-date->datetime)
          :end   (some-> (get bindings (keyword (qm/key-path->var-name [dim-key :end :time]))) grafter-date->datetime)}
-        (get bindings dim-key))))
+
+        (is-ref-area-type? type)
+        {:uri (get bindings dim-key)
+         :label (get bindings (keyword (keyword (qm/key-path->var-name [dim-key :label]))))}
+
+        :else (get bindings dim-key))))
 
   TypeMapper
   (from-graphql [this graphql-value]
