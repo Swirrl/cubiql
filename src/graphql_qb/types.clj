@@ -120,6 +120,8 @@
   {:from-graphql (fn [_this v] v)
    :to-graphql (fn [_this v] v)})
 
+(extend nil TypeMapper id-mapper)
+
 (defrecord RefAreaType []
   EnumTypeSource
   (get-enums [_this] nil)
@@ -286,14 +288,13 @@
   (apply-order-by [this model direction]
     (qm/add-order-by model {direction [:mv]}))
 
-  ;;TODO: name of measure variable is currently hard-coded in the query generator functions
-  ;;in query-model namespace. Move it into here.
   SparqlResultProjector
   (apply-projection [_this model selections]
-    model)
+    (let [dim-key (keyword (str "mv" order))]
+      (qm/add-binding model [[dim-key uri]] ::qm/var :optional? true)))
 
   (project-result [_this binding]
-    (:mv binding))
+    (get binding (keyword (str "mv" order))))
 
   TypeMapper
   (from-graphql [this graphql-value]

@@ -176,9 +176,6 @@
       "  " (query-format obs-var) "  qb:dataSet " (query-format dataset-uri) " ."
       (string/join " " (map format-query-triple-pattern (get-query-triple-patterns model obs-var-name)))
       (string/join " " (map format-filter (get-query-filters model)))
-      ;;TODO: move binding for measure types into MeasureType protocol
-      "  " (query-format obs-var) " qb:measureType ?mp ."
-      "  " (query-format obs-var) " ?mp ?mv ."
       "}" (format-query-order-by (get-query-order-by model)))))
 
 (defn get-observation-count-query [model obs-var-name dataset-uri]
