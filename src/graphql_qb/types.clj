@@ -200,9 +200,8 @@
   (apply-order-by [_this model direction]
     (let [dim-key (keyword (str "dim" order))]
       (if (is-ref-area-type? type)
-        ;;TODO: make label binding optional
         (-> model
-            (qm/add-binding [[dim-key uri] [:label rdfs:label]] ::qm/var)
+            (qm/add-binding [[dim-key uri] [:label rdfs:label]] ::qm/var :optional? true)
             (qm/add-order-by {direction [dim-key :label]}))
         ;;NOTE: binding should have already been added
         (qm/add-order-by model {direction [dim-key]}))))
@@ -229,13 +228,13 @@
       (let [dim-key (keyword (str "dim" order))]
         (-> model
             (qm/add-binding [[dim-key uri]] ::qm/var)
-            (qm/add-binding [[dim-key uri] [:label rdfs:label]] ::qm/var)
+            (qm/add-binding [[dim-key uri] [:label rdfs:label]] ::qm/var :optional? true)
             (qm/add-binding [[dim-key uri] [:begin time:hasBeginning] [:time time:inXSDDateTime]] ::qm/var)
             (qm/add-binding [[dim-key uri] [:end time:hasEnd] [:time time:inXSDDateTime]] ::qm/var)))
 
       (is-ref-area-type? type)
       (let [dim-key (keyword (str "dim" order))]
-        (qm/add-binding model [[dim-key uri] [:label rdfs:label]] ::qm/var))
+        (qm/add-binding model [[dim-key uri] [:label rdfs:label]] ::qm/var :optional? true))
 
       :else model))
 
