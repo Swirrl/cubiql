@@ -35,6 +35,9 @@
 (defn map-values [f m]
   (into {} (map (fn [[k v]] [k (f v)]) m)))
 
+(defn map-keys [f m]
+  (into {} (map (fn [[k v]] [(f k) v]) m)))
+
 (defn distinct-by
   "Returns a sequence containing distinct elements by the given key function."
   [f s]

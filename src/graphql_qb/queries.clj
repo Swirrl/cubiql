@@ -14,12 +14,10 @@
   (let [model (get-observation-filter-model ds-dimensions query-dimensions)]
     (qm/get-observation-count-query model "obs" ds-uri)))
 
-(defn get-observation-query-model [{:keys [dimensions measures] :as dataset} query-dimensions order-by-dims-measures]
+(defn get-observation-query-model [{:keys [dimensions measures] :as dataset} query-dimensions order-by-dims-measures observation-selections]
   (let [filter-model (get-observation-filter-model dimensions query-dimensions)
         with-projection (reduce (fn [m dm]
-                                  (let [selections nil]
-                                    ;;TODO: get selections from lacinia context
-                                    (types/apply-projection dm m selections)))
+                                  (types/apply-projection dm m observation-selections))
                                 filter-model
                                 (concat dimensions measures))]
     ;;apply order by
@@ -28,13 +26,13 @@
             with-projection
             order-by-dims-measures)))
 
-(defn get-observation-query [ds-uri dataset query-dimensions order-by-dim-measures]
-  (let [model (get-observation-query-model dataset query-dimensions order-by-dim-measures)]
+(defn get-observation-query [ds-uri dataset query-dimensions order-by-dim-measures observation-selections]
+  (let [model (get-observation-query-model dataset query-dimensions order-by-dim-measures observation-selections)]
     (qm/get-query model "obs" ds-uri)))
 
-(defn get-observation-page-query [ds-uri dataset query-dimensions limit offset order-by-dim-measures]
+(defn get-observation-page-query [ds-uri dataset query-dimensions limit offset order-by-dim-measures observation-selections]
   (str
-    (get-observation-query ds-uri dataset query-dimensions order-by-dim-measures)
+    (get-observation-query ds-uri dataset query-dimensions order-by-dim-measures observation-selections)
     " LIMIT " limit " OFFSET " offset))
 
 (defn get-dimensions-or [{dims-or :or}]

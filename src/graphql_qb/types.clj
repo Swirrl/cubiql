@@ -224,21 +224,30 @@
         (apply-ref-period-filter model dim-key uri graphql-value))))
 
   SparqlResultProjector
-  (apply-projection [_this model selections]
-    (cond
-      (is-ref-period-type? type)
-      (let [dim-key (keyword (str "dim" order))]
-        (-> model
-            (qm/add-binding [[dim-key uri]] ::qm/var)
-            (qm/add-binding [[dim-key uri] [:label rdfs:label]] ::qm/var :optional? true)
-            (qm/add-binding [[dim-key uri] [:begin time:hasBeginning] [:time time:inXSDDateTime]] ::qm/var)
-            (qm/add-binding [[dim-key uri] [:end time:hasEnd] [:time time:inXSDDateTime]] ::qm/var)))
+  (apply-projection [this model observation-selections]
+    (let [dim-key (keyword (str "dim" order))
+          field-name (:field-name this)
+          field-selections (get observation-selections field-name)]
+      (cond
+        (is-ref-period-type? type)
+        (let [model (qm/add-binding model [[dim-key uri]] ::qm/var)
+              model (if (contains? field-selections :label)
+                      (qm/add-binding model [[dim-key uri] [:label rdfs:label]] ::qm/var :optional? true)
+                      model)
+              model (if (contains? field-selections :start)
+                      (qm/add-binding model [[dim-key uri] [:begin time:hasBeginning] [:time time:inXSDDateTime]] ::qm/var)
+                      model)]
+          (if (contains? field-selections :end)
+            (qm/add-binding model [[dim-key uri] [:end time:hasEnd] [:time time:inXSDDateTime]] ::qm/var)
+            model))
 
-      (is-ref-area-type? type)
-      (let [dim-key (keyword (str "dim" order))]
-        (qm/add-binding model [[dim-key uri] [:label rdfs:label]] ::qm/var :optional? true))
+        (is-ref-area-type? type)
+        (let [label-selected? (contains? field-selections :label)]
+          (if label-selected?
+            (qm/add-binding model [[dim-key uri] [:label rdfs:label]] ::qm/var :optional? true)
+            model))
 
-      :else model))
+        :else model)))
 
   (project-result [_this bindings]
     (let [dim-key (keyword (str "dim" order))]

@@ -6,7 +6,27 @@
             [grafter.rdf.sparql :as sp]
             [graphql-qb.context :as context]
             [com.walmartlabs.lacinia.schema :as ls]
-            [graphql-qb.query-model :as qm]))
+            [graphql-qb.query-model :as qm]
+            [clojure.walk :as walk]
+            [com.walmartlabs.lacinia.executor :as executor]))
+
+(defn un-namespace-keys [m]
+  (walk/postwalk (fn [x]
+                   (if (map? x)
+                     (util/map-keys (fn [k] (keyword (name k))) x)
+                     x)) m))
+
+(defn flatten-selections [m]
+  (walk/postwalk (fn [x]
+                   (if (and (map? x) (contains? x :selections))
+                     (:selections x)
+                     x)) m))
+
+(defn get-selections [context]
+  (-> context (executor/selections-tree) (un-namespace-keys) (flatten-selections)))
+
+(defn get-observation-selections [context]
+  (get-in (get-selections context) [:page :result]))
 
 (defn get-observation-count [repo ds-uri ds-dimensions query-dimensions]
   (let [query (queries/get-observation-count-query ds-uri ds-dimensions query-dimensions)
@@ -24,18 +44,19 @@
 (defn resolve-observations [context
                             {query-dimensions :dimensions order-by :order order-spec :order_spec :as args}
                             {:keys [uri] :as ds-field}]
-  (try
-    (let [repo (context/get-repository context)
-          {:keys [dimensions] :as dataset} (context/get-dataset context uri)
-          total-matches (get-observation-count repo uri dimensions query-dimensions)
-          ordered-dim-measures (get-dimension-measure-ordering dataset order-by order-spec)
-          query (queries/get-observation-query uri dataset query-dimensions ordered-dim-measures)]
-      {::query-dimensions            query-dimensions
-       ::order-by-dimension-measures ordered-dim-measures
-       ::dataset                     ds-field
-       :sparql                       (string/join (string/split query #"\n"))
-       :total_matches                total-matches
-       :aggregations                 {:query-dimensions query-dimensions :ds-uri uri}})))
+  (let [repo (context/get-repository context)
+        {:keys [dimensions] :as dataset} (context/get-dataset context uri)
+        total-matches (get-observation-count repo uri dimensions query-dimensions)
+        ordered-dim-measures (get-dimension-measure-ordering dataset order-by order-spec)
+        observation-selections (get-observation-selections context)
+        query (queries/get-observation-query uri dataset query-dimensions ordered-dim-measures observation-selections)]
+    {::query-dimensions            query-dimensions
+     ::order-by-dimension-measures ordered-dim-measures
+     ::dataset                     ds-field
+     ::observation-selections      observation-selections
+     :sparql                       (string/join (string/split query #"\n"))
+     :total_matches                total-matches
+     :aggregations                 {:query-dimensions query-dimensions :ds-uri uri}}))
 
 (def default-limit 10)
 (def max-limit 1000)
@@ -52,28 +73,28 @@
       next-offset)))
 
 (defn resolve-observations-page [context args observations-field]
-  (try
-    (let [repo (context/get-repository context)
-          query-dimensions (::query-dimensions observations-field)
-          order-by-dim-measures (::order-by-dimension-measures observations-field)
-          ds-uri (get-in observations-field [::dataset :uri])
-          {:keys [dimensions measures] :as dataset} (context/get-dataset context ds-uri)
-          limit (get-limit args)
-          offset (get-offset args)
-          total-matches (:total_matches observations-field)
-          query (queries/get-observation-page-query ds-uri dataset query-dimensions limit offset order-by-dim-measures)
-          results (util/eager-query repo query)
-          matches (mapv (fn [{:keys [obs] :as bindings}]
-                          (let [field-values (map (fn [{:keys [field-name] :as ft}]
-                                                        (let [value (types/project-result ft bindings)]
-                                                          [field-name (types/to-graphql ft value)]))
-                                                      (concat dimensions measures))]
-                            (into {:uri obs} field-values)))
-                        results)
-          next-page (calculate-next-page-offset offset limit total-matches)]
-      {:next_page next-page
-       :count     (count matches)
-       :result    matches})))
+  (let [repo (context/get-repository context)
+        query-dimensions (::query-dimensions observations-field)
+        order-by-dim-measures (::order-by-dimension-measures observations-field)
+        ds-uri (get-in observations-field [::dataset :uri])
+        {:keys [dimensions measures] :as dataset} (context/get-dataset context ds-uri)
+        limit (get-limit args)
+        offset (get-offset args)
+        total-matches (:total_matches observations-field)
+        observation-selections (::observation-selections observations-field)
+        query (queries/get-observation-page-query ds-uri dataset query-dimensions limit offset order-by-dim-measures observation-selections)
+        results (util/eager-query repo query)
+        matches (mapv (fn [{:keys [obs] :as bindings}]
+                        (let [field-values (map (fn [{:keys [field-name] :as ft}]
+                                                  (let [value (types/project-result ft bindings)]
+                                                    [field-name (types/to-graphql ft value)]))
+                                                (concat dimensions measures))]
+                          (into {:uri obs} field-values)))
+                      results)
+        next-page (calculate-next-page-offset offset limit total-matches)]
+    {:next_page next-page
+     :count     (count matches)
+     :result    matches}))
 
 (defn resolve-datasets [context {:keys [dimensions measures uri] :as args} _parent]
   (let [repo (context/get-repository context)
