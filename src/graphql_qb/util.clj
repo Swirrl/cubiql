@@ -3,7 +3,8 @@
             [clojure.edn :as edn]
             [grafter.rdf.repository :as repo])
   (:import [java.io PushbackReader]
-           [java.nio ByteBuffer]))
+           [java.nio ByteBuffer]
+           (java.net URI)))
 
 (defn read-edn
   "Reads EDN from the given source."

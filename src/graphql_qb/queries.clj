@@ -5,17 +5,18 @@
             [graphql-qb.vocabulary :refer :all]
             [graphql-qb.query-model :as qm]))
 
-(defn get-observation-filter-model [ds-dimensions query-dimensions]
-  (reduce (fn [m {:keys [field-name] :as dim}]
-            (let [graphql-value (get query-dimensions field-name)]
-              (types/apply-filter dim m graphql-value))) qm/empty-model ds-dimensions))
+(defn get-observation-filter-model [dim-filter]
+  (reduce (fn [m [dim value]]
+            (types/apply-filter dim m value))
+          qm/empty-model
+          dim-filter))
 
-(defn get-observation-count-query [ds-uri ds-dimensions query-dimensions]
-  (let [model (get-observation-filter-model ds-dimensions query-dimensions)]
+(defn get-observation-count-query [ds-uri dim-filter]
+  (let [model (get-observation-filter-model dim-filter)]
     (qm/get-observation-count-query model "obs" ds-uri)))
 
-(defn get-observation-query-model [{:keys [dimensions measures] :as dataset} query-dimensions order-by-dims-measures observation-selections]
-  (let [filter-model (get-observation-filter-model dimensions query-dimensions)
+(defn get-observation-query-model [{:keys [dimensions measures] :as dataset} dim-filter order-by-dims-measures observation-selections]
+  (let [filter-model (get-observation-filter-model dim-filter)
         with-projection (reduce (fn [m dm]
                                   (types/apply-projection dm m observation-selections))
                                 filter-model
@@ -26,13 +27,13 @@
             with-projection
             order-by-dims-measures)))
 
-(defn get-observation-query [ds-uri dataset query-dimensions order-by-dim-measures observation-selections]
-  (let [model (get-observation-query-model dataset query-dimensions order-by-dim-measures observation-selections)]
+(defn get-observation-query [ds-uri dataset dim-filter order-by-dim-measures observation-selections]
+  (let [model (get-observation-query-model dataset dim-filter order-by-dim-measures observation-selections)]
     (qm/get-query model "obs" ds-uri)))
 
-(defn get-observation-page-query [ds-uri dataset query-dimensions limit offset order-by-dim-measures observation-selections]
+(defn get-observation-page-query [ds-uri dataset dim-filter limit offset order-by-dim-measures observation-selections]
   (str
-    (get-observation-query ds-uri dataset query-dimensions order-by-dim-measures observation-selections)
+    (get-observation-query ds-uri dataset dim-filter order-by-dim-measures observation-selections)
     " LIMIT " limit " OFFSET " offset))
 
 (defn get-dimensions-or [{dims-or :or}]

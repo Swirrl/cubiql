@@ -209,19 +209,19 @@
         (qm/add-order-by model {direction [dim-key]}))))
 
   SparqlFilterable
-  (apply-filter [this model graphql-value]
+  (apply-filter [this model sparql-value]
     (let [dim-key (keyword (str "dim" order))]
       (cond
         (is-enum-type? type)
-        (let [value (if (nil? graphql-value) ::qm/var (from-graphql this graphql-value))]
+        (let [value (or sparql-value ::qm/var)]
           (qm/add-binding model [[dim-key uri]] value))
 
         (is-ref-area-type? type)
-        (let [value (if (nil? graphql-value) ::qm/var (from-graphql this graphql-value))]
+        (let [value (or sparql-value ::qm/var)]
           (qm/add-binding model [[dim-key uri]] value))
 
         (is-ref-period-type? type)
-        (apply-ref-period-filter model dim-key uri graphql-value))))
+        (apply-ref-period-filter model dim-key uri sparql-value))))
 
   SparqlResultProjector
   (apply-projection [this model observation-selections]
@@ -335,10 +335,6 @@
 
 (defn build-enum [schema enum-name values]
   (->EnumType schema enum-name (mapv to-enum-value values)))
-
-(defn graphql-enum->dimension-measure [{:keys [dimensions measures] :as dataset} enum]
-  (let [dm-enum (build-enum :ignored :ignored (concat dimensions measures))]
-    (from-graphql dm-enum enum)))
 
 (def custom-scalars
   {:SparqlCursor

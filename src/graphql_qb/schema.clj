@@ -1,6 +1,8 @@
 (ns graphql-qb.schema
   (:require [graphql-qb.types :as types]
-            [graphql-qb.resolvers :as resolvers]))
+            [graphql-qb.resolvers :as resolvers]
+            [graphql-qb.schema-model :as sm]
+            [clojure.pprint :as pp]))
 
 (def observation-uri-type-schema
   {:type :uri
@@ -30,6 +32,10 @@
   (let [schema (types/dataset-schema dataset)]
     (keyword (str "resolve_" (name schema) "_dimensions"))))
 
+(defn dataset-observations-resolver-name [dataset]
+  (let [schema (types/dataset-schema dataset)]
+    (keyword (str "resolve_" (name schema) "_observations"))))
+
 (defn aggregation-resolver-name [dataset aggregation-fn]
   (let [schema (types/dataset-schema dataset)]
     (keyword (str "resolve_" (name schema) "_observations_aggregation_" (name aggregation-fn)))))
@@ -41,6 +47,11 @@
 (defn create-aggregation-resolver [aggregation-fn aggregation-measures-enum]
   (let [inner-resolver (partial resolvers/resolve-observations-aggregation aggregation-fn)]
     (resolvers/wrap-resolver inner-resolver {:measure aggregation-measures-enum})))
+
+(defn create-observation-resolver [dataset]
+  (fn [context args field]
+    (let [mapped-args ((sm/observation-args-mapper dataset) args)]
+      (resolvers/resolve-observations context mapped-args field))))
 
 (defn get-dataset-schema [{:keys [description dimensions measures] :as dataset}]
   (let [schema (types/dataset-schema dataset)
@@ -64,7 +75,8 @@
         all-enums (concat dataset-enums [aggregation-measures-enum dimensions-measures-fields-enum])
         enums-schema (apply merge (map enum->schema all-enums))
 
-        resolver-name (dataset-resolver-name dataset)]
+        resolver-name (dataset-resolver-name dataset)
+        observations-resolver-name (dataset-observations-resolver-name dataset)]
     {:enums enums-schema
      :objects
      {schema
@@ -87,7 +99,7 @@
                        :args        {:dimensions {:type observation-filter-type-name}
                                      :order      {:type (list 'list (types/type-name dimensions-measures-fields-enum))}
                                      :order_spec {:type field-orderings-type-name}}
-                       :resolve     :resolve-observations
+                       :resolve     observations-resolver-name
                        :description "Observations matching the given criteria"}}
        :description (or description "")}
 
@@ -141,6 +153,7 @@
      :resolvers
      {(dataset-resolver-name dataset) (fn [context args field]
                                         (resolvers/resolve-dataset context dataset))
+      observations-resolver-name (create-observation-resolver dataset)
       (dataset-dimensions-resolver-name dataset) (fn [context args _field]
                                                    (resolvers/resolve-dataset-dimensions context args dataset))
       (aggregation-resolver-name dataset :max)   (create-aggregation-resolver :max aggregation-measures-enum)
