@@ -131,8 +131,7 @@
         base-schema (assoc base-schema :scalars types/custom-scalars)
         ds-schemas (map schema/get-dataset-schema datasets)
         {:keys [resolvers] :as combined-schema} (reduce (fn [acc schema] (merge-with merge acc schema)) base-schema ds-schemas)
-        query-resolvers (merge {:resolve-observations resolvers/resolve-observations
-                                :resolve-observations-page resolvers/resolve-observations-page
+        query-resolvers (merge {:resolve-observations-page resolvers/resolve-observations-page
                                 :resolve-datasets resolvers/resolve-datasets
                                 :resolve-dataset-dimensions resolvers/resolve-dataset-dimensions
                                 :resolve-dataset-measures resolvers/resolve-dataset-measures}

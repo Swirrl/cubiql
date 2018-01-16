@@ -45,8 +45,9 @@
                          {:type :sort_direction}]) (concat dimensions measures))))
 
 (defn create-aggregation-resolver [aggregation-fn aggregation-measures-enum]
-  (let [inner-resolver (partial resolvers/resolve-observations-aggregation aggregation-fn)]
-    (resolvers/wrap-resolver inner-resolver {:measure aggregation-measures-enum})))
+  (fn [context args field]
+    (let [resolved-args (update args :measure #(types/from-graphql aggregation-measures-enum %))]
+      (resolvers/resolve-observations-aggregation aggregation-fn context resolved-args field))))
 
 (defn create-observation-resolver [dataset]
   (fn [context args field]

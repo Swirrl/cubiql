@@ -35,7 +35,7 @@
         results (util/eager-query repo query)]
     (:c (first results))))
 
-(defn inner-resolve-observations [context args {:keys [uri] :as ds-field}]
+(defn resolve-observations [context args {:keys [uri] :as ds-field}]
   (let [repo (context/get-repository context)
         dataset (context/get-dataset context uri)
         dimension-filter (::sm/dimensions args)
@@ -50,8 +50,6 @@
      :sparql                       (string/join (string/split query #"\n"))
      :total_matches                total-matches
      :aggregations                 {::dimension-filter dimension-filter :ds-uri uri}}))
-
-(def resolve-observations inner-resolve-observations)
 
 (def default-limit 10)
 (def max-limit 1000)
@@ -108,24 +106,6 @@
         q (qm/get-observation-aggregation-query model aggregation-fn (:uri dataset) (:uri measure))
         results (util/eager-query repo q)]
     (get (first results) aggregation-fn)))
-
-(defn resolve-arguments [args type-mapping]
-  ;;TODO: deal with nested type mappings
-  (into {} (map (fn [[k graphql-value]]
-                  (if-let [type (get type-mapping k)]
-                    [k (types/from-graphql type graphql-value)]
-                    [k graphql-value]))
-                args)))
-
-(defn wrap-resolver
-  "Returns a resolver function which resolves the incoming GraphQL arguments according to the given
-   type mapping (e.g. resolves enum values to their underlying values). Updates the argument maps with the
-   resolved values and invokes the inner resolver function"
-  [resolver-fn type-mapping]
-  (fn [context args field]
-    (let [resolved-args (resolve-arguments args type-mapping)
-          updated-args (merge args resolved-args)]
-      (resolver-fn context updated-args field))))
 
 (defn resolve-observations-aggregation [aggregation-fn
                                         context
