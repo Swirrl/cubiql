@@ -119,7 +119,7 @@
       {:fields
        {:next_page {:type :SparqlCursor :description "Cursor to the next page of results"}
         :count     {:type 'Int}
-        :result    {:type (list 'list observation-type-name) :description "List of observations on this page"}}}
+        :observations    {:type (list 'list observation-type-name) :description "List of observations on this page"}}}
 
       aggregation-fields-type-name
       {:fields

@@ -28,7 +28,7 @@
   (-> context (executor/selections-tree) (un-namespace-keys) (flatten-selections)))
 
 (defn get-observation-selections [context]
-  (get-in (get-selections context) [:page :result]))
+  (get-in (get-selections context) [:page :observations]))
 
 (defn get-observation-count [repo ds-uri dim-filter]
   (let [query (queries/get-observation-count-query ds-uri dim-filter)
@@ -87,7 +87,7 @@
         next-page (calculate-next-page-offset offset limit total-matches)]
     {:next_page next-page
      :count     (count matches)
-     :result    matches}))
+     :observations    matches}))
 
 (defn resolve-datasets [context {:keys [dimensions measures uri] :as args} _parent]
   (let [repo (context/get-repository context)
