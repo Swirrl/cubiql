@@ -36,6 +36,10 @@
   (let [schema (types/dataset-schema dataset)]
     (keyword (str "resolve_" (name schema) "_observations"))))
 
+(defn dataset-observations-page-resolver-name [dataset]
+  (let [schema (types/dataset-schema dataset)]
+    (keyword (str "resolve_" (name schema) "_observations_page"))))
+
 (defn aggregation-resolver-name [dataset aggregation-fn]
   (let [schema (types/dataset-schema dataset)]
     (keyword (str "resolve_" (name schema) "_observations_aggregation_" (name aggregation-fn)))))
@@ -53,6 +57,12 @@
   (fn [context args field]
     (let [mapped-args ((sm/observation-args-mapper dataset) args)]
       (resolvers/resolve-observations context mapped-args field))))
+
+(defn map-observation-result [{:keys [uri] :as obs} {:keys [dimensions measures] :as dataset}]
+  (into {:uri uri} (map (fn [{:keys [field-name] :as dm}]
+                          (let [sparql-value (get obs field-name)]
+                            [field-name (types/to-graphql dm sparql-value)]))
+                        (concat dimensions measures))))
 
 (defn get-dataset-schema [{:keys [description dimensions measures] :as dataset}]
   (let [schema (types/dataset-schema dataset)
@@ -77,88 +87,93 @@
         enums-schema (apply merge (map enum->schema all-enums))
 
         resolver-name (dataset-resolver-name dataset)
-        observations-resolver-name (dataset-observations-resolver-name dataset)]
+        observations-resolver-name (dataset-observations-resolver-name dataset)
+        observations-page-resolver-name (dataset-observations-page-resolver-name dataset)]
     {:enums enums-schema
      :objects
-     {schema
-      {:implements  [:dataset_meta]
-       :fields
-       {:uri          {:type :uri :description "Dataset URI"}
-        :title        {:type 'String :description "Dataset title"}
-        :description  {:type 'String :description "Dataset description"}
-        :licence      {:type :uri :description "URI of the licence the dataset is published under"}
-        :issued       {:type :DateTime :description "When the dataset was issued"}
-        :modified     {:type :DateTime :description "When the dataset was last modified"}
-        :publisher    {:type :uri :description "URI of the publisher of the dataset"}
-        :schema       {:type 'String :description "Name of the GraphQL query root field corresponding to this dataset"}
-        :dimensions   {:type        '(list :dim)
-                       :resolve (dataset-dimensions-resolver-name dataset)
-                       :description "Dimensions within the dataset"}
-        :measures     {:type        '(list :measure)
-                       :description "Measure types within the dataset"}
-        :observations {:type        observation-result-type-name
-                       :args        {:dimensions {:type observation-filter-type-name}
-                                     :order      {:type (list 'list (types/type-name dimensions-measures-fields-enum))}
-                                     :order_spec {:type field-orderings-type-name}}
-                       :resolve     observations-resolver-name
-                       :description "Observations matching the given criteria"}}
-       :description (or description "")}
+            {schema
+             {:implements  [:dataset_meta]
+              :fields
+                           {:uri          {:type :uri :description "Dataset URI"}
+                            :title        {:type 'String :description "Dataset title"}
+                            :description  {:type 'String :description "Dataset description"}
+                            :licence      {:type :uri :description "URI of the licence the dataset is published under"}
+                            :issued       {:type :DateTime :description "When the dataset was issued"}
+                            :modified     {:type :DateTime :description "When the dataset was last modified"}
+                            :publisher    {:type :uri :description "URI of the publisher of the dataset"}
+                            :schema       {:type 'String :description "Name of the GraphQL query root field corresponding to this dataset"}
+                            :dimensions   {:type        '(list :dim)
+                                           :resolve     (dataset-dimensions-resolver-name dataset)
+                                           :description "Dimensions within the dataset"}
+                            :measures     {:type        '(list :measure)
+                                           :description "Measure types within the dataset"}
+                            :observations {:type        observation-result-type-name
+                                           :args        {:dimensions {:type observation-filter-type-name}
+                                                         :order      {:type (list 'list (types/type-name dimensions-measures-fields-enum))}
+                                                         :order_spec {:type field-orderings-type-name}}
+                                           :resolve     observations-resolver-name
+                                           :description "Observations matching the given criteria"}}
+              :description (or description "")}
 
-      observation-result-type-name
-      {:fields
-       {:sparql        {:type 'String :description "SPARQL query used to retrieve matching observations."}
-        :page          {:type        observation-results-page-type-name
-                        :args        {:after {:type :SparqlCursor}
-                                      :first {:type 'Int}}
-                        :description "Page of results to retrieve."
-                        :resolve     :resolve-observations-page}
-        :aggregations  {:type aggregation-fields-type-name}
-        :total_matches {:type 'Int}}}
+             observation-result-type-name
+             {:fields
+              {:sparql        {:type 'String :description "SPARQL query used to retrieve matching observations."}
+               :page          {:type        observation-results-page-type-name
+                               :args        {:after {:type :SparqlCursor}
+                                             :first {:type 'Int}}
+                               :description "Page of results to retrieve."
+                               :resolve     observations-page-resolver-name}
+               :aggregations  {:type aggregation-fields-type-name}
+               :total_matches {:type 'Int}}}
 
-      observation-results-page-type-name
-      {:fields
-       {:next_page {:type :SparqlCursor :description "Cursor to the next page of results"}
-        :count     {:type 'Int}
-        :observations    {:type (list 'list observation-type-name) :description "List of observations on this page"}}}
+             observation-results-page-type-name
+             {:fields
+              {:next_page    {:type :SparqlCursor :description "Cursor to the next page of results"}
+               :count        {:type 'Int}
+               :observations {:type (list 'list observation-type-name) :description "List of observations on this page"}}}
 
-      aggregation-fields-type-name
-      {:fields
-       {:max     {:type    'Float
-                  :args    {:measure {:type (list 'non-null aggregation-types-type-name) :description "The measure to aggregate"}}
-                  :resolve (aggregation-resolver-name dataset :max)}
-        :min     {:type    'Float
-                  :args    {:measure {:type (list 'non-null aggregation-types-type-name) :description "The measure to aggregate"}}
-                  :resolve (aggregation-resolver-name dataset :min)}
-        :sum     {:type    'Float
-                  :args    {:measure {:type (list 'non-null aggregation-types-type-name) :description "The measure to aggregate"}}
-                  :resolve (aggregation-resolver-name dataset :sum)}
-        :average {:type    'Float
-                  :args    {:measure {:type (list 'non-null aggregation-types-type-name) :description "The measure to aggregate"}}
-                  :resolve (aggregation-resolver-name dataset :avg)}}}
+             aggregation-fields-type-name
+             {:fields
+              {:max     {:type    'Float
+                         :args    {:measure {:type (list 'non-null aggregation-types-type-name) :description "The measure to aggregate"}}
+                         :resolve (aggregation-resolver-name dataset :max)}
+               :min     {:type    'Float
+                         :args    {:measure {:type (list 'non-null aggregation-types-type-name) :description "The measure to aggregate"}}
+                         :resolve (aggregation-resolver-name dataset :min)}
+               :sum     {:type    'Float
+                         :args    {:measure {:type (list 'non-null aggregation-types-type-name) :description "The measure to aggregate"}}
+                         :resolve (aggregation-resolver-name dataset :sum)}
+               :average {:type    'Float
+                         :args    {:measure {:type (list 'non-null aggregation-types-type-name) :description "The measure to aggregate"}}
+                         :resolve (aggregation-resolver-name dataset :avg)}}}
 
-      observation-type-name
-      {:fields observation-schema}}
+             observation-type-name
+             {:fields observation-schema}}
 
      :input-objects
-     {observation-filter-type-name
-      {:fields observation-filter-schema}
+            {observation-filter-type-name
+             {:fields observation-filter-schema}
 
-      field-orderings-type-name
-      {:fields (get-dataset-sort-specification-schema dataset)}}
+             field-orderings-type-name
+             {:fields (get-dataset-sort-specification-schema dataset)}}
 
      :queries
-     {schema
-      {:type    schema
-       :resolve resolver-name}}
+            {schema
+             {:type    schema
+              :resolve resolver-name}}
 
      :resolvers
-     {(dataset-resolver-name dataset) (fn [context args field]
-                                        (resolvers/resolve-dataset context dataset))
-      observations-resolver-name (create-observation-resolver dataset)
-      (dataset-dimensions-resolver-name dataset) (fn [context args _field]
-                                                   (resolvers/resolve-dataset-dimensions context args dataset))
-      (aggregation-resolver-name dataset :max)   (create-aggregation-resolver :max aggregation-measures-enum)
-      (aggregation-resolver-name dataset :min)   (create-aggregation-resolver :min aggregation-measures-enum)
-      (aggregation-resolver-name dataset :sum)   (create-aggregation-resolver :sum aggregation-measures-enum)
-      (aggregation-resolver-name dataset :avg)   (create-aggregation-resolver :avg aggregation-measures-enum)}}))
+            {(dataset-resolver-name dataset)                   (fn [context args field]
+                                                                 (resolvers/resolve-dataset context dataset))
+             observations-page-resolver-name (fn [context args field]
+                                               (let [result (resolvers/resolve-observations-page context args field)]
+                                                 (update result :observations (fn [obs]
+                                                                                (mapv #(map-observation-result % dataset) obs)))))
+             observations-resolver-name                        (create-observation-resolver dataset)
+             (dataset-dimensions-resolver-name dataset)        (fn [context args _field]
+                                                                 (resolvers/resolve-dataset-dimensions context args dataset))
+             (aggregation-resolver-name dataset :max)          (create-aggregation-resolver :max aggregation-measures-enum)
+             (aggregation-resolver-name dataset :min)          (create-aggregation-resolver :min aggregation-measures-enum)
+             (aggregation-resolver-name dataset :sum)          (create-aggregation-resolver :sum aggregation-measures-enum)
+             (aggregation-resolver-name dataset :avg)          (create-aggregation-resolver :avg aggregation-measures-enum)}}))
 

@@ -79,8 +79,7 @@
         results (util/eager-query repo query)
         matches (mapv (fn [{:keys [obs] :as bindings}]
                         (let [field-values (map (fn [{:keys [field-name] :as ft}]
-                                                  (let [value (types/project-result ft bindings)]
-                                                    [field-name (types/to-graphql ft value)]))
+                                                  [field-name (types/project-result ft bindings)])
                                                 (concat dimensions measures))]
                           (into {:uri obs} field-values)))
                       results)
