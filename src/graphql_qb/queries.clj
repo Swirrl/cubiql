@@ -27,13 +27,13 @@
             with-projection
             order-by-dims-measures)))
 
-(defn get-observation-query [ds-uri dataset dim-filter order-by-dim-measures observation-selections]
+(defn get-observation-query [{ds-uri :uri :as dataset} dim-filter order-by-dim-measures observation-selections]
   (let [model (get-observation-query-model dataset dim-filter order-by-dim-measures observation-selections)]
     (qm/get-query model "obs" ds-uri)))
 
 (defn get-observation-page-query [ds-uri dataset dim-filter limit offset order-by-dim-measures observation-selections]
   (str
-    (get-observation-query ds-uri dataset dim-filter order-by-dim-measures observation-selections)
+    (get-observation-query dataset dim-filter order-by-dim-measures observation-selections)
     " LIMIT " limit " OFFSET " offset))
 
 (defn get-dimensions-or [{dims-or :or}]

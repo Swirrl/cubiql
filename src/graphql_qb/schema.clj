@@ -117,7 +117,9 @@
 
              observation-result-type-name
              {:fields
-              {:sparql        {:type 'String :description "SPARQL query used to retrieve matching observations."}
+              {:sparql        {:type 'String
+                               :description "SPARQL query used to retrieve matching observations."
+                               :resolve :resolve-observation-sparql-query}
                :page          {:type        observation-results-page-type-name
                                :args        {:after {:type :SparqlCursor}
                                              :first {:type 'Int}}

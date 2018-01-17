@@ -37,19 +37,19 @@
 
 (defn resolve-observations [context args {:keys [uri] :as ds-field}]
   (let [repo (context/get-repository context)
-        dataset (context/get-dataset context uri)
         dimension-filter (::sm/dimensions args)
         total-matches (get-observation-count repo uri dimension-filter)
-        ordered-dim-measures (::sm/order-by args)
-        observation-selections (get-observation-selections context)
-        query (queries/get-observation-query uri dataset dimension-filter ordered-dim-measures observation-selections)]
+        ordered-dim-measures (::sm/order-by args)]
     {::dimension-filter            dimension-filter
      ::order-by-dimension-measures ordered-dim-measures
      ::dataset                     ds-field
-     ::observation-selections      observation-selections
-     :sparql                       (string/join (string/split query #"\n"))
+     ::observation-selections      (get-observation-selections context)
      :total_matches                total-matches
      :aggregations                 {::dimension-filter dimension-filter :ds-uri uri}}))
+
+(defn resolve-observations-sparql-query [context args obs-field]
+  (let [#::{:keys [observation-selections dataset order-by-dimension-measures dimension-filter]} obs-field]
+    (queries/get-observation-query dataset dimension-filter order-by-dimension-measures observation-selections)))
 
 (def default-limit 10)
 (def max-limit 1000)
