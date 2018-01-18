@@ -39,25 +39,28 @@
 (defn get-observation-selections [context]
   (get-in (get-selections context) [:page :observations]))
 
-(defn get-observation-count [repo ds-uri dim-filter]
-  (let [query (queries/get-observation-count-query ds-uri dim-filter)
+(defn get-observation-count [repo ds-uri filter-model]
+  (let [query (qm/get-observation-count-query filter-model "obs" ds-uri)
         results (util/eager-query repo query)]
     (:c (first results))))
 
 (defn resolve-observations [context args {:keys [uri] :as ds-field}]
   (let [repo (context/get-repository context)
         dimension-filter (::dimensions-filter args)
-        total-matches (get-observation-count repo uri dimension-filter)]
+        filter-model (queries/get-observation-filter-model dimension-filter)
+        total-matches (get-observation-count repo uri filter-model)]
     (merge
       (select-keys args [::dimensions-filter ::order-by])
       {::dataset                     ds-field
+       ::filter-model                filter-model
        ::observation-selections      (get-observation-selections context)
        :total_matches                total-matches
-       :aggregations                 {::dimensions-filter dimension-filter :ds-uri uri}})))
+       :aggregations                 {::dimensions-filter dimension-filter ::filter-model filter-model :ds-uri uri}})))
 
 (defn resolve-observations-sparql-query [_context _args obs-field]
-  (let [#::{:keys [dataset observation-selections order-by dimensions-filter]} obs-field]
-    (queries/get-observation-query dataset dimensions-filter order-by observation-selections)))
+  (let [#::{:keys [dataset observation-selections order-by filter-model]} obs-field
+        model (queries/filter-model->observations-query filter-model dataset order-by observation-selections)]
+    (qm/get-query model "obs" (:uri dataset))))
 
 (def default-limit 10)
 (def max-limit 1000)
@@ -76,14 +79,13 @@
 (defn resolve-observations-page [context args observations-field]
   (let [repo (context/get-repository context)
         order-by-dim-measures (::order-by observations-field)
-        ds-uri (get-in observations-field [::dataset :uri])
-        {:keys [dimensions measures] :as dataset} (context/get-dataset context ds-uri)
+        {:keys [dimensions measures] :as dataset} (::dataset observations-field)
         limit (get-limit args)
         offset (get-offset args)
         total-matches (:total_matches observations-field)
         observation-selections (::observation-selections observations-field)
-        dimension-filter (::dimensions-filter observations-field)
-        query (queries/get-observation-page-query ds-uri dataset dimension-filter limit offset order-by-dim-measures observation-selections)
+        filter-model (::filter-model observations-field)
+        query (queries/get-observation-page-query dataset filter-model limit offset order-by-dim-measures observation-selections)
         results (util/eager-query repo query)
         matches (mapv (fn [{:keys [obs] :as bindings}]
                         (let [field-values (map (fn [{:keys [field-name] :as ft}]
@@ -108,9 +110,8 @@
                (assoc :schema (name (types/dataset-label->schema-name title)))))
          results)))
 
-(defn exec-observation-aggregation [repo dataset measure dimension-filter aggregation-fn]
-  (let [model (queries/get-observation-filter-model dimension-filter)
-        q (qm/get-observation-aggregation-query model aggregation-fn (:uri dataset) (:uri measure))
+(defn exec-observation-aggregation [repo dataset measure filter-model aggregation-fn]
+  (let [q (qm/get-observation-aggregation-query filter-model aggregation-fn (:uri dataset) (:uri measure))
         results (util/eager-query repo q)]
     (get (first results) aggregation-fn)))
 
@@ -120,8 +121,8 @@
                                         {:keys [ds-uri] :as aggregation-field}]
   (let [repo (context/get-repository context)
         dataset (context/get-dataset context ds-uri)
-        dimension-filter (::dimensions-filter aggregation-field)]
-    (exec-observation-aggregation repo dataset measure dimension-filter aggregation-fn)))
+        filter-model (::filter-model aggregation-field)]
+    (exec-observation-aggregation repo dataset measure filter-model aggregation-fn)))
 
 (defn resolve-dataset-measures [context _args {:keys [uri] :as ds-field}]
   (let [repo (context/get-repository context)
