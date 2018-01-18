@@ -44,9 +44,10 @@
   (let [schema (types/dataset-schema dataset)]
     (keyword (str "resolve_" (name schema) "_observations_aggregation_" (name aggregation-fn)))))
 
-(defn get-dataset-sort-specification-schema [{:keys [dimensions measures] :as dataset}]
+(defn get-dataset-sort-specification-schema [dataset]
   (into {} (map (fn [m] [(types/->field-name m)
-                         {:type :sort_direction}]) (concat dimensions measures))))
+                         {:type :sort_direction}])
+                (types/dataset-dimension-measures dataset))))
 
 (defn create-aggregation-resolver [aggregation-fn aggregation-measures-enum]
   (fn [context args field]
@@ -58,11 +59,11 @@
     (let [mapped-args ((sm/observation-args-mapper dataset) args)]
       (resolvers/resolve-observations context mapped-args field))))
 
-(defn map-observation-result [{:keys [uri] :as obs} {:keys [dimensions measures] :as dataset}]
+(defn map-observation-result [{:keys [uri] :as obs} dataset]
   (into {:uri uri} (map (fn [{:keys [field-name] :as dm}]
                           (let [sparql-value (get obs field-name)]
                             [field-name (types/to-graphql dm sparql-value)]))
-                        (concat dimensions measures))))
+                        (types/dataset-dimension-measures dataset))))
 
 (defn wrap-observation-result-mapping [inner-resolver dataset]
   (fn [context args field]
@@ -71,18 +72,18 @@
               (fn [obs]
                 (mapv #(map-observation-result % dataset) obs))))))
 
-(defn wrap-observations-mapping [inner-resolver {:keys [dimensions measures] :as dataset}]
+(defn wrap-observations-mapping [inner-resolver dataset]
   (fn [context args observations-field]
     (let [result (inner-resolver context args observations-field)
           obs (mapv (fn [{:keys [obs] :as bindings}]
                       (let [field-values (map (fn [{:keys [field-name] :as ft}]
                                                 [field-name (types/project-result ft bindings)])
-                                              (concat dimensions measures))]
+                                              (types/dataset-dimension-measures dataset))]
                         (into {:uri obs} field-values)))
                     (::resolvers/observation-results result))]
       (assoc result :observations obs))))
 
-(defn get-dataset-schema [{:keys [description dimensions measures] :as dataset}]
+(defn get-dataset-schema [{:keys [description] :as dataset}]
   (let [schema (types/dataset-schema dataset)
         observation-schema (dataset-observation-schema dataset)
         observation-filter-schema (dataset-observation-filter-schema dataset)
@@ -93,7 +94,7 @@
         aggregation-types-type-name (types/field-name->type-name :aggregation_measure_types schema)
         aggregation-fields-type-name (types/field-name->type-name :aggregations schema)
 
-        dimensions-measures-fields-enum (types/build-enum schema :observation_ordering (concat dimensions measures))
+        dimensions-measures-fields-enum (types/build-enum schema :observation_ordering (types/dataset-dimension-measures dataset))
         field-orderings-type-name (types/field-name->type-name :field_ordering schema)
 
         observation-type-name (types/field-name->type-name :observation schema)

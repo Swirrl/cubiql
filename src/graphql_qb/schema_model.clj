@@ -2,8 +2,8 @@
   (:require [graphql-qb.types :as types]
             [graphql-qb.resolvers :as resolvers]))
 
-(defn get-dimension-measure-enum [{:keys [dimensions measures] :as _dataset}]
-  (types/build-enum :ignored :ignored (concat dimensions measures)))
+(defn get-dimension-measure-enum [dataset]
+  (types/build-enum :ignored :ignored (types/dataset-dimension-measures dataset)))
 
 (defn get-order-by [{:keys [order order_spec] :as args} dataset]
   (let [dim-measure-enum (get-dimension-measure-enum dataset)]

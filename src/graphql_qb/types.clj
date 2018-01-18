@@ -333,6 +333,9 @@
 (defn dataset-aggregate-measures [{:keys [measures] :as ds}]
   (filter :is-numeric? measures))
 
+(defn dataset-dimension-measures [{:keys [dimensions measures] :as ds}]
+  (concat dimensions measures))
+
 (defn build-enum [schema enum-name values]
   (->EnumType schema enum-name (mapv to-enum-value values)))
 

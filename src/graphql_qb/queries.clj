@@ -11,11 +11,11 @@
           qm/empty-model
           dim-filter))
 
-(defn apply-model-projections [filter-model {:keys [dimensions measures] :as dataset} observation-selections]
+(defn apply-model-projections [filter-model dataset observation-selections]
   (reduce (fn [m dm]
             (types/apply-projection dm m observation-selections))
           filter-model
-          (concat dimensions measures)))
+          (types/dataset-dimension-measures dataset)))
 
 (defn apply-model-order-by [model order-by-dims-measures]
   (reduce (fn [m [dim-measure direction]]
