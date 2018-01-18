@@ -1,5 +1,6 @@
 (ns graphql-qb.schema-model
-  (:require [graphql-qb.types :as types]))
+  (:require [graphql-qb.types :as types]
+            [graphql-qb.resolvers :as resolvers]))
 
 (defn get-dimension-measure-enum [{:keys [dimensions measures] :as _dataset}]
   (types/build-enum :ignored :ignored (concat dimensions measures)))
@@ -23,6 +24,6 @@
     (let [dim-filter (map-dimension-filter args dataset)
           order-by (get-order-by args dataset)]
       (-> args
-          (assoc ::dimensions dim-filter)
-          (assoc ::order-by order-by)))))
+          (assoc ::resolvers/dimensions-filter dim-filter)
+          (assoc ::resolvers/order-by order-by)))))
 
