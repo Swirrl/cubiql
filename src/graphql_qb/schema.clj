@@ -59,25 +59,13 @@
     (let [mapped-args ((sm/observation-args-mapper dataset) args)]
       (resolvers/resolve-observations context mapped-args field))))
 
-(defn map-observation-result [{:keys [uri] :as obs} dataset]
-  (into {:uri uri} (map (fn [{:keys [field-name] :as dm}]
-                          (let [sparql-value (get obs field-name)]
-                            [field-name (types/to-graphql dm sparql-value)]))
-                        (types/dataset-dimension-measures dataset))))
-
-(defn wrap-observation-result-mapping [inner-resolver dataset]
-  (fn [context args field]
-    (let [result (inner-resolver context args field)]
-      (update result :observations
-              (fn [obs]
-                (mapv #(map-observation-result % dataset) obs))))))
-
 (defn wrap-observations-mapping [inner-resolver dataset]
   (fn [context args observations-field]
     (let [result (inner-resolver context args observations-field)
           obs (mapv (fn [{:keys [obs] :as bindings}]
                       (let [field-values (map (fn [{:keys [field-name] :as ft}]
-                                                [field-name (types/project-result ft bindings)])
+                                                (let [sparql-value (types/project-result ft bindings)]
+                                                  [field-name (types/to-graphql ft sparql-value)]))
                                               (types/dataset-dimension-measures dataset))]
                         (into {:uri obs} field-values)))
                     (::resolvers/observation-results result))]
@@ -186,8 +174,7 @@
      :resolvers
             {(dataset-resolver-name dataset)            (fn [context args field]
                                                           (resolvers/resolve-dataset context dataset))
-             observations-page-resolver-name            (wrap-observation-result-mapping
-                                                          (wrap-observations-mapping resolvers/resolve-observations-page dataset) dataset)
+             observations-page-resolver-name            (wrap-observations-mapping resolvers/resolve-observations-page dataset)
              observations-resolver-name                 (create-observation-resolver dataset)
              (dataset-dimensions-resolver-name dataset) (fn [context args _field]
                                                           (resolvers/resolve-dataset-dimensions context args dataset))
