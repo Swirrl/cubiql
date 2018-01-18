@@ -76,27 +76,30 @@
     (if (> total-matches next-offset)
       next-offset)))
 
-(defn resolve-observations-page [context args observations-field]
-  (let [repo (context/get-repository context)
-        order-by-dim-measures (::order-by observations-field)
-        {:keys [dimensions measures] :as dataset} (::dataset observations-field)
-        limit (get-limit args)
-        offset (get-offset args)
-        total-matches (:total_matches observations-field)
+(defn wrap-pagination-resolver [inner-resolver]
+  (fn [context args observations-field]
+    (let [limit (get-limit args)
+          offset (get-offset args)
+          total-matches (:total_matches observations-field)
+          page {::page-offset offset ::page-size limit}
+          result (inner-resolver context (assoc args ::page page) observations-field)
+          page-count (count (::observation-results result))
+          next-page (calculate-next-page-offset offset limit total-matches)]
+      (assoc result :next_page next-page
+                    :count page-count))))
+
+(defn inner-resolve-observations-page [context args observations-field]
+  (let [order-by (::order-by observations-field)
+        dataset (::dataset observations-field)
         observation-selections (::observation-selections observations-field)
         filter-model (::filter-model observations-field)
-        query (queries/get-observation-page-query dataset filter-model limit offset order-by-dim-measures observation-selections)
-        results (util/eager-query repo query)
-        matches (mapv (fn [{:keys [obs] :as bindings}]
-                        (let [field-values (map (fn [{:keys [field-name] :as ft}]
-                                                  [field-name (types/project-result ft bindings)])
-                                                (concat dimensions measures))]
-                          (into {:uri obs} field-values)))
-                      results)
-        next-page (calculate-next-page-offset offset limit total-matches)]
-    {:next_page next-page
-     :count     (count matches)
-     :observations    matches}))
+        #::{:keys [page-offset page-size]} (::page args)
+        query (queries/get-observation-page-query dataset filter-model page-size page-offset order-by observation-selections)
+        repo (context/get-repository context)
+        results (util/eager-query repo query)]
+    {::observation-results results}))
+
+(def resolve-observations-page (wrap-pagination-resolver inner-resolve-observations-page))
 
 (defn resolve-datasets [context {:keys [dimensions measures uri] :as args} _parent]
   (let [repo (context/get-repository context)

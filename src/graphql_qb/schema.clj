@@ -64,6 +64,24 @@
                             [field-name (types/to-graphql dm sparql-value)]))
                         (concat dimensions measures))))
 
+(defn wrap-observation-result-mapping [inner-resolver dataset]
+  (fn [context args field]
+    (let [result (inner-resolver context args field)]
+      (update result :observations
+              (fn [obs]
+                (mapv #(map-observation-result % dataset) obs))))))
+
+(defn wrap-observations-mapping [inner-resolver {:keys [dimensions measures] :as dataset}]
+  (fn [context args observations-field]
+    (let [result (inner-resolver context args observations-field)
+          obs (mapv (fn [{:keys [obs] :as bindings}]
+                      (let [field-values (map (fn [{:keys [field-name] :as ft}]
+                                                [field-name (types/project-result ft bindings)])
+                                              (concat dimensions measures))]
+                        (into {:uri obs} field-values)))
+                    (::resolvers/observation-results result))]
+      (assoc result :observations obs))))
+
 (defn get-dataset-schema [{:keys [description dimensions measures] :as dataset}]
   (let [schema (types/dataset-schema dataset)
         observation-schema (dataset-observation-schema dataset)
@@ -117,9 +135,9 @@
 
              observation-result-type-name
              {:fields
-              {:sparql        {:type 'String
+              {:sparql        {:type        'String
                                :description "SPARQL query used to retrieve matching observations."
-                               :resolve :resolve-observation-sparql-query}
+                               :resolve     :resolve-observation-sparql-query}
                :page          {:type        observation-results-page-type-name
                                :args        {:after {:type :SparqlCursor}
                                              :first {:type 'Int}}
@@ -165,17 +183,15 @@
               :resolve resolver-name}}
 
      :resolvers
-            {(dataset-resolver-name dataset)                   (fn [context args field]
-                                                                 (resolvers/resolve-dataset context dataset))
-             observations-page-resolver-name (fn [context args field]
-                                               (let [result (resolvers/resolve-observations-page context args field)]
-                                                 (update result :observations (fn [obs]
-                                                                                (mapv #(map-observation-result % dataset) obs)))))
-             observations-resolver-name                        (create-observation-resolver dataset)
-             (dataset-dimensions-resolver-name dataset)        (fn [context args _field]
-                                                                 (resolvers/resolve-dataset-dimensions context args dataset))
-             (aggregation-resolver-name dataset :max)          (create-aggregation-resolver :max aggregation-measures-enum)
-             (aggregation-resolver-name dataset :min)          (create-aggregation-resolver :min aggregation-measures-enum)
-             (aggregation-resolver-name dataset :sum)          (create-aggregation-resolver :sum aggregation-measures-enum)
-             (aggregation-resolver-name dataset :avg)          (create-aggregation-resolver :avg aggregation-measures-enum)}}))
+            {(dataset-resolver-name dataset)            (fn [context args field]
+                                                          (resolvers/resolve-dataset context dataset))
+             observations-page-resolver-name            (wrap-observation-result-mapping
+                                                          (wrap-observations-mapping resolvers/resolve-observations-page dataset) dataset)
+             observations-resolver-name                 (create-observation-resolver dataset)
+             (dataset-dimensions-resolver-name dataset) (fn [context args _field]
+                                                          (resolvers/resolve-dataset-dimensions context args dataset))
+             (aggregation-resolver-name dataset :max)   (create-aggregation-resolver :max aggregation-measures-enum)
+             (aggregation-resolver-name dataset :min)   (create-aggregation-resolver :min aggregation-measures-enum)
+             (aggregation-resolver-name dataset :sum)   (create-aggregation-resolver :sum aggregation-measures-enum)
+             (aggregation-resolver-name dataset :avg)   (create-aggregation-resolver :avg aggregation-measures-enum)}}))
 
