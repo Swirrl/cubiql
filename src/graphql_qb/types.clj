@@ -211,17 +211,10 @@
   SparqlFilterable
   (apply-filter [this model sparql-value]
     (let [dim-key (keyword (str "dim" order))]
-      (cond
-        (is-enum-type? type)
+      (if (is-ref-period-type? type)
+        (apply-ref-period-filter model dim-key uri sparql-value)
         (let [value (or sparql-value ::qm/var)]
-          (qm/add-binding model [[dim-key uri]] value))
-
-        (is-ref-area-type? type)
-        (let [value (or sparql-value ::qm/var)]
-          (qm/add-binding model [[dim-key uri]] value))
-
-        (is-ref-period-type? type)
-        (apply-ref-period-filter model dim-key uri sparql-value))))
+          (qm/add-binding model [[dim-key uri]] value)))))
 
   SparqlResultProjector
   (apply-projection [this model observation-selections]
