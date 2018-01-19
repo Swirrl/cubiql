@@ -60,23 +60,29 @@
                                   ds-measures))
                    (group-by :ds measure-results)))
 
+(defn can-generate-schema?
+  "Indicates whether a GraphQL schema can be generated for the given dataset"
+  [dataset]
+  (not (empty? (types/dataset-dimension-measures dataset))))
+
 (defn construct-datasets [datasets dataset-enum-values dataset-measures known-dimensions known-dimension-members]
-  (let [dataset-enum-values (group-by :ds dataset-enum-values)]
-    (map (fn [{uri :ds :as dataset}]
-           (let [{:keys [title description issued modified publisher licence]} dataset
-                 schema (types/dataset-schema dataset)
-                 enum-dim-values (get dataset-enum-values uri)
-                 measures-mapping (get-dataset-measures-mapping dataset-measures)
-                 enum-dims (get-dataset-enum-dimensions enum-dim-values)
-                 dimensions (get-dataset-dimensions uri schema known-dimensions known-dimension-members enum-dims)
-                 measures (or (get measures-mapping uri) [])
-                 d (types/->Dataset uri title description dimensions measures)]
-             (assoc d
-               :issued (some-> issued (types/grafter-date->datetime))
-               :modified (some-> modified (types/grafter-date->datetime))
-               :publisher publisher
-               :licence licence)))
-         datasets)))
+  (let [dataset-enum-values (group-by :ds dataset-enum-values)
+        datasets (map (fn [{uri :ds :as dataset}]
+                        (let [{:keys [title description issued modified publisher licence]} dataset
+                              schema (types/dataset-schema dataset)
+                              enum-dim-values (get dataset-enum-values uri)
+                              measures-mapping (get-dataset-measures-mapping dataset-measures)
+                              enum-dims (get-dataset-enum-dimensions enum-dim-values)
+                              dimensions (get-dataset-dimensions uri schema known-dimensions known-dimension-members enum-dims)
+                              measures (or (get measures-mapping uri) [])
+                              d (types/->Dataset uri title description dimensions measures)]
+                          (assoc d
+                            :issued (some-> issued (types/grafter-date->datetime))
+                            :modified (some-> modified (types/grafter-date->datetime))
+                            :publisher publisher
+                            :licence licence)))
+                      datasets)]
+    (filter can-generate-schema? datasets)))
 
 (defn get-numeric-measures [repo measures]
   (into #{} (filter (fn [measure-uri]
