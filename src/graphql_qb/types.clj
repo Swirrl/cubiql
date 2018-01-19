@@ -102,9 +102,6 @@
   (input-type-name [this])
   (type-name [this]))
 
-(defprotocol EnumTypeSource
-  (get-enums [this]))
-
 (defprotocol SchemaElement
   (->input-schema-element [this])
   (->schema-element [this]))
@@ -123,9 +120,6 @@
 (extend nil TypeMapper id-mapper)
 
 (defrecord RefAreaType []
-  EnumTypeSource
-  (get-enums [_this] nil)
-  
   SchemaType
   (input-type-name [this] :uri)
   (type-name [_this] :ref_area))
@@ -133,9 +127,6 @@
 (extend RefAreaType TypeMapper id-mapper)
 
 (defrecord RefPeriodType []
-  EnumTypeSource
-  (get-enums [_this] nil)
-  
   SchemaType
   (input-type-name [_this] :ref_period_filter)
   (type-name [_this] :ref_period))
@@ -149,9 +140,6 @@
   (input-type-name [this] (type-name this))
   (type-name [this]
     (field-name->type-name enum-name schema))
-  
-  EnumTypeSource
-  (get-enums [this] [this])
   
   TypeMapper
   (from-graphql [_this item-name]
@@ -277,10 +265,6 @@
     {(->field-name this) {:type (type-name this)
                           :description (some-> (or doc label) str)}})
 
-  EnumTypeSource
-  (get-enums [this]
-    (get-enums type))
-
   EnumValue
   (to-enum-value [this]
     (->EnumItem this label (enum-label->value-name label) nil)))
@@ -308,17 +292,11 @@
   (->schema-element [this]
     {(->field-name this) {:type 'String}})
 
-  EnumTypeSource
-  (get-enums [_this] nil)
-
   EnumValue
   (to-enum-value [this]
     (->EnumItem this label (enum-label->value-name label) nil)))
 
-(defrecord Dataset [uri title description dimensions measures]
-  EnumTypeSource
-  (get-enums [_this]
-    (mapcat get-enums (concat dimensions measures))))
+(defrecord Dataset [uri title description dimensions measures])
 
 (defn dataset-schema [{:keys [title] :as ds}]
   (keyword (dataset-label->schema-name title)))
@@ -328,6 +306,9 @@
 
 (defn dataset-dimension-measures [{:keys [dimensions measures] :as ds}]
   (concat dimensions measures))
+
+(defn dataset-enum-types [{:keys [dimensions] :as dataset}]
+  (filter is-enum-type? (map :type dimensions)))
 
 (defn build-enum [schema enum-name values]
   (->EnumType schema enum-name (mapv to-enum-value values)))

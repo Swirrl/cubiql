@@ -153,7 +153,7 @@
 
 (defn get-dataset-schema [{:keys [description] :as dataset}]
   (let [schema (types/dataset-schema dataset)
-        dataset-enums (types/get-enums dataset)
+        dataset-enums (types/dataset-enum-types dataset)
         enums-schema (apply merge (map enum->schema dataset-enums))
         resolver-name (dataset-resolver-name dataset)
         dimensions-resolver-name (dataset-dimensions-resolver-name dataset)
