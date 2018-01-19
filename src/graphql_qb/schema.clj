@@ -139,6 +139,7 @@
                     :observations {:type (list 'list observation-type-name) :description "List of observations on this page"}}})
         (assoc-in [:objects observation-type-name]
                   {:fields (dataset-observation-schema dataset)})
+        (update :enums #(merge % (enum->schema dimensions-measures-fields-enum)))
         (assoc-in [:input-objects observation-filter-type-name] {:fields (dataset-observation-filter-schema dataset)})
         (assoc-in [:input-objects field-orderings-type-name] {:fields (get-dataset-sort-specification-schema dataset)})
         (assoc-in [:resolvers observations-resolver-name]
@@ -148,10 +149,8 @@
 
 (defn get-dataset-schema [{:keys [description] :as dataset}]
   (let [schema (types/dataset-schema dataset)
-        dimensions-measures-fields-enum (types/build-enum schema :observation_ordering (types/dataset-dimension-measures dataset))
         dataset-enums (types/get-enums dataset)
-        all-enums (concat dataset-enums [dimensions-measures-fields-enum])
-        enums-schema (apply merge (map enum->schema all-enums))
+        enums-schema (apply merge (map enum->schema dataset-enums))
         resolver-name (dataset-resolver-name dataset)
         dimensions-resolver-name (dataset-dimensions-resolver-name dataset)
         fixed-schema {:enums enums-schema
