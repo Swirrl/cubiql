@@ -71,6 +71,10 @@
                     (::resolvers/observation-results result))]
       (assoc result :observations obs))))
 
+(defn add-enum-schema [schema enum]
+  (let [enum-schema (enum->schema enum)]
+    (update schema :enums #(merge % enum-schema))))
+
 (defn merge-aggregations-schema [partial-schema dataset]
   (let [aggregation-measures (types/dataset-aggregate-measures dataset)]
     (if-not (empty? aggregation-measures)
@@ -96,7 +100,7 @@
                                   :resolve (aggregation-resolver-name dataset :avg)}}})
             (assoc-in [:objects observation-result-type-name :aggregations]
                       {:type aggregation-fields-type-name})
-            (update :enums #(merge % (enum->schema aggregation-measures-enum)))
+            (add-enum-schema aggregation-measures-enum)
             (assoc-in [:resolvers (aggregation-resolver-name dataset :max)] (create-aggregation-resolver :max aggregation-measures-enum))
             (assoc-in [:resolvers (aggregation-resolver-name dataset :min)] (create-aggregation-resolver :min aggregation-measures-enum))
             (assoc-in [:resolvers (aggregation-resolver-name dataset :sum)] (create-aggregation-resolver :sum aggregation-measures-enum))
@@ -139,7 +143,7 @@
                     :observations {:type (list 'list observation-type-name) :description "List of observations on this page"}}})
         (assoc-in [:objects observation-type-name]
                   {:fields (dataset-observation-schema dataset)})
-        (update :enums #(merge % (enum->schema dimensions-measures-fields-enum)))
+        (add-enum-schema dimensions-measures-fields-enum)
         (assoc-in [:input-objects observation-filter-type-name] {:fields (dataset-observation-filter-schema dataset)})
         (assoc-in [:input-objects field-orderings-type-name] {:fields (get-dataset-sort-specification-schema dataset)})
         (assoc-in [:resolvers observations-resolver-name]
