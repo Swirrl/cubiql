@@ -10,13 +10,6 @@
    :description "URI of the observation"
    :->graphql identity})
 
-(defn type-schema-input-type-name [dataset type]
-  (cond
-    (types/is-ref-area-type? type) :uri
-    (types/is-ref-period-type? type) :ref_period_filter
-    (types/is-enum-type? type) (enum-type-name dataset type)))
-
-
 (defn get-enum-names [{:keys [values] :as enum-type}]
   {:pre [(types/is-enum-type? enum-type)]}
   (mapv :name values))
@@ -31,6 +24,12 @@
   (cond
     (types/is-ref-area-type? type) :ref_area
     (types/is-ref-period-type? type) :ref_period
+    (types/is-enum-type? type) (enum-type-name dataset type)))
+
+(defn type-schema-input-type-name [dataset type]
+  (cond
+    (types/is-ref-area-type? type) :uri
+    (types/is-ref-period-type? type) :ref_period_filter
     (types/is-enum-type? type) (enum-type-name dataset type)))
 
 (defn dimension-input-schema [dataset {:keys [field-name doc label type] :as dim}]
@@ -144,7 +143,7 @@
                         :average {:type    'Float
                                   :args    {:measure {:type (list 'non-null aggregation-types-type-name) :description "The measure to aggregate"}}
                                   :resolve (aggregation-resolver-name dataset :avg)}}})
-            (assoc-in [:objects observation-result-type-name :aggregations]
+            (assoc-in [:objects observation-result-type-name :fields :aggregations]
                       {:type aggregation-fields-type-name})
             (add-enum-schema dataset aggregation-measures-enum)
             (assoc-in [:resolvers (aggregation-resolver-name dataset :max)] (create-aggregation-resolver :max aggregation-measures-enum))
