@@ -134,7 +134,7 @@
 
 (extend RefPeriodType TypeMapper id-mapper)
 
-(defrecord EnumItem [value label name sort-priority])
+(defrecord EnumItem [value label name])
 
 (defrecord EnumType [schema enum-name values]
   SchemaType
@@ -316,7 +316,7 @@
 
   EnumValue
   (to-enum-value [this]
-    (->EnumItem this label (enum-label->value-name label) nil)))
+    (->EnumItem this label (enum-label->value-name label))))
 
 (defrecord MeasureType [uri label order is-numeric?]
   SparqlQueryable
@@ -347,7 +347,7 @@
 
   EnumValue
   (to-enum-value [this]
-    (->EnumItem this label (enum-label->value-name label) nil)))
+    (->EnumItem this label (enum-label->value-name label))))
 
 (defrecord Dataset [uri title description dimensions measures])
 

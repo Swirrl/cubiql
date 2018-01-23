@@ -15,11 +15,11 @@
   (let [by-enum-name (group-by #(types/enum-label->value-name (:label %)) code-list)
         items (mapcat (fn [[enum-name item-results]]
                         (if (= 1 (count item-results))
-                          (map (fn [{:keys [member label priority]}]
-                                 (types/->EnumItem member label enum-name priority))
+                          (map (fn [{:keys [member label]}]
+                                 (types/->EnumItem member label enum-name))
                                item-results)
-                          (map-indexed (fn [n {:keys [member label priority]}]
-                                         (types/->EnumItem member label (types/enum-label->value-name label (inc n)) priority))
+                          (map-indexed (fn [n {:keys [member label]}]
+                                         (types/->EnumItem member label (types/enum-label->value-name label (inc n))))
                                        item-results)))
                       by-enum-name)]
     (vec items)))

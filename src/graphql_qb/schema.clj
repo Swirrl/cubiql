@@ -75,7 +75,12 @@
     (into {:uri {:type :uri :->graphql identity}} (concat dim-mappings measure-mappings))))
 
 (defn schema-mapping->observations-schema [mapping]
-  (util/map-values :type mapping))
+  (util/map-values (fn [{:keys [type] :as m}] {:type type}) mapping))
+
+(defn dataset-observation-schema [dataset]
+  (-> dataset
+      (get-dataset-schema-mapping)
+      (schema-mapping->observations-schema)))
 
 (defn apply-schema-mapping [mapping sparql-result]
   (into {} (map (fn [[field-name {:keys [->graphql]}]]
