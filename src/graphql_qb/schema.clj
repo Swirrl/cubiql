@@ -5,25 +5,40 @@
             [clojure.pprint :as pp]
             [graphql-qb.util :as util]))
 
-(def observation-uri-type-schema
+(def observation-uri-schema-mapping
   {:type :uri
-   :description "URI of the observation"})
+   :description "URI of the observation"
+   :->graphql identity})
+
+(defn type-schema-input-type-name [dataset type]
+  (cond
+    (types/is-ref-area-type? type) :uri
+    (types/is-ref-period-type? type) :ref_period_filter
+    (types/is-enum-type? type) (enum-type-name dataset type)))
+
 
 (defn get-enum-names [{:keys [values] :as enum-type}]
   {:pre [(types/is-enum-type? enum-type)]}
   (mapv :name values))
 
-(defn enum->schema [enum]
-  {(types/type-name enum) {:values (get-enum-names enum)}})
+(defn enum-type-name [dataset {:keys [enum-name] :as enum-type}]
+  (types/field-name->type-name enum-name (types/dataset-schema dataset)))
 
-(defn dataset-observation-schema [{:keys [dimensions measures] :as dataset}]
-  (let [dimension-schemas (map types/->schema-element dimensions)
-        measure-type-schemas (map types/->schema-element measures)]
-    (into {:uri observation-uri-type-schema}
-          (concat dimension-schemas measure-type-schemas))))
+(defn enum->schema [dataset enum-type]
+  {(enum-type-name dataset enum-type) {:values (get-enum-names enum-type)}})
+
+(defn type-schema-type-name [dataset type]
+  (cond
+    (types/is-ref-area-type? type) :ref_area
+    (types/is-ref-period-type? type) :ref_period
+    (types/is-enum-type? type) (enum-type-name dataset type)))
+
+(defn dimension-input-schema [dataset {:keys [field-name doc label type] :as dim}]
+  {field-name {:type (type-schema-input-type-name dataset type)
+               :description (some-> (or doc label) str)}})
 
 (defn dataset-observation-filter-schema [{:keys [dimensions] :as dataset}]
-  (apply merge (map types/->input-schema-element dimensions)))
+  (apply merge (map #(dimension-input-schema dataset %) dimensions)))
 
 (defn dataset-resolver-name [dataset]
   (let [schema (types/dataset-schema dataset)]
@@ -60,22 +75,26 @@
     (let [mapped-args ((sm/observation-args-mapper dataset) args)]
       (resolvers/resolve-observations context mapped-args field))))
 
-(defn dimension->schema-mapping [{:keys [field-name type] :as dim}]
+(defn dimension-type-name [dataset dim]
+  (type-schema-type-name dataset (:type dim)))
+
+(defn dimension->schema-mapping [dataset {:keys [field-name type doc label] :as dim}]
   (let [->graphql (if (types/is-enum-type? type)
                     (fn [v] (types/to-graphql dim v))
                     identity)]
-    {field-name {:type (types/type-name type) :->graphql ->graphql}}))
+    {field-name {:type (dimension-type-name dataset dim) :->graphql ->graphql :description (some-> (or doc label) str)}}))
 
 (defn measure->schema-mapping [{:keys [field-name] :as measure}]
-  {field-name {:type 'String :->graphql str}})
+  ;;TODO: get measure description?
+  {field-name {:type 'String :->graphql str :description ""}})
 
 (defn get-dataset-schema-mapping [{:keys [dimensions measures] :as ds}]
-  (let [dim-mappings (map dimension->schema-mapping dimensions)
+  (let [dim-mappings (map #(dimension->schema-mapping ds %) dimensions)
         measure-mappings (map measure->schema-mapping measures)]
-    (into {:uri {:type :uri :->graphql identity}} (concat dim-mappings measure-mappings))))
+    (into {:uri observation-uri-schema-mapping} (concat dim-mappings measure-mappings))))
 
 (defn schema-mapping->observations-schema [mapping]
-  (util/map-values (fn [{:keys [type] :as m}] {:type type}) mapping))
+  (util/map-values (fn [m] (select-keys m [:type :description])) mapping))
 
 (defn dataset-observation-schema [dataset]
   (-> dataset
@@ -98,8 +117,8 @@
                               (::resolvers/observation-results result))]
       (assoc result :observations mapped-result))))
 
-(defn add-enum-schema [schema enum]
-  (let [enum-schema (enum->schema enum)]
+(defn add-enum-schema [schema dataset enum]
+  (let [enum-schema (enum->schema dataset enum)]
     (update schema :enums #(merge % enum-schema))))
 
 (defn merge-aggregations-schema [partial-schema dataset]
@@ -109,7 +128,7 @@
             aggregation-fields-type-name (types/field-name->type-name :aggregations schema)
             aggregation-types-type-name (types/field-name->type-name :aggregation_measure_types schema)
             observation-result-type-name (types/field-name->type-name :observation_result schema)
-            aggregation-measures-enum (types/build-enum schema :aggregation_measure_types aggregation-measures)]
+            aggregation-measures-enum (types/build-enum :aggregation_measure_types aggregation-measures)]
         (-> partial-schema
             (assoc-in [:objects aggregation-fields-type-name]
                       {:fields
@@ -127,7 +146,7 @@
                                   :resolve (aggregation-resolver-name dataset :avg)}}})
             (assoc-in [:objects observation-result-type-name :aggregations]
                       {:type aggregation-fields-type-name})
-            (add-enum-schema aggregation-measures-enum)
+            (add-enum-schema dataset aggregation-measures-enum)
             (assoc-in [:resolvers (aggregation-resolver-name dataset :max)] (create-aggregation-resolver :max aggregation-measures-enum))
             (assoc-in [:resolvers (aggregation-resolver-name dataset :min)] (create-aggregation-resolver :min aggregation-measures-enum))
             (assoc-in [:resolvers (aggregation-resolver-name dataset :sum)] (create-aggregation-resolver :sum aggregation-measures-enum))
@@ -139,7 +158,8 @@
         observation-type-name (types/field-name->type-name :observation schema)
         observation-result-type-name (types/field-name->type-name :observation_result schema)
         observation-filter-type-name (types/field-name->type-name :observation_dimensions schema)
-        dimensions-measures-fields-enum (types/build-enum schema :observation_ordering (types/dataset-dimension-measures dataset))
+        observation-ordering-fields-enum (types/build-enum :observation_ordering (types/dataset-dimension-measures dataset))
+        observation-ordering-fields-enum-name (enum-type-name dataset observation-ordering-fields-enum)
         field-orderings-type-name (types/field-name->type-name :field_ordering schema)
         observations-resolver-name (dataset-observations-resolver-name dataset)
         observations-page-resolver-name (dataset-observations-page-resolver-name dataset)
@@ -148,7 +168,7 @@
         (assoc-in [:objects schema :fields :observations]
                   {:type        observation-result-type-name
                    :args        {:dimensions {:type observation-filter-type-name}
-                                 :order      {:type (list 'list (types/type-name dimensions-measures-fields-enum))}
+                                 :order      {:type (list 'list observation-ordering-fields-enum-name)}
                                  :order_spec {:type field-orderings-type-name}}
                    :resolve     observations-resolver-name
                    :description "Observations matching the given criteria"})
@@ -170,7 +190,7 @@
                     :observations {:type (list 'list observation-type-name) :description "List of observations on this page"}}})
         (assoc-in [:objects observation-type-name]
                   {:fields (dataset-observation-schema dataset)})
-        (add-enum-schema dimensions-measures-fields-enum)
+        (add-enum-schema dataset observation-ordering-fields-enum)
         (assoc-in [:input-objects observation-filter-type-name] {:fields (dataset-observation-filter-schema dataset)})
         (assoc-in [:input-objects field-orderings-type-name] {:fields (get-dataset-sort-specification-schema dataset)})
         (assoc-in [:resolvers observations-resolver-name]
@@ -181,7 +201,7 @@
 (defn get-dataset-schema [{:keys [description] :as dataset}]
   (let [schema (types/dataset-schema dataset)
         dataset-enums (types/dataset-enum-types dataset)
-        enums-schema (apply merge (map enum->schema dataset-enums))
+        enums-schema (apply merge (map #(enum->schema dataset %) dataset-enums))
         resolver-name (dataset-resolver-name dataset)
         dimensions-resolver-name (dataset-dimensions-resolver-name dataset)
         fixed-schema {:enums enums-schema

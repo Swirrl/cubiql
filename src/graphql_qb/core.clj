@@ -33,16 +33,13 @@
            {:uri   dim
             :label (str label)
             :doc (str doc)
-            :type {:enum-name enum-name :values items}}))
+            :type (types/->EnumType enum-name items)}))
        (group-by :dim enum-dim-values)))
 
 (defn get-dataset-dimensions [ds-uri schema known-dimensions known-dimension-members enum-dims]
   (let [known-dims (filter (fn [{:keys [uri]}]
                              (contains? (get known-dimension-members uri) ds-uri))
                            known-dimensions)
-        enum-dims (map (fn [dim]
-                         (update dim :type #(types/map->EnumType (assoc % :schema schema))))
-                       enum-dims)
         dims (concat known-dims enum-dims)]
     (map-indexed (fn [index dim]
                    (-> dim

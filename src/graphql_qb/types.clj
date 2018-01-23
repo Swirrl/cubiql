@@ -81,8 +81,6 @@
 (defn ->field-name [{:keys [label]}]
   (label->field-name label))
 
-(def label->enum-name label->field-name)
-
 (defn enum-label->value-name
   ([label]
    (segments->enum-value (get-identifier-segments label)))
@@ -99,14 +97,6 @@
 (defprotocol SparqlQueryable
   (apply-order-by [this model direction]))
 
-(defprotocol SchemaType
-  (input-type-name [this])
-  (type-name [this]))
-
-(defprotocol SchemaElement
-  (->input-schema-element [this])
-  (->schema-element [this]))
-
 (defprotocol TypeMapper
   (from-graphql [this graphql-value])
   (to-graphql [this value]))
@@ -120,28 +110,17 @@
 
 (extend nil TypeMapper id-mapper)
 
-(defrecord RefAreaType []
-  SchemaType
-  (input-type-name [this] :uri)
-  (type-name [_this] :ref_area))
+(defrecord RefAreaType [])
 
 (extend RefAreaType TypeMapper id-mapper)
 
-(defrecord RefPeriodType []
-  SchemaType
-  (input-type-name [_this] :ref_period_filter)
-  (type-name [_this] :ref_period))
+(defrecord RefPeriodType [])
 
 (extend RefPeriodType TypeMapper id-mapper)
 
 (defrecord EnumItem [value label name])
 
-(defrecord EnumType [schema enum-name values]
-  SchemaType
-  (input-type-name [this] (type-name this))
-  (type-name [this]
-    (field-name->type-name enum-name schema))
-  
+(defrecord EnumType [enum-name values]
   TypeMapper
   (from-graphql [_this item-name]
     (if-let [item (first (filter #(= item-name (:name %)) values))]
@@ -301,19 +280,6 @@
   (to-graphql [this binding]
     (to-graphql type binding))
 
-  SchemaType
-  (input-type-name [this] (input-type-name type))
-  (type-name [_this]
-    (type-name type))
-
-  SchemaElement
-  (->input-schema-element [this]
-    {(->field-name this) {:type (input-type-name this)
-                          :description (some-> (or doc label) str)}})
-  (->schema-element [this]
-    {(->field-name this) {:type (type-name this)
-                          :description (some-> (or doc label) str)}})
-
   EnumValue
   (to-enum-value [this]
     (->EnumItem this label (enum-label->value-name label))))
@@ -341,10 +307,6 @@
   (to-graphql [this binding]
     (some-> binding str))
 
-  SchemaElement
-  (->schema-element [this]
-    {(->field-name this) {:type 'String}})
-
   EnumValue
   (to-enum-value [this]
     (->EnumItem this label (enum-label->value-name label))))
@@ -368,8 +330,8 @@
 (defn dataset-enum-types [{:keys [dimensions] :as dataset}]
   (filter is-enum-type? (map :type dimensions)))
 
-(defn build-enum [schema enum-name values]
-  (->EnumType schema enum-name (mapv to-enum-value values)))
+(defn build-enum [enum-name values]
+  (->EnumType enum-name (mapv to-enum-value values)))
 
 (def custom-scalars
   {:SparqlCursor
