@@ -2,7 +2,8 @@
   (:require [graphql-qb.types :as types]
             [graphql-qb.resolvers :as resolvers]
             [graphql-qb.schema-model :as sm]
-            [clojure.pprint :as pp]))
+            [clojure.pprint :as pp]
+            [graphql-qb.util :as util]))
 
 (def observation-uri-type-schema
   {:type :uri
@@ -59,17 +60,38 @@
     (let [mapped-args ((sm/observation-args-mapper dataset) args)]
       (resolvers/resolve-observations context mapped-args field))))
 
+(defn dimension->schema-mapping [{:keys [field-name type] :as dim}]
+  (let [->graphql (if (types/is-enum-type? type)
+                    (fn [v] (types/to-graphql dim v))
+                    identity)]
+    {field-name {:type (types/type-name type) :->graphql ->graphql}}))
+
+(defn measure->schema-mapping [{:keys [field-name] :as measure}]
+  {field-name {:type 'String :->graphql str}})
+
+(defn get-dataset-schema-mapping [{:keys [dimensions measures] :as ds}]
+  (let [dim-mappings (map dimension->schema-mapping dimensions)
+        measure-mappings (map measure->schema-mapping measures)]
+    (into {:uri {:type :uri :->graphql identity}} (concat dim-mappings measure-mappings))))
+
+(defn schema-mapping->observations-schema [mapping]
+  (util/map-values :type mapping))
+
+(defn apply-schema-mapping [mapping sparql-result]
+  (into {} (map (fn [[field-name {:keys [->graphql]}]]
+                  [field-name (->graphql (get sparql-result field-name))])
+                mapping)))
+
 (defn wrap-observations-mapping [inner-resolver dataset]
   (fn [context args observations-field]
     (let [result (inner-resolver context args observations-field)
-          obs (mapv (fn [{:keys [obs] :as bindings}]
-                      (let [field-values (map (fn [{:keys [field-name] :as ft}]
-                                                (let [sparql-value (types/project-result ft bindings)]
-                                                  [field-name (types/to-graphql ft sparql-value)]))
-                                              (types/dataset-dimension-measures dataset))]
-                        (into {:uri obs} field-values)))
-                    (::resolvers/observation-results result))]
-      (assoc result :observations obs))))
+          projection (merge {:uri :obs} (types/dataset-result-projection dataset))
+          schema-mapping (get-dataset-schema-mapping dataset)
+          mapped-result (mapv (fn [obs-bindings]
+                                (let [sparql-result (types/project-result projection obs-bindings)]
+                                  (apply-schema-mapping schema-mapping sparql-result)))
+                              (::resolvers/observation-results result))]
+      (assoc result :observations mapped-result))))
 
 (defn add-enum-schema [schema enum]
   (let [enum-schema (enum->schema enum)]

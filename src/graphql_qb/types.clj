@@ -9,7 +9,8 @@
            [java.util Base64 Date]
            [java.time.format DateTimeFormatter]
            [java.time ZonedDateTime ZoneOffset]
-           [org.openrdf.model Literal]))
+           [org.openrdf.model Literal]
+           (clojure.lang Keyword IPersistentMap)))
 
 (defn parse-sparql-cursor [base64-str]
   (let [bytes (.decode (Base64/getDecoder) base64-str)
@@ -182,7 +183,40 @@
 
 (defprotocol SparqlResultProjector
   (apply-projection [this model selections])
-  (project-result [this sparql-binding]))
+  (project-result [this sparql-binding])
+  (get-result-projection [this]))
+
+(extend-protocol SparqlResultProjector
+  Keyword
+  (apply-projection [kw model selections]
+    model)
+  (project-result [kw sparql-binding]
+    (get sparql-binding kw))
+
+  IPersistentMap
+  (apply-projection [m model selections]
+    (reduce (fn [acc [k inner-selections]]
+              (let [proj (get m k)]
+                (apply-projection proj acc inner-selections)))
+            model
+            selections))
+
+  (project-result [m sparql-binding]
+    (into {} (map (fn [[k projector]]
+                    [k (project-result projector sparql-binding)])
+                  m))))
+
+(defrecord PathProjection [path optional? transform-f]
+  SparqlResultProjector
+  (apply-projection [_this model selections]
+    (qm/add-binding model path ::qm/var :optional? optional?))
+  (project-result [_this sparql-binding]
+    (let [key-path (mapv first path)
+          var-key (keyword (qm/key-path->var-name key-path))
+          sparql-value (get sparql-binding var-key)]
+      (if (and optional? (nil? sparql-value))
+        nil
+        (transform-f sparql-value)))))
 
 (defrecord Dimension [uri ds-uri schema label doc order type]
   SparqlQueryable
@@ -240,10 +274,25 @@
          :end   (some-> (get bindings (keyword (qm/key-path->var-name [dim-key :end :time]))) grafter-date->datetime)}
 
         (is-ref-area-type? type)
-        {:uri (get bindings dim-key)
-         :label (get bindings (keyword (keyword (qm/key-path->var-name [dim-key :label]))))}
+        {:uri   (get bindings dim-key)
+         :label (get bindings (keyword (qm/key-path->var-name [dim-key :label])))}
 
         :else (get bindings dim-key))))
+
+  (get-result-projection [_this]
+    (let [dim-key (keyword (str "dim" order))]
+      (cond
+        (is-ref-period-type? type)
+        {:uri   (->PathProjection [[dim-key uri]] false identity)
+         :label (->PathProjection [[dim-key :label]] true identity)
+         :start (->PathProjection [[dim-key uri] [:begin time:hasBeginning] [:time time:inXSDDateTime]] true grafter-date->datetime)
+         :end   (->PathProjection [[dim-key uri] [:end time:hasEnd] [:time time:inXSDDateTime]] true grafter-date->datetime)}
+        (is-ref-area-type? type)
+        {:uri   (->PathProjection [[dim-key uri]] false identity)
+         :label (->PathProjection [[dim-key uri] [:label rdfs:label]] true identity)}
+
+        :else
+        (->PathProjection [[dim-key uri]] false identity))))
 
   TypeMapper
   (from-graphql [this graphql-value]
@@ -282,6 +331,10 @@
   (project-result [_this binding]
     (get binding (keyword (str "mv" order))))
 
+  (get-result-projection [_this]
+    (let [dim-key (keyword (str "mv" order))]
+      (->PathProjection [[dim-key uri]] true identity)))
+
   TypeMapper
   (from-graphql [this graphql-value]
     (throw (IllegalStateException. "Not implemented!")))
@@ -306,6 +359,11 @@
 
 (defn dataset-dimension-measures [{:keys [dimensions measures] :as ds}]
   (concat dimensions measures))
+
+(defn dataset-result-projection [dataset]
+  (into {} (map (fn [{:keys [field-name] :as ft}]
+                  [field-name (get-result-projection ft)])
+                (dataset-dimension-measures dataset))))
 
 (defn dataset-enum-types [{:keys [dimensions] :as dataset}]
   (filter is-enum-type? (map :type dimensions)))
