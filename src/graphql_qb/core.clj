@@ -5,6 +5,8 @@
             [com.walmartlabs.lacinia :refer [execute]]
             [graphql-qb.util :refer [read-edn-resource rename-key] :as util]
             [graphql-qb.types :refer :all :as types]
+            [graphql-qb.types.scalars :as scalars]
+            [graphql-qb.types.scalars :as scalars]
             [clojure.pprint :as pprint]
             [graphql-qb.schema :as schema]
             [graphql-qb.resolvers :as resolvers]
@@ -74,8 +76,8 @@
                               measures (or (get measures-mapping uri) [])
                               d (types/->Dataset uri title description dimensions measures)]
                           (assoc d
-                            :issued (some-> issued (types/grafter-date->datetime))
-                            :modified (some-> modified (types/grafter-date->datetime))
+                            :issued (some-> issued (scalars/grafter-date->datetime))
+                            :modified (some-> modified (scalars/grafter-date->datetime))
                             :publisher publisher
                             :licence licence)))
                       datasets)]
@@ -131,7 +133,7 @@
 
 (defn get-schema [datasets]
   (let [base-schema (read-edn-resource "base-schema.edn")
-        base-schema (assoc base-schema :scalars types/custom-scalars)
+        base-schema (assoc base-schema :scalars scalars/custom-scalars)
         ds-schemas (map schema/get-dataset-schema datasets)
         {:keys [resolvers] :as combined-schema} (reduce (fn [acc schema] (merge-with merge acc schema)) base-schema ds-schemas)
         query-resolvers (merge {:resolve-observation-sparql-query resolvers/resolve-observations-sparql-query

@@ -1,6 +1,7 @@
 (ns graphql-qb.resolvers
   (:require [graphql-qb.queries :as queries]
             [graphql-qb.types :as types]
+            [graphql-qb.types.scalars :as scalars]
             [graphql-qb.util :as util]
             [grafter.rdf.sparql :as sp]
             [graphql-qb.context :as context]
@@ -108,8 +109,8 @@
     (map (fn [{:keys [title] :as bindings}]
            (-> bindings
                (util/rename-key :ds :uri)
-               (update :issued #(some-> % types/grafter-date->datetime))
-               (update :modified #(some-> % types/grafter-date->datetime))
+               (update :issued #(some-> % scalars/grafter-date->datetime))
+               (update :modified #(some-> % scalars/grafter-date->datetime))
                (assoc :schema (name (types/dataset-label->schema-name title)))))
          results)))
 
