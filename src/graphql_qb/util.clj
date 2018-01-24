@@ -65,3 +65,8 @@
   [repo sparql-string]
   (with-open [conn (repo/->connection repo)]
     (doall (repo/query conn sparql-string))))
+
+(defn find-first
+  "Returns the first item in s which satisfies the predicate p. Returns nil if no items satisfy p."
+  [p s]
+  (first (filter p s)))
