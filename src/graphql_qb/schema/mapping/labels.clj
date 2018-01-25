@@ -20,7 +20,7 @@
 (defn find-item-by-name [name items]
   (util/find-first #(= name (:name %)) items))
 
-(defrecord EnumMapping [label items]
+(defrecord EnumMapping [label doc items]
   ArgumentTransform
   (transform-argument [_this graphql-value]
     (:value (find-item-by-name graphql-value items)))
@@ -114,7 +114,7 @@
   (create-group-mapping :dimension_measures (types/dataset-dimension-measures dataset)))
 
 ;;TODO: remove core/code-list->enum-items
-(defn create-enum-mapping [enum-label code-list]
+(defn create-enum-mapping [enum-label enum-doc code-list]
   (let [by-enum-name (group-by #(label->enum-name (:label %)) code-list)
         items (mapcat (fn [[enum-name item-results]]
                         (if (= 1 (count item-results))
@@ -125,7 +125,7 @@
                                          (->EnumMappingItem (label->enum-name label (inc n)) member label))
                                        item-results)))
                       by-enum-name)]
-    (->EnumMapping enum-label (vec items))))
+    (->EnumMapping enum-label enum-doc (vec items))))
 
 (defn get-dataset-dimensions-mapping [dataset field-enum-mappings]
   (let [dim-mapping (map (fn [{:keys [field-name type] :as dim}]
@@ -157,10 +157,11 @@
 (defn get-dataset-enum-mappings [enum-values]
   (let [dim-enums (group-by :dim enum-values)
         m (map (fn [[dim values]]
-                 (let [enum-label (:label (first values))
+                 (let [enum-label (str (:label (first values)))
+                       enum-doc (some-> (:doc (first values)) str)
                        field-name (types/label->field-name enum-label)
                        code-list (map #(util/rename-key % :vallabel :label) values)]
-                   [field-name (create-enum-mapping enum-label code-list)]))
+                   [field-name (create-enum-mapping enum-label enum-doc code-list)]))
                dim-enums)]
     (into {} m)))
 
@@ -168,3 +169,20 @@
 (defn get-datasets-enum-mappings [all-enum-values]
   (let [ds-enums (group-by :ds all-enum-values)]
     (util/map-values get-dataset-enum-mappings ds-enums)))
+
+;;schema mappings
+
+;;TODO: remove schema/enum-type-name
+(defn enum-type-name [dataset field-name]
+  (types/field-name->type-name field-name (types/dataset-schema dataset)))
+
+(defn enum-mapping->schema [dataset field-name {:keys [doc items] :as enum-mapping}]
+  (let [type-name (enum-type-name dataset field-name)]
+    (if (some? doc)
+      {type-name {:values (mapv :name items) :doc doc}}
+      {type-name {:values (mapv :name items)}})))
+
+(defn dataset-enum-types-schema [dataset enum-mappings]
+  (apply merge (map (fn [[field-name enum-mapping]]
+                      (enum-mapping->schema dataset field-name enum-mapping))
+                    enum-mappings)))
