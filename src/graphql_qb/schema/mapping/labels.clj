@@ -3,8 +3,8 @@
   (:require [clojure.spec.alpha :as s]
             [graphql-qb.util :as util]
             [clojure.string :as string]
-            [clojure.pprint :as pp])
-  (:import [clojure.lang IPersistentMap]))
+            [clojure.pprint :as pp]
+            [graphql-qb.types :as types]))
 
 ;;TODO: add/use spec for graphql enum values
 (s/def ::graphql-enum keyword?)
@@ -32,6 +32,10 @@
                             (= value result)))
          (:name))))
 
+(defrecord MeasureMapping []
+  ResultTransform
+  (transform-result [_this r] (str r)))
+
 (defn map-transform [tm m trans-fn]
   (into {} (map (fn [[k transform]]
                   (let [v (get m k)]
@@ -47,6 +51,12 @@
 
 (defn ftrans [f] (->FnTransform f))
 (def idtrans (->FnTransform identity))
+
+(defn apply-map-argument-transform [tm m]
+  (map-transform tm m #(transform-argument %1 %2)))
+
+(defn apply-map-result-transform [rm m]
+  (map-transform rm m #(transform-result %1 %2)))
 
 #_(extend-type IPersistentMap
   ArgumentTransform
@@ -92,3 +102,38 @@
                                        item-results)))
                       by-enum-name)]
     (->EnumMapping (vec items))))
+
+(defn get-dataset-observations-argument-mapping [dataset field-enum-mappings]
+  (let [dim-mapping (map (fn [{:keys [field-name type] :as dim}]
+                           (cond
+                             (types/is-enum-type? type)
+                             [field-name (get field-enum-mappings field-name)]
+                             (types/is-ref-area-type? type)
+                             [field-name idtrans]
+                             (types/is-ref-period-type? type)
+                             [field-name idtrans]))
+                         (:dimensions dataset))]
+    (into {} dim-mapping)))
+
+(defn get-dataset-observations-result-mapping [dataset field-enum-mappings]
+  (let [dim-mapping (get-dataset-observations-argument-mapping dataset field-enum-mappings)
+        measure-mapping (map (fn [{:keys [field-name] :as measure}]
+                               [field-name (->MeasureMapping)])
+                             (:measures dataset))]
+    (merge (into {:uri idtrans} measure-mapping)
+           dim-mapping)))
+
+(defn get-dataset-enum-mappings [enum-values]
+  (let [dim-enums (group-by :dim enum-values)
+        m (map (fn [[dim values]]
+                 (let [dim-label (:label (first values))
+                       field-name (types/label->field-name dim-label)
+                       code-list (map #(util/rename-key % :vallabel :label) values)]
+                   [field-name (create-enum-mapping code-list)]))
+               dim-enums)]
+    (into {} m)))
+
+;;TODO: move to core namespace? parameterise by available mapping handlers?
+(defn get-datasets-enum-mappings [all-enum-values]
+  (let [ds-enums (group-by :ds all-enum-values)]
+    (util/map-values get-dataset-enum-mappings ds-enums)))
