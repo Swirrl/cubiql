@@ -17,13 +17,13 @@
 
 (defrecord EnumMappingItem [name value label])
 
-(defrecord EnumMapping [items]
+(defn find-item-by-name [name items]
+  (util/find-first #(= name (:name %)) items))
+
+(defrecord EnumMapping [label items]
   ArgumentTransform
   (transform-argument [_this graphql-value]
-    (->> items
-        (util/find-first (fn [{:keys [name]}]
-                           (= name graphql-value)))
-         (:value)))
+    (:value (find-item-by-name graphql-value items)))
 
   ResultTransform
   (transform-result [_this result]
@@ -58,6 +58,12 @@
 (defn apply-map-result-transform [rm m]
   (map-transform rm m #(transform-result %1 %2)))
 
+(defrecord MapTransform [tm]
+  ArgumentTransform
+  (transform-argument [_this m] (apply-map-argument-transform tm m))
+  ResultTransform
+  (transform-result [_this r] (apply-map-result-transform tm r)))
+
 (defrecord SeqTransform [item-transform]
   ArgumentTransform
   (transform-argument [_this v]
@@ -91,8 +97,24 @@
    (let [label-segments (get-identifier-segments label)]
      (segments->enum-value (concat label-segments [(str n)])))))
 
+(defrecord GroupMapping [name items]
+  ArgumentTransform
+  (transform-argument [_this graphql-value]
+    (:value (find-item-by-name graphql-value items))))
+
+(defn create-group-mapping [name mappings]
+  ;;TODO: handle multiple mappings to the same label
+  (let [items (mapv (fn [{:keys [label] :as mapping}]
+                      (->EnumMappingItem (label->enum-name label) mapping label))
+                    mappings)]
+    (->GroupMapping name items)))
+
+(defn dataset-dimensions-measures-enum-group [dataset]
+  ;;TODO: include schema name in type name
+  (create-group-mapping :dimension_measures (types/dataset-dimension-measures dataset)))
+
 ;;TODO: remove core/code-list->enum-items
-(defn create-enum-mapping [code-list]
+(defn create-enum-mapping [enum-label code-list]
   (let [by-enum-name (group-by #(label->enum-name (:label %)) code-list)
         items (mapcat (fn [[enum-name item-results]]
                         (if (= 1 (count item-results))
@@ -103,9 +125,9 @@
                                          (->EnumMappingItem (label->enum-name label (inc n)) member label))
                                        item-results)))
                       by-enum-name)]
-    (->EnumMapping (vec items))))
+    (->EnumMapping enum-label (vec items))))
 
-(defn get-dataset-observations-argument-mapping [dataset field-enum-mappings]
+(defn get-dataset-dimensions-mapping [dataset field-enum-mappings]
   (let [dim-mapping (map (fn [{:keys [field-name type] :as dim}]
                            (cond
                              (types/is-enum-type? type)
@@ -117,8 +139,15 @@
                          (:dimensions dataset))]
     (into {} dim-mapping)))
 
+(defn get-dataset-observations-argument-mapping [dataset field-enum-mappings]
+  (let [dimensions-mapping (get-dataset-dimensions-mapping dataset field-enum-mappings)
+        dim-measures-enum (dataset-dimensions-measures-enum-group dataset)]
+    {:dimensions (->MapTransform dimensions-mapping)
+     :order      (->SeqTransform dim-measures-enum)
+     :order_spec idtrans}))
+
 (defn get-dataset-observations-result-mapping [dataset field-enum-mappings]
-  (let [dim-mapping (get-dataset-observations-argument-mapping dataset field-enum-mappings)
+  (let [dim-mapping (get-dataset-dimensions-mapping dataset field-enum-mappings)
         measure-mapping (map (fn [{:keys [field-name] :as measure}]
                                [field-name (->MeasureMapping)])
                              (:measures dataset))]
@@ -128,10 +157,10 @@
 (defn get-dataset-enum-mappings [enum-values]
   (let [dim-enums (group-by :dim enum-values)
         m (map (fn [[dim values]]
-                 (let [dim-label (:label (first values))
-                       field-name (types/label->field-name dim-label)
+                 (let [enum-label (:label (first values))
+                       field-name (types/label->field-name enum-label)
                        code-list (map #(util/rename-key % :vallabel :label) values)]
-                   [field-name (create-enum-mapping code-list)]))
+                   [field-name (create-enum-mapping enum-label code-list)]))
                dim-enums)]
     (into {} m)))
 
