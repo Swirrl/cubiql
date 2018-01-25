@@ -58,12 +58,14 @@
 (defn apply-map-result-transform [rm m]
   (map-transform rm m #(transform-result %1 %2)))
 
-#_(extend-type IPersistentMap
+(defrecord SeqTransform [item-transform]
   ArgumentTransform
-  (transform-argument [tm m] (map-transform tm m #(transform-argument %1 %2)))
+  (transform-argument [_this v]
+    (mapv #(transform-argument item-transform %) v))
 
   ResultTransform
-  (transform-result [tm m] (map-transform tm m #(transform-result %1 %2))))
+  (transform-result [_this r]
+    (mapv #(transform-result item-transform %) r)))
 
 ;;TODO: move/remove types/get-identifier-segments
 (defn get-identifier-segments [label]
