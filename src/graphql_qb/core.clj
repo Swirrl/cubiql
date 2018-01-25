@@ -11,7 +11,8 @@
             [graphql-qb.schema :as schema]
             [graphql-qb.resolvers :as resolvers]
             [graphql-qb.queries :as queries]
-            [graphql-qb.vocabulary :as vocab]))
+            [graphql-qb.vocabulary :as vocab]
+            [graphql-qb.schema.mapping.labels :as mapping]))
 
 (defn code-list->enum-items [code-list]
   (let [by-enum-name (group-by #(types/enum-label->value-name (:label %)) code-list)
@@ -131,10 +132,16 @@
         dataset-measures (get-dataset-measures repo)]
     (construct-datasets datasets dataset-enum-values dataset-measures known-dimensions known-dimension-members)))
 
-(defn get-schema [datasets]
+(defn get-datasets-enum-mappings [repo]
+  (let [dataset-enum-values (vec (sp/query "get-all-enum-dimension-values.sparql" repo))]
+    (mapping/get-datasets-enum-mappings dataset-enum-values)))
+
+(defn get-schema [datasets enum-mappings]
   (let [base-schema (read-edn-resource "base-schema.edn")
         base-schema (assoc base-schema :scalars scalars/custom-scalars)
-        ds-schemas (map schema/get-dataset-schema datasets)
+        ds-schemas (map (fn [{:keys [uri] :as ds}]
+                          (schema/get-dataset-schema ds (get enum-mappings uri)))
+                        datasets)
         {:keys [resolvers] :as combined-schema} (reduce (fn [acc schema] (merge-with merge acc schema)) base-schema ds-schemas)
         query-resolvers (merge {:resolve-observation-sparql-query resolvers/resolve-observations-sparql-query
                                 :resolve-datasets                 resolvers/resolve-datasets
@@ -145,11 +152,13 @@
 
 (defn dump-schema [repo]
   (let [datasets (get-all-datasets repo)
-        schema (get-schema datasets)]
+        enum-mappings (get-datasets-enum-mappings repo)
+        schema (get-schema datasets enum-mappings)]
     (pprint/pprint schema)))
 
 (defn build-schema-context [repo]
   (let [datasets (get-all-datasets repo)
-        schema (get-schema datasets)]
+        enum-mappings (get-datasets-enum-mappings repo)
+        schema (get-schema datasets enum-mappings)]
     {:schema (lschema/compile schema)
      :datasets datasets}))

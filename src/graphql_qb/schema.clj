@@ -3,7 +3,8 @@
             [graphql-qb.resolvers :as resolvers]
             [graphql-qb.schema-model :as sm]
             [clojure.pprint :as pp]
-            [graphql-qb.util :as util]))
+            [graphql-qb.util :as util]
+            [graphql-qb.schema.mapping.labels :as mapping]))
 
 (def observation-uri-schema-mapping
   {:type :uri
@@ -197,10 +198,11 @@
         (assoc-in [:resolvers observations-page-resolver-name]
                   (wrap-observations-mapping resolvers/resolve-observations-page dataset)))))
 
-(defn get-dataset-schema [{:keys [description] :as dataset}]
+(defn get-dataset-schema [{:keys [description] :as dataset} dataset-enum-mappings]
   (let [schema (types/dataset-schema dataset)
         dataset-enums (types/dataset-enum-types dataset)
         enums-schema (apply merge (map #(enum->schema dataset %) dataset-enums))
+        enums-schema (mapping/dataset-enum-types-schema dataset dataset-enum-mappings)
         resolver-name (dataset-resolver-name dataset)
         dimensions-resolver-name (dataset-dimensions-resolver-name dataset)
         fixed-schema {:enums enums-schema
