@@ -1,7 +1,8 @@
 (ns graphql-qb.schema-model
   (:require [graphql-qb.types :as types]
             [graphql-qb.resolvers :as resolvers]
-            [clojure.string :as string]))
+            [clojure.string :as string]
+            [clojure.pprint :as pp]))
 
 (defn get-dimension-measure-enum [dataset]
   (types/build-enum :ignored (types/dataset-dimension-measures dataset)))
@@ -106,6 +107,21 @@
           {::schema {} ::args {}}
           args))
 
+(defn path->resolver-name [path]
+  (keyword (str "resolve_" (string/join "_" (map name path)))))
+
+(defn visit-resolver [path resolver]
+  (cond
+    (fn? resolver)
+    (let [resolver-name (path->resolver-name path)]
+      {::resolver resolver-name ::schema {:resolvers {resolver-name resolver}}})
+
+    (keyword? resolver)
+    {::resolver resolver ::schema {}}
+
+    :else
+    (throw (IllegalArgumentException. "Expected fn or keyword for resolver"))))
+
 (defn visit-field [path field-name {:keys [type args resolve] :as field} direction]
   (let [type-result (visit-type path type direction)
         result {::field (assoc field :type (::name type-result)) ::schema (::schema type-result)}
@@ -114,8 +130,14 @@
                    (-> result
                        (assoc-in [::field :args] (::args args-result))
                        (update ::schema merge-schemas (::schema args-result))))
+                 result)
+        result (if (some? resolve)
+                 (let [resolver-result (visit-resolver path resolve)]
+                   (-> result
+                       (assoc-in [::field :resolve] (::resolver resolver-result))
+                       (update ::schema merge-schemas (::schema resolver-result))))
                  result)]
-    ;;TODO: visit resolver
+    ;;TODO: map resolver arguments?
     result))
 
 (defn visit-object
@@ -143,7 +165,7 @@
                              :args        {:after {:type :SparqlCursor}
                                            :first {:type 'Int}}
                              :description "Page of results to retrieve."
-                             :resolve     ::observations-page-resolver-name}
+                             :resolve     (fn [context args field] (println "resolving..."))}
              :total_matches {:type 'Int}}}
      :args {:dimensions {:type
                          {:fields {:gender     {:type ::gender_enum}
