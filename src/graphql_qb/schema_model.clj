@@ -69,12 +69,15 @@
 
 (declare visit-object)
 
-(defn visit-type [path type]
+(defn visit-type [path type direction]
   (cond
     (map? type)
-    (let [obj-result (visit-object path type)
-          type-name (path->object-name path)]
-      {::schema (merge-schemas (::schema obj-result) {:objects {type-name (::object obj-result)}})
+    (let [obj-result (visit-object path type direction)
+          type-name (path->object-name path)
+          type-schema (if (= :output direction)
+                        {:objects {type-name (::object obj-result)}}
+                        {:input-objects {type-name (::object obj-result)}})]
+      {::schema (merge-schemas (::schema obj-result) type-schema)
        ::name   type-name})
 
     (is-graphql-type? type)
@@ -85,12 +88,12 @@
 
     (vector? type)
     (let [type-def (first type)
-          element-type (visit-type path type-def)]
+          element-type (visit-type path type-def direction)]
       {::name (list 'list (::name element-type))
        ::schema (::schema element-type)})))
 
 (defn visit-arg [path {:keys [type] :as arg-def}]
-  (let [type-result (visit-type path type)
+  (let [type-result (visit-type path type :input)
         out-arg (assoc arg-def :type (::name type-result))]
     {::schema (::schema type-result) ::arg out-arg}))
 
@@ -103,8 +106,8 @@
           {::schema {} ::args {}}
           args))
 
-(defn visit-field [path field-name {:keys [type args resolve] :as field}]
-  (let [type-result (visit-type path type)
+(defn visit-field [path field-name {:keys [type args resolve] :as field} direction]
+  (let [type-result (visit-type path type direction)
         result {::field (assoc field :type (::name type-result)) ::schema (::schema type-result)}
         result (if (some? args)
                  (let [args-result (visit-args path args)]
@@ -115,14 +118,16 @@
     ;;TODO: visit resolver
     result))
 
-(defn visit-object [path {:keys [fields] :as object-def}]
-  (reduce (fn [acc [field-name field-def]]
-            (let [result (visit-field (conj path field-name) field-name field-def)]
-              (-> acc
-                  (update ::schema merge-schemas (::schema result))
-                  (update-in [::object :fields] assoc field-name (::field result)))))
-          {::schema {} ::object {}}
-          fields))
+(defn visit-object
+  ([path object-def] (visit-object path object-def :output))
+  ([path {:keys [fields] :as object-def} direction]
+   (reduce (fn [acc [field-name field-def]]
+             (let [result (visit-field (conj path field-name) field-name field-def direction)]
+               (-> acc
+                   (update ::schema merge-schemas (::schema result))
+                   (update-in [::object :fields] assoc field-name (::field result)))))
+           {::schema {} ::object {}}
+           fields)))
 
 (def example-object
   {:fields
