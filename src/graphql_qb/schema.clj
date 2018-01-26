@@ -160,21 +160,47 @@
                   v2))
               s1 s2))
 
-(defn get-observation-schema [dataset enum-mappings result-type-name]
-  (let [schema (types/dataset-schema dataset)
-        args-schema nil
-        observations-resolver-name nil]
-    {:objects
-     {schema
-      :fields
-      {:observations
-       {:type result-type-name
-        :args args-schema
-        :resolve observations-resolver-name}}}
-     :resolvers
-     {observations-resolver-name (create-observation-resolver dataset)}})
+(defn dataset-observation-dimensions-schema-model [{:keys [dimensions] :as dataset}]
+  (into {} (map (fn [{:keys [field-name type] :as dim}]
+                  [field-name {:type (type-schema-type-name dataset type)}])
+                dimensions)))
 
-  )
+(defn dataset-observation-schema-model [dataset]
+  (let [dimensions-model (dataset-observation-dimensions-schema-model dataset)
+        measures (map (fn [{:keys [field-name] :as measure}]
+                        [field-name {:type 'String}])
+                      (:measures dataset))]
+    (into {:uri {:type :uri}}
+          (concat dimensions-model measures))))
+
+(defn dataset-order-spec-schema-model [dataset]
+  (let [dim-measures (types/dataset-dimension-measures dataset)]
+    (into {} (map (fn [{:keys [field-name]}]
+                    [field-name {:type :sort_direction}]))
+          dim-measures)))
+
+(defn get-observation-schema-model [dataset dimensions-measures-enum-name]
+  {:fields
+   {:observations
+    {:type
+     {:fields
+      {:sparql        {:type        'String
+                       :description "SPARQL query used to retrieve matching observations."
+                       :resolve     :resolve-observation-sparql-query}
+       :page          {:type
+                                    {:fields
+                                     {:next_page    {:type :SparqlCursor :description "Cursor to the next page of results"}
+                                      :count        {:type 'Int}
+                                      :observations {:type [{:fields (dataset-observation-schema-model dataset)}] :description "List of observations on this page"}}}
+                       :args        {:after {:type :SparqlCursor}
+                                     :first {:type 'Int}}
+                       :description "Page of results to retrieve."
+                       :resolve     (wrap-observations-mapping resolvers/resolve-observations-page dataset)}
+       :total_matches {:type 'Int}}}
+     :args
+     {:dimensions {:type {:fields (dataset-observation-dimensions-schema-model dataset)}}
+      :order      {:type [dimensions-measures-enum-name]}
+      :order_spec {:type {:fields (dataset-order-spec-schema-model dataset)}}}}}})
 
 (defn merge-observations-schema [partial-schema dataset]
   (let [schema (types/dataset-schema dataset)
