@@ -186,3 +186,17 @@
   (apply merge (map (fn [[field-name enum-mapping]]
                       (enum-mapping->schema dataset field-name enum-mapping))
                     enum-mappings)))
+
+(defrecord FixedName [name])
+(defrecord PositionalName [])
+
+
+#_{::result ::positional
+ ::args {:dimensions {:gender []
+                      :ref_area []}
+         :order []
+         :order_spec {:gender []}}
+ ::resolver :resolver-name}
+#_{:dimensions {:gender ::gender-enum
+              :ref_area ::ref-area-type}
+ :order []}

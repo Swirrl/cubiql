@@ -153,6 +153,29 @@
             (assoc-in [:resolvers (aggregation-resolver-name dataset :avg)] (create-aggregation-resolver :avg aggregation-measures-enum))))
       partial-schema)))
 
+(defn merge-schemas [s1 s2]
+  (merge-with (fn [v1 v2]
+                (if (and (map? v1) (map? v2))
+                  (merge-schemas v1 v2)
+                  v2))
+              s1 s2))
+
+(defn get-observation-schema [dataset enum-mappings result-type-name]
+  (let [schema (types/dataset-schema dataset)
+        args-schema nil
+        observations-resolver-name nil]
+    {:objects
+     {schema
+      :fields
+      {:observations
+       {:type result-type-name
+        :args args-schema
+        :resolve observations-resolver-name}}}
+     :resolvers
+     {observations-resolver-name (create-observation-resolver dataset)}})
+
+  )
+
 (defn merge-observations-schema [partial-schema dataset]
   (let [schema (types/dataset-schema dataset)
         observation-type-name (types/field-name->type-name :observation schema)
@@ -200,8 +223,6 @@
 
 (defn get-dataset-schema [{:keys [description] :as dataset} dataset-enum-mappings]
   (let [schema (types/dataset-schema dataset)
-        dataset-enums (types/dataset-enum-types dataset)
-        enums-schema (apply merge (map #(enum->schema dataset %) dataset-enums))
         enums-schema (mapping/dataset-enum-types-schema dataset dataset-enum-mappings)
         resolver-name (dataset-resolver-name dataset)
         dimensions-resolver-name (dataset-dimensions-resolver-name dataset)
