@@ -143,15 +143,16 @@
 (defn visit-object
   ([path object-def] (visit-object path object-def :output))
   ([path {:keys [fields] :as object-def} direction]
-   (let [obj-result (reduce (fn [acc [field-name field-def]]
+   (let [fields-result (reduce (fn [acc [field-name field-def]]
                               (let [result (visit-field (conj path field-name) field-name field-def direction)]
                                 (-> acc
                                     (update ::schema merge-schemas (::schema result))
-                                    (update-in [::object :fields] assoc field-name (::field result)))))
-                            {::schema {} ::object {}}
+                                    (update-in [::fields] assoc field-name (::field result)))))
+                            {::schema {} ::fields {}}
                             fields)
-         schema (::schema obj-result)
-         out-obj (::object obj-result)
+         schema (::schema fields-result)
+         out-fields (::fields fields-result)
+         out-obj (assoc object-def :fields out-fields)
          obj-type-name (path->object-name path)
          obj-schema (if (= direction :output)
                       {:objects {obj-type-name out-obj}}
