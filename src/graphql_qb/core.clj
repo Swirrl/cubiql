@@ -150,11 +150,13 @@
                                resolvers)]
     (attach-resolvers (dissoc combined-schema :resolvers) query-resolvers)))
 
-(defn dump-schema [repo]
+(defn get-combined-schema [repo]
   (let [datasets (get-all-datasets repo)
-        enum-mappings (get-datasets-enum-mappings repo)
-        schema (get-schema datasets enum-mappings)]
-    (pprint/pprint schema)))
+        enum-mappings (get-datasets-enum-mappings repo)]
+    (get-schema datasets enum-mappings)))
+
+(defn dump-schema [repo]
+  (pprint/pprint (get-combined-schema repo)))
 
 (defn build-schema-context [repo]
   (let [datasets (get-all-datasets repo)

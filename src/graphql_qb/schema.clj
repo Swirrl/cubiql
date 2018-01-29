@@ -165,6 +165,12 @@
                   [field-name {:type (type-schema-type-name dataset type)}])
                 dimensions)))
 
+;;TODO: combine with dataset-observation-dimensions-schema-model?
+(defn dataset-observation-dimensions-input-schema-model [{:keys [dimensions] :as dataset}]
+  (into {} (map (fn [{:keys [field-name type] :as dim}]
+                  [field-name {:type (type-schema-input-type-name dataset type)}])
+                dimensions)))
+
 (defn dataset-observation-schema-model [dataset]
   (let [dimensions-model (dataset-observation-dimensions-schema-model dataset)
         measures (map (fn [{:keys [field-name] :as measure}]
@@ -198,7 +204,7 @@
                        :resolve     (wrap-observations-mapping resolvers/resolve-observations-page dataset)}
        :total_matches {:type 'Int}}}
      :args
-     {:dimensions {:type {:fields (dataset-observation-dimensions-schema-model dataset)}}
+     {:dimensions {:type {:fields (dataset-observation-dimensions-input-schema-model dataset)}}
       :order      {:type [dimensions-measures-enum-name]}
       :order_spec {:type {:fields (dataset-order-spec-schema-model dataset)}}}}}})
 
@@ -247,9 +253,8 @@
         (assoc-in [:resolvers observations-page-resolver-name]
                   (wrap-observations-mapping resolvers/resolve-observations-page dataset)))))
 
-(defn get-query-schema-model [{:keys [description] :as dataset} dataset-enum-mappings]
-  (let [schema-name (types/dataset-schema dataset)
-        dimensions-measures-enum-name (types/field-name->type-name :observation_ordering schema-name)]
+(defn get-query-schema-model [{:keys [description] :as dataset} dataset-enum-mappings dimensions-measures-enum-name]
+  (let [schema-name (types/dataset-schema dataset)]
     {schema-name
      {:type
       {:implements [:dataset_meta]
@@ -310,4 +315,17 @@
                                                          (resolvers/resolve-dataset-dimensions context args dataset))}}]
     (-> fixed-schema
         (merge-observations-schema dataset)
+        (merge-aggregations-schema dataset))))
+
+(defn get-dataset-schema [dataset dataset-enum-mapping]
+  (let [ds-enums-schema (mapping/dataset-enum-types-schema dataset dataset-enum-mapping)
+        dimensions-measures-enum (mapping/dataset-dimensions-measures-enum-group dataset)
+        dimensions-measures-enum-schema (mapping/enum-mapping->schema dataset :dimension_measures dimensions-measures-enum)
+        dimensions-measures-enum-name (mapping/enum-type-name dataset :dimension_measures)
+        enums-schema {:enums (merge ds-enums-schema dimensions-measures-enum-schema)}
+
+        query-model (get-query-schema-model dataset dataset-enum-mapping dimensions-measures-enum-name)
+        query-schema (sm/visit-queries query-model)]
+    (-> query-schema
+        (sm/merge-schemas enums-schema)
         (merge-aggregations-schema dataset))))
