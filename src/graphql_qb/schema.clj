@@ -247,6 +247,32 @@
         (assoc-in [:resolvers observations-page-resolver-name]
                   (wrap-observations-mapping resolvers/resolve-observations-page dataset)))))
 
+(defn get-query-schema-model [{:keys [description] :as dataset} dataset-enum-mappings]
+  (let [schema-name (types/dataset-schema dataset)
+        dimensions-measures-enum-name (types/field-name->type-name :observation_ordering schema-name)]
+    {schema-name
+     {:type
+      {:implements [:dataset_meta]
+       :fields {:uri          {:type :uri :description "Dataset URI"}
+                :title        {:type 'String :description "Dataset title"}
+                :description  {:type 'String :description "Dataset description"}
+                :licence      {:type :uri :description "URI of the licence the dataset is published under"}
+                :issued       {:type :DateTime :description "When the dataset was issued"}
+                :modified     {:type :DateTime :description "When the dataset was last modified"}
+                :publisher    {:type :uri :description "URI of the publisher of the dataset"}
+                :schema       {:type 'String :description "Name of the GraphQL query root field corresponding to this dataset"}
+                :dimensions   {:type [:dim]
+                               :resolve     (fn [context args _field]
+                                              (resolvers/resolve-dataset-dimensions context args dataset))
+                               :description "Dimensions within the dataset"}
+                :measures     {:type [:measure]
+                               :description "Measure types within the dataset"}
+                ;;TODO: change get-observation-schema-model so get-in is not required
+                :observations (get-in (get-observation-schema-model dataset dimensions-measures-enum-name) [:fields :observations])}
+       :description (or description "")}
+      :resolve (fn [context args field]
+                 (resolvers/resolve-dataset context dataset))}}))
+
 (defn get-dataset-schema [{:keys [description] :as dataset} dataset-enum-mappings]
   (let [schema (types/dataset-schema dataset)
         enums-schema (mapping/dataset-enum-types-schema dataset dataset-enum-mappings)
@@ -257,19 +283,19 @@
                       {schema
                        {:implements  [:dataset_meta]
                         :fields
-                        {:uri          {:type :uri :description "Dataset URI"}
-                         :title        {:type 'String :description "Dataset title"}
-                         :description  {:type 'String :description "Dataset description"}
-                         :licence      {:type :uri :description "URI of the licence the dataset is published under"}
-                         :issued       {:type :DateTime :description "When the dataset was issued"}
-                         :modified     {:type :DateTime :description "When the dataset was last modified"}
-                         :publisher    {:type :uri :description "URI of the publisher of the dataset"}
-                         :schema       {:type 'String :description "Name of the GraphQL query root field corresponding to this dataset"}
-                         :dimensions   {:type        '(list :dim)
-                                        :resolve     dimensions-resolver-name
-                                        :description "Dimensions within the dataset"}
-                         :measures     {:type        '(list :measure)
-                                        :description "Measure types within the dataset"}}
+                                     {:uri          {:type :uri :description "Dataset URI"}
+                                      :title        {:type 'String :description "Dataset title"}
+                                      :description  {:type 'String :description "Dataset description"}
+                                      :licence      {:type :uri :description "URI of the licence the dataset is published under"}
+                                      :issued       {:type :DateTime :description "When the dataset was issued"}
+                                      :modified     {:type :DateTime :description "When the dataset was last modified"}
+                                      :publisher    {:type :uri :description "URI of the publisher of the dataset"}
+                                      :schema       {:type 'String :description "Name of the GraphQL query root field corresponding to this dataset"}
+                                      :dimensions   {:type        '(list :dim)
+                                                     :resolve     dimensions-resolver-name
+                                                     :description "Dimensions within the dataset"}
+                                      :measures     {:type        '(list :measure)
+                                                     :description "Measure types within the dataset"}}
                         :description (or description "")}}
 
                       :queries
@@ -278,11 +304,10 @@
                         :resolve resolver-name}}
 
                       :resolvers
-                      {(dataset-resolver-name dataset) (fn [context args field]
-                                                         (resolvers/resolve-dataset context dataset))
+                      {resolver-name (fn [context args field]
+                                       (resolvers/resolve-dataset context dataset))
                        dimensions-resolver-name        (fn [context args _field]
                                                          (resolvers/resolve-dataset-dimensions context args dataset))}}]
     (-> fixed-schema
         (merge-observations-schema dataset)
         (merge-aggregations-schema dataset))))
-

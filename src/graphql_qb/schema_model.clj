@@ -143,13 +143,39 @@
 (defn visit-object
   ([path object-def] (visit-object path object-def :output))
   ([path {:keys [fields] :as object-def} direction]
-   (reduce (fn [acc [field-name field-def]]
-             (let [result (visit-field (conj path field-name) field-name field-def direction)]
-               (-> acc
-                   (update ::schema merge-schemas (::schema result))
-                   (update-in [::object :fields] assoc field-name (::field result)))))
-           {::schema {} ::object {}}
-           fields)))
+   (let [obj-result (reduce (fn [acc [field-name field-def]]
+                              (let [result (visit-field (conj path field-name) field-name field-def direction)]
+                                (-> acc
+                                    (update ::schema merge-schemas (::schema result))
+                                    (update-in [::object :fields] assoc field-name (::field result)))))
+                            {::schema {} ::object {}}
+                            fields)
+         schema (::schema obj-result)
+         out-obj (::object obj-result)
+         obj-type-name (path->object-name path)
+         obj-schema (if (= direction :output)
+                      {:objects {obj-type-name out-obj}}
+                      {:input-objects {obj-type-name out-obj}})]
+     {::schema (merge-schemas schema obj-schema)
+      ::object out-obj})))
+
+(defn visit-query [query-name {:keys [type resolve] :as query-def}]
+  (let [path [query-name]
+        object-def (visit-object path type :output)
+        resolver-def (visit-resolver path resolve)]
+    (merge-schemas
+      (merge-schemas (::schema object-def) (::schema resolver-def))
+      {:queries
+       {query-name
+        {:type query-name
+         :resolve (::resolver resolver-def)}}})))
+
+(defn visit-queries [queries-def]
+  (reduce (fn [acc [query-name query-def]]
+            (let [query-schema (visit-query query-name query-def)]
+              (merge-schemas acc query-schema)))
+          {}
+          queries-def))
 
 (def example-object
   {:fields
@@ -177,4 +203,7 @@
                           {:gender   {:type ::order_direction}
                            :ref_area {:type ::order_direction}}}}}}}})
 
-(defn visit-objects [])
+(def example-query
+  {:dataset_earnings
+   {:type example-object
+    :resolve :query-resolver}})
