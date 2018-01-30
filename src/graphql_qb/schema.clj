@@ -69,25 +69,24 @@
                               (::resolvers/observation-results result))]
       (assoc result :observations mapped-result))))
 
-;;TODO: make argument types non-null
 (defn get-aggregations-schema-model [aggregation-measures-type-name aggregation-measures-enum]
   {:type
    {:fields
     {:max
      {:type    'Float
-      :args    {:measure {:type aggregation-measures-type-name :description "The measure to aggregate"}}
+      :args    {:measure {:type (sm/non-null aggregation-measures-type-name) :description "The measure to aggregate"}}
       :resolve (create-aggregation-resolver :max aggregation-measures-enum)}
      :min
      {:type    'Float
-      :args    {:measure {:type aggregation-measures-type-name :description "The measure to aggregate"}}
+      :args    {:measure {:type (sm/non-null aggregation-measures-type-name) :description "The measure to aggregate"}}
       :resolve (create-aggregation-resolver :min aggregation-measures-enum)}
      :sum
      {:type    'Float
-      :args    {:measure {:type aggregation-measures-type-name :description "The measure to aggregate"}}
+      :args    {:measure {:type (sm/non-null aggregation-measures-type-name) :description "The measure to aggregate"}}
       :resolve (create-aggregation-resolver :max aggregation-measures-enum)}
      :average
      {:type    'Float
-      :args    {:measure {:type aggregation-measures-type-name :description "The measure to aggregate"}}
+      :args    {:measure {:type (sm/non-null aggregation-measures-type-name) :description "The measure to aggregate"}}
       :resolve (create-aggregation-resolver :max aggregation-measures-enum)}}}})
 
 (defn get-aggregation-measures-enum [dataset]

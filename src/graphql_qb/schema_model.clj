@@ -57,6 +57,9 @@
   (and (keyword? x)
        (some? (namespace x))))
 
+(defrecord NonNull [type-def])
+(def non-null ->NonNull)
+
 ;;TODO: this is a duplicate of schema/merge-schemas
 (defn merge-schemas [s1 s2]
   (merge-with (fn [v1 v2]
@@ -72,6 +75,12 @@
 
 (defn visit-type [path type type-schema-key]
   (cond
+    (instance? NonNull type)
+    (let [type-def (:type-def type)
+          element-type (visit-type path type-def type-schema-key)]
+      {::name (list 'non-null (::name element-type))
+       ::schema (::schema element-type)})
+
     (map? type)
     (let [obj-result (visit-object path type type-schema-key)
           type-name (path->object-name path)
