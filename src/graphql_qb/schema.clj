@@ -206,7 +206,8 @@
      :args
      {:dimensions {:type {:fields (dataset-observation-dimensions-input-schema-model dataset)}}
       :order      {:type [dimensions-measures-enum-name]}
-      :order_spec {:type {:fields (dataset-order-spec-schema-model dataset)}}}}}})
+      :order_spec {:type {:fields (dataset-order-spec-schema-model dataset)}}}
+     :resolve (create-observation-resolver dataset)}}})
 
 (defn merge-observations-schema [partial-schema dataset]
   (let [schema (types/dataset-schema dataset)
