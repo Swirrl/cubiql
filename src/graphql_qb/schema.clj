@@ -153,6 +153,38 @@
             (assoc-in [:resolvers (aggregation-resolver-name dataset :avg)] (create-aggregation-resolver :avg aggregation-measures-enum))))
       partial-schema)))
 
+;;TODO: make argument types non-null
+(defn get-aggregations-schema-model [aggregation-measures-type-name aggregation-measures-enum]
+  {:type
+   {:fields
+    {:max
+     {:type    'Float
+      :args    {:measure {:type aggregation-measures-type-name :description "The measure to aggregate"}}
+      :resolve (create-aggregation-resolver :max aggregation-measures-enum)}
+     :min
+     {:type    'Float
+      :args    {:measure {:type aggregation-measures-type-name :description "The measure to aggregate"}}
+      :resolve (create-aggregation-resolver :min aggregation-measures-enum)}
+     :sum
+     {:type    'Float
+      :args    {:measure {:type aggregation-measures-type-name :description "The measure to aggregate"}}
+      :resolve (create-aggregation-resolver :max aggregation-measures-enum)}
+     :average
+     {:type    'Float
+      :args    {:measure {:type aggregation-measures-type-name :description "The measure to aggregate"}}
+      :resolve (create-aggregation-resolver :max aggregation-measures-enum)}}}})
+
+(defn get-aggregation-measures-enum [dataset]
+  (let [aggregation-measures (types/dataset-aggregate-measures dataset)]
+    (if-not (empty? aggregation-measures)
+      (types/build-enum :aggregation_measures aggregation-measures))))
+
+(defn merge-aggregations-schema-model [dataset observations-model aggregation-measures-type-name aggregation-measures-type]
+  (if (some? aggregation-measures-type)
+    (let [aggregation-fields (get-aggregations-schema-model aggregation-measures-type-name aggregation-measures-type)]
+      (assoc-in observations-model [:type :fields :aggregations] aggregation-fields))
+    observations-model))
+
 (defn merge-schemas [s1 s2]
   (merge-with (fn [v1 v2]
                 (if (and (map? v1) (map? v2))
@@ -186,28 +218,28 @@
           dim-measures)))
 
 (defn get-observation-schema-model [dataset dimensions-measures-enum-name]
-  {:fields
-   {:observations
-    {:type
-     {:fields
-      {:sparql        {:type        'String
-                       :description "SPARQL query used to retrieve matching observations."
-                       :resolve     :resolve-observation-sparql-query}
-       :page          {:type
-                                    {:fields
-                                     {:next_page    {:type :SparqlCursor :description "Cursor to the next page of results"}
-                                      :count        {:type 'Int}
-                                      :observations {:type [{:fields (dataset-observation-schema-model dataset)}] :description "List of observations on this page"}}}
-                       :args        {:after {:type :SparqlCursor}
-                                     :first {:type 'Int}}
-                       :description "Page of results to retrieve."
-                       :resolve     (wrap-observations-mapping resolvers/resolve-observations-page dataset)}
-       :total_matches {:type 'Int}}}
-     :args
-     {:dimensions {:type {:fields (dataset-observation-dimensions-input-schema-model dataset)}}
-      :order      {:type [dimensions-measures-enum-name]}
-      :order_spec {:type {:fields (dataset-order-spec-schema-model dataset)}}}
-     :resolve (create-observation-resolver dataset)}}})
+  {:type
+   {:fields
+    {:sparql
+     {:type        'String
+      :description "SPARQL query used to retrieve matching observations."
+      :resolve     :resolve-observation-sparql-query}
+     :page
+     {:type
+      {:fields
+       {:next_page    {:type :SparqlCursor :description "Cursor to the next page of results"}
+        :count        {:type 'Int}
+        :observations {:type [{:fields (dataset-observation-schema-model dataset)}] :description "List of observations on this page"}}}
+      :args        {:after {:type :SparqlCursor}
+                    :first {:type 'Int}}
+      :description "Page of results to retrieve."
+      :resolve     (wrap-observations-mapping resolvers/resolve-observations-page dataset)}
+     :total_matches {:type 'Int}}}
+   :args
+   {:dimensions {:type {:fields (dataset-observation-dimensions-input-schema-model dataset)}}
+    :order      {:type [dimensions-measures-enum-name]}
+    :order_spec {:type {:fields (dataset-order-spec-schema-model dataset)}}}
+   :resolve (create-observation-resolver dataset)})
 
 (defn merge-observations-schema [partial-schema dataset]
   (let [schema (types/dataset-schema dataset)
@@ -254,27 +286,28 @@
         (assoc-in [:resolvers observations-page-resolver-name]
                   (wrap-observations-mapping resolvers/resolve-observations-page dataset)))))
 
-(defn get-query-schema-model [{:keys [description] :as dataset} dataset-enum-mappings dimensions-measures-enum-name]
-  (let [schema-name (types/dataset-schema dataset)]
+(defn get-query-schema-model [{:keys [description] :as dataset} dataset-enum-mappings dimensions-measures-enum-name aggregation-measures-type-name aggregation-measures-type]
+  (let [schema-name (types/dataset-schema dataset)
+        observations-model (get-observation-schema-model dataset dimensions-measures-enum-name)
+        observations-model (merge-aggregations-schema-model dataset observations-model aggregation-measures-type-name aggregation-measures-type)]
     {schema-name
      {:type
-      {:implements [:dataset_meta]
-       :fields {:uri          {:type :uri :description "Dataset URI"}
-                :title        {:type 'String :description "Dataset title"}
-                :description  {:type 'String :description "Dataset description"}
-                :licence      {:type :uri :description "URI of the licence the dataset is published under"}
-                :issued       {:type :DateTime :description "When the dataset was issued"}
-                :modified     {:type :DateTime :description "When the dataset was last modified"}
-                :publisher    {:type :uri :description "URI of the publisher of the dataset"}
-                :schema       {:type 'String :description "Name of the GraphQL query root field corresponding to this dataset"}
-                :dimensions   {:type [:dim]
-                               :resolve     (fn [context args _field]
-                                              (resolvers/resolve-dataset-dimensions context args dataset))
-                               :description "Dimensions within the dataset"}
-                :measures     {:type [:measure]
-                               :description "Measure types within the dataset"}
-                ;;TODO: change get-observation-schema-model so get-in is not required
-                :observations (get-in (get-observation-schema-model dataset dimensions-measures-enum-name) [:fields :observations])}
+      {:implements  [:dataset_meta]
+       :fields      {:uri          {:type :uri :description "Dataset URI"}
+                     :title        {:type 'String :description "Dataset title"}
+                     :description  {:type 'String :description "Dataset description"}
+                     :licence      {:type :uri :description "URI of the licence the dataset is published under"}
+                     :issued       {:type :DateTime :description "When the dataset was issued"}
+                     :modified     {:type :DateTime :description "When the dataset was last modified"}
+                     :publisher    {:type :uri :description "URI of the publisher of the dataset"}
+                     :schema       {:type 'String :description "Name of the GraphQL query root field corresponding to this dataset"}
+                     :dimensions   {:type        [:dim]
+                                    :resolve     (fn [context args _field]
+                                                   (resolvers/resolve-dataset-dimensions context args dataset))
+                                    :description "Dimensions within the dataset"}
+                     :measures     {:type        [:measure]
+                                    :description "Measure types within the dataset"}
+                     :observations observations-model}
        :description (or description "")}
       :resolve (fn [context args field]
                  (resolvers/resolve-dataset context dataset))}}))
@@ -289,19 +322,19 @@
                       {schema
                        {:implements  [:dataset_meta]
                         :fields
-                                     {:uri          {:type :uri :description "Dataset URI"}
-                                      :title        {:type 'String :description "Dataset title"}
-                                      :description  {:type 'String :description "Dataset description"}
-                                      :licence      {:type :uri :description "URI of the licence the dataset is published under"}
-                                      :issued       {:type :DateTime :description "When the dataset was issued"}
-                                      :modified     {:type :DateTime :description "When the dataset was last modified"}
-                                      :publisher    {:type :uri :description "URI of the publisher of the dataset"}
-                                      :schema       {:type 'String :description "Name of the GraphQL query root field corresponding to this dataset"}
-                                      :dimensions   {:type        '(list :dim)
-                                                     :resolve     dimensions-resolver-name
-                                                     :description "Dimensions within the dataset"}
-                                      :measures     {:type        '(list :measure)
-                                                     :description "Measure types within the dataset"}}
+                        {:uri          {:type :uri :description "Dataset URI"}
+                         :title        {:type 'String :description "Dataset title"}
+                         :description  {:type 'String :description "Dataset description"}
+                         :licence      {:type :uri :description "URI of the licence the dataset is published under"}
+                         :issued       {:type :DateTime :description "When the dataset was issued"}
+                         :modified     {:type :DateTime :description "When the dataset was last modified"}
+                         :publisher    {:type :uri :description "URI of the publisher of the dataset"}
+                         :schema       {:type 'String :description "Name of the GraphQL query root field corresponding to this dataset"}
+                         :dimensions   {:type        '(list :dim)
+                                        :resolve     dimensions-resolver-name
+                                        :description "Dimensions within the dataset"}
+                         :measures     {:type        '(list :measure)
+                                        :description "Measure types within the dataset"}}
                         :description (or description "")}}
 
                       :queries
@@ -323,10 +356,16 @@
         dimensions-measures-enum (mapping/dataset-dimensions-measures-enum-group dataset)
         dimensions-measures-enum-schema (mapping/enum-mapping->schema dataset :dimension_measures dimensions-measures-enum)
         dimensions-measures-enum-name (mapping/enum-type-name dataset :dimension_measures)
-        enums-schema {:enums (merge ds-enums-schema dimensions-measures-enum-schema)}
 
-        query-model (get-query-schema-model dataset dataset-enum-mapping dimensions-measures-enum-name)
+        aggregation-measures-type-name (mapping/enum-type-name dataset :aggregation_measures)
+        aggregation-measures-type (get-aggregation-measures-enum dataset)
+        aggregation-measures-type-schema (if (some? aggregation-measures-type)
+                                           {aggregation-measures-type-name
+                                            {:values (mapv :name (:values aggregation-measures-type))}})
+
+        enums-schema {:enums (merge ds-enums-schema dimensions-measures-enum-schema aggregation-measures-type-schema)}
+
+        query-model (get-query-schema-model dataset dataset-enum-mapping dimensions-measures-enum-name aggregation-measures-type-name aggregation-measures-type)
         query-schema (sm/visit-queries query-model)]
     (-> query-schema
-        (sm/merge-schemas enums-schema)
-        (merge-aggregations-schema dataset))))
+        (sm/merge-schemas enums-schema))))
