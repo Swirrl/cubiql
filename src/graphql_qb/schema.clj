@@ -27,7 +27,7 @@
 
 (defn create-aggregation-resolver [aggregation-fn aggregation-measures-enum]
   (fn [context args field]
-    (let [resolved-args (update args :measure #(types/from-graphql aggregation-measures-enum %))]
+    (let [resolved-args (update args :measure #(mapping/transform-argument aggregation-measures-enum %))]
       (resolvers/resolve-observations-aggregation aggregation-fn context resolved-args field))))
 
 (defn create-observation-resolver [dataset]
@@ -69,34 +69,29 @@
                               (::resolvers/observation-results result))]
       (assoc result :observations mapped-result))))
 
-(defn get-aggregations-schema-model [aggregation-measures-type-name aggregation-measures-enum]
+(defn get-aggregations-schema-model [aggregation-measures-enum-mapping]
   {:type
    {:fields
     {:max
      {:type    'Float
-      :args    {:measure {:type (sm/non-null aggregation-measures-type-name) :description "The measure to aggregate"}}
-      :resolve (create-aggregation-resolver :max aggregation-measures-enum)}
+      :args    {:measure {:type (sm/non-null aggregation-measures-enum-mapping) :description "The measure to aggregate"}}
+      :resolve (create-aggregation-resolver :max aggregation-measures-enum-mapping)}
      :min
      {:type    'Float
-      :args    {:measure {:type (sm/non-null aggregation-measures-type-name) :description "The measure to aggregate"}}
-      :resolve (create-aggregation-resolver :min aggregation-measures-enum)}
+      :args    {:measure {:type (sm/non-null aggregation-measures-enum-mapping) :description "The measure to aggregate"}}
+      :resolve (create-aggregation-resolver :min aggregation-measures-enum-mapping)}
      :sum
      {:type    'Float
-      :args    {:measure {:type (sm/non-null aggregation-measures-type-name) :description "The measure to aggregate"}}
-      :resolve (create-aggregation-resolver :max aggregation-measures-enum)}
+      :args    {:measure {:type (sm/non-null aggregation-measures-enum-mapping) :description "The measure to aggregate"}}
+      :resolve (create-aggregation-resolver :max aggregation-measures-enum-mapping)}
      :average
      {:type    'Float
-      :args    {:measure {:type (sm/non-null aggregation-measures-type-name) :description "The measure to aggregate"}}
-      :resolve (create-aggregation-resolver :max aggregation-measures-enum)}}}})
+      :args    {:measure {:type (sm/non-null aggregation-measures-enum-mapping) :description "The measure to aggregate"}}
+      :resolve (create-aggregation-resolver :max aggregation-measures-enum-mapping)}}}})
 
-(defn get-aggregation-measures-enum [dataset]
-  (let [aggregation-measures (types/dataset-aggregate-measures dataset)]
-    (if-not (empty? aggregation-measures)
-      (types/build-enum :aggregation_measures aggregation-measures))))
-
-(defn merge-aggregations-schema-model [dataset observations-model aggregation-measures-type-name aggregation-measures-type]
-  (if (some? aggregation-measures-type)
-    (let [aggregation-fields (get-aggregations-schema-model aggregation-measures-type-name aggregation-measures-type)]
+(defn merge-aggregations-schema-model [dataset observations-model aggregation-measures-enum-mapping]
+  (if (some? aggregation-measures-enum-mapping)
+    (let [aggregation-fields (get-aggregations-schema-model aggregation-measures-enum-mapping)]
       (assoc-in observations-model [:type :fields :aggregations] aggregation-fields))
     observations-model))
 
@@ -156,10 +151,10 @@
     :order_spec {:type {:fields (dataset-order-spec-schema-model dataset)}}}
    :resolve (create-observation-resolver dataset)})
 
-(defn get-query-schema-model [{:keys [description] :as dataset} dataset-enum-mappings dimensions-measures-enum-mapping aggregation-measures-type-name aggregation-measures-type]
+(defn get-query-schema-model [{:keys [description] :as dataset} dataset-enum-mappings dimensions-measures-enum-mapping aggregation-measures-enum-mapping]
   (let [schema-name (types/dataset-schema dataset)
         observations-model (get-observation-schema-model dataset dimensions-measures-enum-mapping)
-        observations-model (merge-aggregations-schema-model dataset observations-model aggregation-measures-type-name aggregation-measures-type)]
+        observations-model (merge-aggregations-schema-model dataset observations-model aggregation-measures-enum-mapping)]
     {schema-name
      {:type
       {:implements  [:dataset_meta]
@@ -185,16 +180,11 @@
 (defn get-dataset-schema [dataset dataset-enum-mapping]
   (let [ds-enums-schema (mapping/dataset-enum-types-schema dataset dataset-enum-mapping)
         dimensions-measures-enum (mapping/dataset-dimensions-measures-enum-group dataset)
+        aggregation-measures-enum (mapping/dataset-aggregation-measures-enum-group dataset)
 
-        aggregation-measures-type-name (mapping/enum-type-name dataset :aggregation_measures)
-        aggregation-measures-type (get-aggregation-measures-enum dataset)
-        aggregation-measures-type-schema (if (some? aggregation-measures-type)
-                                           {aggregation-measures-type-name
-                                            {:values (mapv :name (:values aggregation-measures-type))}})
+        enums-schema {:enums ds-enums-schema}
 
-        enums-schema {:enums (merge ds-enums-schema aggregation-measures-type-schema)}
-
-        query-model (get-query-schema-model dataset dataset-enum-mapping dimensions-measures-enum aggregation-measures-type-name aggregation-measures-type)
+        query-model (get-query-schema-model dataset dataset-enum-mapping dimensions-measures-enum aggregation-measures-enum)
         query-schema (sm/visit-queries query-model)]
     (-> query-schema
         (sm/merge-schemas enums-schema))))

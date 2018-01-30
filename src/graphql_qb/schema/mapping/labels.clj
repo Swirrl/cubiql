@@ -114,6 +114,12 @@
         mapping-name (keyword (str (name schema) "_dimension_measures"))]
     (create-group-mapping mapping-name (types/dataset-dimension-measures dataset))))
 
+(defn dataset-aggregation-measures-enum-group [dataset]
+  (if-let [aggregation-measures (types/dataset-aggregate-measures dataset)]
+    (let [schema (types/dataset-schema dataset)
+          mapping-name (keyword (str (name schema) "_aggregation_measures"))]
+      (create-group-mapping mapping-name aggregation-measures))))
+
 ;;TODO: remove core/code-list->enum-items
 (defn create-enum-mapping [enum-label enum-doc code-list]
   (let [by-enum-name (group-by #(label->enum-name (:label %)) code-list)
