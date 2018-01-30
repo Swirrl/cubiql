@@ -110,8 +110,9 @@
     (->GroupMapping name items)))
 
 (defn dataset-dimensions-measures-enum-group [dataset]
-  ;;TODO: include schema name in type name
-  (create-group-mapping :dimension_measures (types/dataset-dimension-measures dataset)))
+  (let [schema (types/dataset-schema dataset)
+        mapping-name (keyword (str (name schema) "_dimension_measures"))]
+    (create-group-mapping mapping-name (types/dataset-dimension-measures dataset))))
 
 ;;TODO: remove core/code-list->enum-items
 (defn create-enum-mapping [enum-label enum-doc code-list]

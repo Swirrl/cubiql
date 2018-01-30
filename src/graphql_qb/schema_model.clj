@@ -2,7 +2,9 @@
   (:require [graphql-qb.types :as types]
             [graphql-qb.resolvers :as resolvers]
             [clojure.string :as string]
-            [clojure.pprint :as pp]))
+            [clojure.pprint :as pp]
+            [graphql-qb.schema.mapping.labels :as mapping])
+  (:import [graphql_qb.schema.mapping.labels GroupMapping]))
 
 (defn get-dimension-measure-enum [dataset]
   (types/build-enum :ignored (types/dataset-dimension-measures dataset)))
@@ -60,6 +62,9 @@
 (defrecord NonNull [type-def])
 (def non-null ->NonNull)
 
+(defn is-enum-mapping? [type]
+  (instance? GroupMapping type))
+
 ;;TODO: this is a duplicate of schema/merge-schemas
 (defn merge-schemas [s1 s2]
   (merge-with (fn [v1 v2]
@@ -80,6 +85,11 @@
           element-type (visit-type path type-def type-schema-key)]
       {::name (list 'non-null (::name element-type))
        ::schema (::schema element-type)})
+
+    (is-enum-mapping? type)
+    (let [{:keys [name items]} type]
+      {::name   name
+       ::schema {:enums {name {:values (mapv :name items)}}}})
 
     (map? type)
     (let [obj-result (visit-object path type type-schema-key)

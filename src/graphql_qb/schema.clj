@@ -132,7 +132,7 @@
                     [field-name {:type :sort_direction}]))
           dim-measures)))
 
-(defn get-observation-schema-model [dataset dimensions-measures-enum-name]
+(defn get-observation-schema-model [dataset dimensions-measures-enum-mapping]
   {:type
    {:fields
     {:sparql
@@ -152,13 +152,13 @@
      :total_matches {:type 'Int}}}
    :args
    {:dimensions {:type {:fields (dataset-observation-dimensions-input-schema-model dataset)}}
-    :order      {:type [dimensions-measures-enum-name]}
+    :order      {:type [dimensions-measures-enum-mapping]}
     :order_spec {:type {:fields (dataset-order-spec-schema-model dataset)}}}
    :resolve (create-observation-resolver dataset)})
 
-(defn get-query-schema-model [{:keys [description] :as dataset} dataset-enum-mappings dimensions-measures-enum-name aggregation-measures-type-name aggregation-measures-type]
+(defn get-query-schema-model [{:keys [description] :as dataset} dataset-enum-mappings dimensions-measures-enum-mapping aggregation-measures-type-name aggregation-measures-type]
   (let [schema-name (types/dataset-schema dataset)
-        observations-model (get-observation-schema-model dataset dimensions-measures-enum-name)
+        observations-model (get-observation-schema-model dataset dimensions-measures-enum-mapping)
         observations-model (merge-aggregations-schema-model dataset observations-model aggregation-measures-type-name aggregation-measures-type)]
     {schema-name
      {:type
@@ -185,8 +185,6 @@
 (defn get-dataset-schema [dataset dataset-enum-mapping]
   (let [ds-enums-schema (mapping/dataset-enum-types-schema dataset dataset-enum-mapping)
         dimensions-measures-enum (mapping/dataset-dimensions-measures-enum-group dataset)
-        dimensions-measures-enum-schema (mapping/enum-mapping->schema dataset :dimension_measures dimensions-measures-enum)
-        dimensions-measures-enum-name (mapping/enum-type-name dataset :dimension_measures)
 
         aggregation-measures-type-name (mapping/enum-type-name dataset :aggregation_measures)
         aggregation-measures-type (get-aggregation-measures-enum dataset)
@@ -194,9 +192,9 @@
                                            {aggregation-measures-type-name
                                             {:values (mapv :name (:values aggregation-measures-type))}})
 
-        enums-schema {:enums (merge ds-enums-schema dimensions-measures-enum-schema aggregation-measures-type-schema)}
+        enums-schema {:enums (merge ds-enums-schema aggregation-measures-type-schema)}
 
-        query-model (get-query-schema-model dataset dataset-enum-mapping dimensions-measures-enum-name aggregation-measures-type-name aggregation-measures-type)
+        query-model (get-query-schema-model dataset dataset-enum-mapping dimensions-measures-enum aggregation-measures-type-name aggregation-measures-type)
         query-schema (sm/visit-queries query-model)]
     (-> query-schema
         (sm/merge-schemas enums-schema))))
