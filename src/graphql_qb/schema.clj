@@ -127,7 +127,7 @@
       (let [schema (types/dataset-schema dataset)
             aggregation-fields-type-name (types/field-name->type-name :aggregations schema)
             aggregation-types-type-name (types/field-name->type-name :aggregation_measure_types schema)
-            observation-result-type-name (types/field-name->type-name :observation_result schema)
+            observation-result-type-name (sm/path->object-name [schema :observations])
             aggregation-measures-enum (types/build-enum :aggregation_measure_types aggregation-measures)]
         (-> partial-schema
             (assoc-in [:objects aggregation-fields-type-name]
