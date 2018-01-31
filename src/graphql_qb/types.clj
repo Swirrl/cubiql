@@ -54,15 +54,13 @@
   (apply-order-by [this model direction]))
 
 (defprotocol TypeMapper
-  (from-graphql [this graphql-value])
   (to-graphql [this value]))
 
 (defprotocol EnumValue
   (to-enum-value [this]))
 
 (def id-mapper
-  {:from-graphql (fn [_this v] v)
-   :to-graphql (fn [_this v] v)})
+  {:to-graphql (fn [_this v] v)})
 
 (extend nil TypeMapper id-mapper)
 
@@ -78,10 +76,6 @@
 
 (defrecord EnumType [enum-name values]
   TypeMapper
-  (from-graphql [_this item-name]
-    (if-let [item (first (filter #(= item-name (:name %)) values))]
-      (:value item)))
-
   (to-graphql [_this value]
     (if-let [item (first (filter #(= value (:value %)) values))]
       (:name item))))
@@ -230,9 +224,6 @@
         (->PathProjection [[dim-key uri]] false identity))))
 
   TypeMapper
-  (from-graphql [this graphql-value]
-    (from-graphql type graphql-value))
-
   (to-graphql [this binding]
     (to-graphql type binding))
 
@@ -258,8 +249,6 @@
       (->PathProjection [[dim-key uri]] true identity)))
 
   TypeMapper
-  (from-graphql [this graphql-value]
-    (throw (IllegalStateException. "Not implemented!")))
   (to-graphql [this binding]
     (some-> binding str))
 
