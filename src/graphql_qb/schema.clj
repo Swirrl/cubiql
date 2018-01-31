@@ -89,12 +89,6 @@
       :args    {:measure {:type (sm/non-null aggregation-measures-enum-mapping) :description "The measure to aggregate"}}
       :resolve (create-aggregation-resolver :max aggregation-measures-enum-mapping)}}}})
 
-(defn merge-aggregations-schema-model [dataset observations-model aggregation-measures-enum-mapping]
-  (if (some? aggregation-measures-enum-mapping)
-    (let [aggregation-fields (get-aggregations-schema-model aggregation-measures-enum-mapping)]
-      (assoc-in observations-model [:type :fields :aggregations] aggregation-fields))
-    observations-model))
-
 (defn merge-schemas [s1 s2]
   (merge-with (fn [v1 v2]
                 (if (and (map? v1) (map? v2))
@@ -128,33 +122,37 @@
           dim-measures)))
 
 (defn get-observation-schema-model [dataset dimensions-measures-enum-mapping]
-  {:type
-   {:fields
-    {:sparql
-     {:type        'String
-      :description "SPARQL query used to retrieve matching observations."
-      :resolve     :resolve-observation-sparql-query}
-     :page
-     {:type
-      {:fields
-       {:next_page    {:type :SparqlCursor :description "Cursor to the next page of results"}
-        :count        {:type 'Int}
-        :observations {:type [{:fields (dataset-observation-schema-model dataset)}] :description "List of observations on this page"}}}
-      :args        {:after {:type :SparqlCursor}
-                    :first {:type 'Int}}
-      :description "Page of results to retrieve."
-      :resolve     (wrap-observations-mapping resolvers/resolve-observations-page dataset)}
-     :total_matches {:type 'Int}}}
-   :args
-   {:dimensions {:type {:fields (dataset-observation-dimensions-input-schema-model dataset)}}
-    :order      {:type [dimensions-measures-enum-mapping]}
-    :order_spec {:type {:fields (dataset-order-spec-schema-model dataset)}}}
-   :resolve (create-observation-resolver dataset)})
+  (let [obs-model {:type
+                   {:fields
+                    {:sparql
+                     {:type        'String
+                      :description "SPARQL query used to retrieve matching observations."
+                      :resolve     :resolve-observation-sparql-query}
+                     :page
+                     {:type
+                      {:fields
+                       {:next_page    {:type :SparqlCursor :description "Cursor to the next page of results"}
+                        :count        {:type 'Int}
+                        :observations {:type [{:fields (dataset-observation-schema-model dataset)}] :description "List of observations on this page"}}}
+                      :args        {:after {:type :SparqlCursor}
+                                    :first {:type 'Int}}
+                      :description "Page of results to retrieve."
+                      :resolve     (wrap-observations-mapping resolvers/resolve-observations-page dataset)}
+                     :total_matches {:type 'Int}}}
+                   :args
+                   {:dimensions {:type {:fields (dataset-observation-dimensions-input-schema-model dataset)}}
+                    :order      {:type [dimensions-measures-enum-mapping]}
+                    :order_spec {:type {:fields (dataset-order-spec-schema-model dataset)}}}
+                   :resolve (create-observation-resolver dataset)}
+        aggregation-measures-enum-mapping (mapping/dataset-aggregation-measures-enum-group dataset)]
+    (if (nil? aggregation-measures-enum-mapping)
+      obs-model
+      (let [aggregation-fields (get-aggregations-schema-model aggregation-measures-enum-mapping)]
+        (assoc-in obs-model [:type :fields :aggregations] aggregation-fields)))))
 
-(defn get-query-schema-model [{:keys [description] :as dataset} dataset-enum-mappings dimensions-measures-enum-mapping aggregation-measures-enum-mapping]
+(defn get-query-schema-model [{:keys [description] :as dataset} dataset-enum-mappings dimensions-measures-enum-mapping]
   (let [schema-name (types/dataset-schema dataset)
-        observations-model (get-observation-schema-model dataset dimensions-measures-enum-mapping)
-        observations-model (merge-aggregations-schema-model dataset observations-model aggregation-measures-enum-mapping)]
+        observations-model (get-observation-schema-model dataset dimensions-measures-enum-mapping)]
     {schema-name
      {:type
       {:implements  [:dataset_meta]
@@ -180,11 +178,9 @@
 (defn get-dataset-schema [dataset dataset-enum-mapping]
   (let [ds-enums-schema (mapping/dataset-enum-types-schema dataset dataset-enum-mapping)
         dimensions-measures-enum (mapping/dataset-dimensions-measures-enum-group dataset)
-        aggregation-measures-enum (mapping/dataset-aggregation-measures-enum-group dataset)
-
         enums-schema {:enums ds-enums-schema}
 
-        query-model (get-query-schema-model dataset dataset-enum-mapping dimensions-measures-enum aggregation-measures-enum)
+        query-model (get-query-schema-model dataset dataset-enum-mapping dimensions-measures-enum)
         query-schema (sm/visit-queries query-model)]
     (-> query-schema
         (sm/merge-schemas enums-schema))))
