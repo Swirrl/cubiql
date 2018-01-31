@@ -31,25 +31,6 @@
           (assoc ::resolvers/dimensions-filter dim-filter)
           (assoc ::resolvers/order-by order-by)))))
 
-(comment {:objects
-          {:dataset-earnings
-           {:fields
-            {:observations
-             {:type {:fields
-                     {:sparql        {:type        'String
-                                      :description "SPARQL query used to retrieve matching observations."
-                                      :resolve     :resolve-observation-sparql-query}
-                      :page          {:type        {:fields
-                                                    {:next_page    {:type :SparqlCursor :description "Cursor to the next page of results"}
-                                                     :count        {:type 'Int}
-                                                     :observations {:type (list 'list observation-type-name) :description "List of observations on this page"}}}
-                                      :args        {:after {:type :SparqlCursor}
-                                                    :first {:type 'Int}}
-                                      :description "Page of results to retrieve."
-                                      :resolve     observations-page-resolver-name}
-                      :total_matches {:type 'Int}}}
-              :args {:dimensions :wat}}}}}})
-
 (defn is-graphql-type? [x]
   (or (symbol? x)
       (and (keyword? x)
@@ -192,34 +173,3 @@
               (merge-schemas acc query-schema)))
           {}
           queries-def))
-
-(def example-object
-  {:fields
-   {:observations
-    {:type {:fields
-            {:sparql        {:type        'String
-                             :description "SPARQL query used to retrieve matching observations."
-                             :resolve     :resolve-observation-sparql-query}
-             :page          {:type        {:fields
-                                           {:next_page    {:type :SparqlCursor :description "Cursor to the next page of results"}
-                                            :count        {:type 'Int}
-                                            :observations {:type [::observation-type-name] :description "List of observations on this page"}}}
-                             :args        {:after {:type :SparqlCursor}
-                                           :first {:type 'Int}}
-                             :description "Page of results to retrieve."
-                             :resolve     (fn [context args field] (println "resolving..."))}
-             :total_matches {:type 'Int}}}
-     :args {:dimensions {:type
-                         {:fields {:gender     {:type ::gender_enum}
-                                   :ref_area   {:type ::ref_area}
-                                   :ref_period {:type ::ref_period}}}}
-            :order      {:type [::dimensions-measures-enum]}
-            :order_spec {:type
-                         {:fields
-                          {:gender   {:type ::order_direction}
-                           :ref_area {:type ::order_direction}}}}}}}})
-
-(def example-query
-  {:dataset_earnings
-   {:type example-object
-    :resolve :query-resolver}})
