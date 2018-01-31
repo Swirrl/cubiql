@@ -25,10 +25,16 @@
     (types/is-ref-period-type? type) :ref_period_filter
     (types/is-enum-type? type) (enum-type-name dataset type)))
 
-(defn create-aggregation-resolver [aggregation-fn aggregation-measures-enum]
+;;TODO: move to resolvers namespace
+(defn argument-mapping-resolver [arg-mapping inner-resolver]
   (fn [context args field]
-    (let [resolved-args (update args :measure #(mapping/transform-argument aggregation-measures-enum %))]
-      (resolvers/resolve-observations-aggregation aggregation-fn context resolved-args field))))
+    (let [mapped-args (mapping/transform-argument arg-mapping args)]
+      (inner-resolver context mapped-args field))))
+
+(defn create-aggregation-resolver [aggregation-fn aggregation-measures-enum]
+  (let [arg-mapping (mapping/->MapTransform {:measure aggregation-measures-enum})
+        inner-resolver (partial resolvers/resolve-observations-aggregation aggregation-fn)]
+    (argument-mapping-resolver arg-mapping inner-resolver)))
 
 (defn create-observation-resolver [dataset]
   (fn [context args field]
@@ -69,25 +75,20 @@
                               (::resolvers/observation-results result))]
       (assoc result :observations mapped-result))))
 
+(defn create-aggregation-field [field-name aggregation-measures-enum-mapping aggregation-fn]
+  {field-name
+   {:type    'Float
+    :args    {:measure {:type (sm/non-null aggregation-measures-enum-mapping) :description "The measure to aggregate"}}
+    :resolve (create-aggregation-resolver aggregation-fn aggregation-measures-enum-mapping)}})
+
 (defn get-aggregations-schema-model [aggregation-measures-enum-mapping]
   {:type
    {:fields
-    {:max
-     {:type    'Float
-      :args    {:measure {:type (sm/non-null aggregation-measures-enum-mapping) :description "The measure to aggregate"}}
-      :resolve (create-aggregation-resolver :max aggregation-measures-enum-mapping)}
-     :min
-     {:type    'Float
-      :args    {:measure {:type (sm/non-null aggregation-measures-enum-mapping) :description "The measure to aggregate"}}
-      :resolve (create-aggregation-resolver :min aggregation-measures-enum-mapping)}
-     :sum
-     {:type    'Float
-      :args    {:measure {:type (sm/non-null aggregation-measures-enum-mapping) :description "The measure to aggregate"}}
-      :resolve (create-aggregation-resolver :max aggregation-measures-enum-mapping)}
-     :average
-     {:type    'Float
-      :args    {:measure {:type (sm/non-null aggregation-measures-enum-mapping) :description "The measure to aggregate"}}
-      :resolve (create-aggregation-resolver :max aggregation-measures-enum-mapping)}}}})
+    (merge
+      (create-aggregation-field :max aggregation-measures-enum-mapping :max)
+      (create-aggregation-field :min aggregation-measures-enum-mapping :min)
+      (create-aggregation-field :sum aggregation-measures-enum-mapping :sum)
+      (create-aggregation-field :average aggregation-measures-enum-mapping :avg))}})
 
 (defn dataset-observation-dimensions-schema-model [{:keys [dimensions] :as dataset}]
   (into {} (map (fn [{:keys [field-name type] :as dim}]
