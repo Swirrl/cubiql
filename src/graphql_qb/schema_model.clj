@@ -1,35 +1,21 @@
 (ns graphql-qb.schema-model
   (:require [graphql-qb.types :as types]
-            [graphql-qb.resolvers :as resolvers]
             [clojure.string :as string]
             [clojure.pprint :as pp]
-            [graphql-qb.schema.mapping.labels :as mapping])
+            [graphql-qb.schema.mapping.labels])
   (:import [graphql_qb.schema.mapping.labels GroupMapping]))
 
-(defn get-dimension-measure-enum [dataset]
-  (types/build-enum :ignored (types/dataset-dimension-measures dataset)))
-
 (defn get-order-by [{:keys [order order_spec] :as args} dataset]
-  (let [dim-measure-enum (get-dimension-measure-enum dataset)]
-    (map (fn [enum-value]
-           (let [{:keys [field-name] :as dim-measure} (types/from-graphql dim-measure-enum enum-value)
-                 dir (get order_spec field-name)]
-             [dim-measure (or dir :ASC)]))
-         order)))
+  (map (fn [dm-uri]
+         (let [{:keys [field-name] :as dim-measure} (types/get-dataset-dimension-measure-by-uri dataset dm-uri)
+               dir (get order_spec field-name :ASC)]
+           [dim-measure dir]))
+       order))
 
 (defn map-dimension-filter [{filter :dimensions :as args} {:keys [dimensions] :as dataset}]
   (into {} (map (fn [{:keys [field-name] :as f}]
-                  (let [graphql-value (get filter field-name)]
-                    [f (types/from-graphql f graphql-value)]))
+                  [f (get filter field-name)])
                 dimensions)))
-
-(defn observation-args-mapper [dataset]
-  (fn [args]
-    (let [dim-filter (map-dimension-filter args dataset)
-          order-by (get-order-by args dataset)]
-      (-> args
-          (assoc ::resolvers/dimensions-filter dim-filter)
-          (assoc ::resolvers/order-by order-by)))))
 
 (defn is-graphql-type? [x]
   (or (symbol? x)
@@ -46,7 +32,6 @@
 (defn is-enum-mapping? [type]
   (instance? GroupMapping type))
 
-;;TODO: this is a duplicate of schema/merge-schemas
 (defn merge-schemas [s1 s2]
   (merge-with (fn [v1 v2]
                 (if (and (map? v1) (map? v2))

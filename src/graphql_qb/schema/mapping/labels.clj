@@ -102,23 +102,25 @@
   (transform-argument [_this graphql-value]
     (:value (find-item-by-name graphql-value items))))
 
-(defn create-group-mapping [name mappings]
-  ;;TODO: handle multiple mappings to the same label
-  (let [items (mapv (fn [{:keys [label] :as mapping}]
-                      (->EnumMappingItem (label->enum-name label) mapping label))
-                    mappings)]
-    (->GroupMapping name items)))
+(defn create-group-mapping
+  ([name mappings] (create-group-mapping name mappings identity))
+  ([name mappings val-f]
+    ;;TODO: handle multiple mappings to the same label
+   (let [items (mapv (fn [{:keys [label] :as mapping}]
+                       (->EnumMappingItem (label->enum-name label) (val-f mapping) label))
+                     mappings)]
+     (->GroupMapping name items))))
 
 (defn dataset-dimensions-measures-enum-group [dataset]
   (let [schema (types/dataset-schema dataset)
         mapping-name (keyword (str (name schema) "_dimension_measures"))]
-    (create-group-mapping mapping-name (types/dataset-dimension-measures dataset))))
+    (create-group-mapping mapping-name (types/dataset-dimension-measures dataset) :uri)))
 
 (defn dataset-aggregation-measures-enum-group [dataset]
   (if-let [aggregation-measures (types/dataset-aggregate-measures dataset)]
     (let [schema (types/dataset-schema dataset)
           mapping-name (keyword (str (name schema) "_aggregation_measures"))]
-      (create-group-mapping mapping-name aggregation-measures))))
+      (create-group-mapping mapping-name aggregation-measures :uri))))
 
 ;;TODO: remove core/code-list->enum-items
 (defn create-enum-mapping [enum-label enum-doc code-list]
@@ -149,9 +151,9 @@
 (defn get-dataset-observations-argument-mapping [dataset field-enum-mappings]
   (let [dimensions-mapping (get-dataset-dimensions-mapping dataset field-enum-mappings)
         dim-measures-enum (dataset-dimensions-measures-enum-group dataset)]
-    {:dimensions (->MapTransform dimensions-mapping)
-     :order      (->SeqTransform dim-measures-enum)
-     :order_spec idtrans}))
+    (->MapTransform {:dimensions (->MapTransform dimensions-mapping)
+                     :order      (->SeqTransform dim-measures-enum)
+                     :order_spec idtrans})))
 
 (defn get-dataset-observations-result-mapping [dataset field-enum-mappings]
   (let [dim-mapping (get-dataset-dimensions-mapping dataset field-enum-mappings)
@@ -193,17 +195,3 @@
   (apply merge (map (fn [[field-name enum-mapping]]
                       (enum-mapping->schema dataset field-name enum-mapping))
                     enum-mappings)))
-
-(defrecord FixedName [name])
-(defrecord PositionalName [])
-
-
-#_{::result ::positional
- ::args {:dimensions {:gender []
-                      :ref_area []}
-         :order []
-         :order_spec {:gender []}}
- ::resolver :resolver-name}
-#_{:dimensions {:gender ::gender-enum
-              :ref_area ::ref-area-type}
- :order []}

@@ -31,15 +31,26 @@
     (let [mapped-args (mapping/transform-argument arg-mapping args)]
       (inner-resolver context mapped-args field))))
 
-(defn create-aggregation-resolver [aggregation-fn aggregation-measures-enum]
+(defn create-aggregation-resolver [dataset aggregation-fn aggregation-measures-enum]
   (let [arg-mapping (mapping/->MapTransform {:measure aggregation-measures-enum})
-        inner-resolver (partial resolvers/resolve-observations-aggregation aggregation-fn)]
+        inner-resolver (fn [context args field]
+                         ;;TODO: move this measure-uri -> measure resolution function somewhere else
+                         (let [updated-args (update args :measure (fn [measure-uri]
+                                                                    (types/get-dataset-measure-by-uri dataset measure-uri)))]
+                           (resolvers/resolve-observations-aggregation aggregation-fn context updated-args field)))]
     (argument-mapping-resolver arg-mapping inner-resolver)))
 
-(defn create-observation-resolver [dataset]
-  (fn [context args field]
-    (let [mapped-args ((sm/observation-args-mapper dataset) args)]
-      (resolvers/resolve-observations context mapped-args field))))
+(defn create-observation-resolver [dataset dataset-enum-mappings]
+  (let [arg-mapping (mapping/get-dataset-observations-argument-mapping dataset dataset-enum-mappings)]
+    (argument-mapping-resolver
+      arg-mapping
+      (fn [context args field]
+        (let [dim-filter (sm/map-dimension-filter args dataset)
+              order-by (sm/get-order-by args dataset)
+              updated-args (-> args
+                               (assoc ::resolvers/dimensions-filter dim-filter)
+                               (assoc ::resolvers/order-by order-by))]
+          (resolvers/resolve-observations context updated-args field))))))
 
 (defn dimension-type-name [dataset dim]
   (type-schema-type-name dataset (:type dim)))
@@ -75,20 +86,20 @@
                               (::resolvers/observation-results result))]
       (assoc result :observations mapped-result))))
 
-(defn create-aggregation-field [field-name aggregation-measures-enum-mapping aggregation-fn]
+(defn create-aggregation-field [dataset field-name aggregation-measures-enum-mapping aggregation-fn]
   {field-name
    {:type    'Float
     :args    {:measure {:type (sm/non-null aggregation-measures-enum-mapping) :description "The measure to aggregate"}}
-    :resolve (create-aggregation-resolver aggregation-fn aggregation-measures-enum-mapping)}})
+    :resolve (create-aggregation-resolver dataset aggregation-fn aggregation-measures-enum-mapping)}})
 
-(defn get-aggregations-schema-model [aggregation-measures-enum-mapping]
+(defn get-aggregations-schema-model [dataset aggregation-measures-enum-mapping]
   {:type
    {:fields
     (merge
-      (create-aggregation-field :max aggregation-measures-enum-mapping :max)
-      (create-aggregation-field :min aggregation-measures-enum-mapping :min)
-      (create-aggregation-field :sum aggregation-measures-enum-mapping :sum)
-      (create-aggregation-field :average aggregation-measures-enum-mapping :avg))}})
+      (create-aggregation-field dataset :max aggregation-measures-enum-mapping :max)
+      (create-aggregation-field dataset :min aggregation-measures-enum-mapping :min)
+      (create-aggregation-field dataset :sum aggregation-measures-enum-mapping :sum)
+      (create-aggregation-field dataset :average aggregation-measures-enum-mapping :avg))}})
 
 (defn dataset-observation-dimensions-schema-model [{:keys [dimensions] :as dataset}]
   (into {} (map (fn [{:keys [field-name type] :as dim}]
@@ -115,7 +126,7 @@
                     [field-name {:type :sort_direction}]))
           dim-measures)))
 
-(defn get-observation-schema-model [dataset]
+(defn get-observation-schema-model [dataset dataset-enum-mappings]
   (let [dimensions-measures-enum-mapping (mapping/dataset-dimensions-measures-enum-group dataset)
         obs-model {:type
                    {:fields
@@ -138,16 +149,16 @@
                    {:dimensions {:type {:fields (dataset-observation-dimensions-input-schema-model dataset)}}
                     :order      {:type [dimensions-measures-enum-mapping]}
                     :order_spec {:type {:fields (dataset-order-spec-schema-model dataset)}}}
-                   :resolve (create-observation-resolver dataset)}
+                   :resolve (create-observation-resolver dataset dataset-enum-mappings)}
         aggregation-measures-enum-mapping (mapping/dataset-aggregation-measures-enum-group dataset)]
     (if (nil? aggregation-measures-enum-mapping)
       obs-model
-      (let [aggregation-fields (get-aggregations-schema-model aggregation-measures-enum-mapping)]
+      (let [aggregation-fields (get-aggregations-schema-model dataset aggregation-measures-enum-mapping)]
         (assoc-in obs-model [:type :fields :aggregations] aggregation-fields)))))
 
 (defn get-query-schema-model [{:keys [description] :as dataset} dataset-enum-mappings]
   (let [schema-name (types/dataset-schema dataset)
-        observations-model (get-observation-schema-model dataset)]
+        observations-model (get-observation-schema-model dataset dataset-enum-mappings)]
     {schema-name
      {:type
       {:implements  [:dataset_meta]

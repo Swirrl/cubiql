@@ -3,7 +3,8 @@
   (:require [clojure.string :as string]
             [graphql-qb.query-model :as qm]
             [graphql-qb.vocabulary :refer [time:hasBeginning time:hasEnd time:inXSDDateTime rdfs:label]]
-            [graphql-qb.types.scalars :refer [grafter-date->datetime]])
+            [graphql-qb.types.scalars :refer [grafter-date->datetime]]
+            [graphql-qb.util :as util])
   (:import [clojure.lang Keyword IPersistentMap]))
 
 (defn get-identifier-segments [label]
@@ -276,6 +277,12 @@
 
 (defn dataset-dimension-measures [{:keys [dimensions measures] :as ds}]
   (concat dimensions measures))
+
+(defn get-dataset-dimension-measure-by-uri [dataset uri]
+  (util/find-first #(= uri (:uri %)) (dataset-dimension-measures dataset)))
+
+(defn get-dataset-measure-by-uri [{:keys [measures] :as dataset} uri]
+  (util/find-first #(= uri (:uri %)) measures))
 
 (defn dataset-result-projection [dataset]
   (into {} (map (fn [{:keys [field-name] :as ft}]
