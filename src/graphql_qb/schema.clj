@@ -114,8 +114,9 @@
                     [field-name {:type :sort_direction}]))
           dim-measures)))
 
-(defn get-observation-schema-model [dataset dimensions-measures-enum-mapping]
-  (let [obs-model {:type
+(defn get-observation-schema-model [dataset]
+  (let [dimensions-measures-enum-mapping (mapping/dataset-dimensions-measures-enum-group dataset)
+        obs-model {:type
                    {:fields
                     {:sparql
                      {:type        'String
@@ -143,9 +144,9 @@
       (let [aggregation-fields (get-aggregations-schema-model aggregation-measures-enum-mapping)]
         (assoc-in obs-model [:type :fields :aggregations] aggregation-fields)))))
 
-(defn get-query-schema-model [{:keys [description] :as dataset} dataset-enum-mappings dimensions-measures-enum-mapping]
+(defn get-query-schema-model [{:keys [description] :as dataset} dataset-enum-mappings]
   (let [schema-name (types/dataset-schema dataset)
-        observations-model (get-observation-schema-model dataset dimensions-measures-enum-mapping)]
+        observations-model (get-observation-schema-model dataset)]
     {schema-name
      {:type
       {:implements  [:dataset_meta]
@@ -170,10 +171,9 @@
 
 (defn get-dataset-schema [dataset dataset-enum-mapping]
   (let [ds-enums-schema (mapping/dataset-enum-types-schema dataset dataset-enum-mapping)
-        dimensions-measures-enum (mapping/dataset-dimensions-measures-enum-group dataset)
         enums-schema {:enums ds-enums-schema}
 
-        query-model (get-query-schema-model dataset dataset-enum-mapping dimensions-measures-enum)
+        query-model (get-query-schema-model dataset dataset-enum-mapping)
         query-schema (sm/visit-queries query-model)]
     (-> query-schema
         (sm/merge-schemas enums-schema))))
