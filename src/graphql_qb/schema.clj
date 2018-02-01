@@ -5,11 +5,6 @@
             [clojure.pprint :as pp]
             [graphql-qb.schema.mapping.labels :as mapping]))
 
-(def observation-uri-schema-mapping
-  {:type :uri
-   :description "URI of the observation"
-   :->graphql identity})
-
 (defn enum-type-name [dataset {:keys [enum-name] :as enum-type}]
   (types/field-name->type-name enum-name (types/dataset-schema dataset)))
 
@@ -52,37 +47,14 @@
                                (assoc ::resolvers/order-by order-by))]
           (resolvers/resolve-observations context updated-args field))))))
 
-(defn dimension-type-name [dataset dim]
-  (type-schema-type-name dataset (:type dim)))
-
-(defn dimension->schema-mapping [dataset {:keys [field-name type doc label] :as dim}]
-  (let [->graphql (if (types/is-enum-type? type)
-                    (fn [v] (types/to-graphql dim v))
-                    identity)]
-    {field-name {:type (dimension-type-name dataset dim) :->graphql ->graphql :description (some-> (or doc label) str)}}))
-
-(defn measure->schema-mapping [{:keys [field-name] :as measure}]
-  ;;TODO: get measure description?
-  {field-name {:type 'String :->graphql str :description ""}})
-
-(defn get-dataset-schema-mapping [{:keys [dimensions measures] :as ds}]
-  (let [dim-mappings (map #(dimension->schema-mapping ds %) dimensions)
-        measure-mappings (map measure->schema-mapping measures)]
-    (into {:uri observation-uri-schema-mapping} (concat dim-mappings measure-mappings))))
-
-(defn apply-schema-mapping [mapping sparql-result]
-  (into {} (map (fn [[field-name {:keys [->graphql]}]]
-                  [field-name (->graphql (get sparql-result field-name))])
-                mapping)))
-
-(defn wrap-observations-mapping [inner-resolver dataset]
+(defn wrap-observations-mapping [inner-resolver dataset dataset-enum-mappings]
   (fn [context args observations-field]
     (let [result (inner-resolver context args observations-field)
           projection (merge {:uri :obs} (types/dataset-result-projection dataset))
-          schema-mapping (get-dataset-schema-mapping dataset)
+          result-mapping (mapping/get-dataset-observations-result-mapping dataset dataset-enum-mappings)
           mapped-result (mapv (fn [obs-bindings]
                                 (let [sparql-result (types/project-result projection obs-bindings)]
-                                  (apply-schema-mapping schema-mapping sparql-result)))
+                                  (mapping/transform-result result-mapping sparql-result)))
                               (::resolvers/observation-results result))]
       (assoc result :observations mapped-result))))
 
@@ -143,7 +115,7 @@
                       :args        {:after {:type :SparqlCursor}
                                     :first {:type 'Int}}
                       :description "Page of results to retrieve."
-                      :resolve     (wrap-observations-mapping resolvers/resolve-observations-page dataset)}
+                      :resolve     (wrap-observations-mapping resolvers/resolve-observations-page dataset dataset-enum-mappings)}
                      :total_matches {:type 'Int}}}
                    :args
                    {:dimensions {:type {:fields (dataset-observation-dimensions-input-schema-model dataset)}}

@@ -159,9 +159,10 @@
   (let [dim-mapping (get-dataset-dimensions-mapping dataset field-enum-mappings)
         measure-mapping (map (fn [{:keys [field-name] :as measure}]
                                [field-name (->MeasureMapping)])
-                             (:measures dataset))]
-    (merge (into {:uri idtrans} measure-mapping)
-           dim-mapping)))
+                             (:measures dataset))
+        obs-mapping (merge (into {:uri idtrans} measure-mapping)
+                           dim-mapping)]
+    (->MapTransform obs-mapping)))
 
 (defn get-dataset-enum-mappings [enum-values]
   (let [dim-enums (group-by :dim enum-values)
