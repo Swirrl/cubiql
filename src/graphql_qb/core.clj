@@ -150,7 +150,7 @@
         query-resolvers (merge {:resolve-observation-sparql-query resolvers/resolve-observations-sparql-query
                                 :resolve-datasets                 resolvers/resolve-datasets
                                 :resolve-dataset-dimensions       resolvers/resolve-dataset-dimensions
-                                :resolve-dataset-measures         resolvers/resolve-dataset-measures}
+                                :resolve-dataset-measures         (resolvers/dataset-measures-resolver measure-mappings)}
                                resolvers)]
     (attach-resolvers (dissoc combined-schema :resolvers) query-resolvers)))
 

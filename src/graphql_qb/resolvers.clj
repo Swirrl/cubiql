@@ -3,7 +3,6 @@
             [graphql-qb.types :as types]
             [graphql-qb.types.scalars :as scalars]
             [graphql-qb.util :as util]
-            [grafter.rdf.sparql :as sp]
             [graphql-qb.context :as context]
             [com.walmartlabs.lacinia.schema :as ls]
             [graphql-qb.query-model :as qm]
@@ -133,14 +132,9 @@
         filter-model (::filter-model aggregation-field)]
     (exec-observation-aggregation repo dataset measure filter-model aggregation-fn)))
 
-(defn resolve-dataset-measures [context _args {:keys [uri] :as ds-field}]
-  (let [repo (context/get-repository context)
-        results (vec (sp/query "get-measure-types.sparql" {:ds uri} repo))]
-    (mapv (fn [{:keys [mt label]}]
-           {:uri       mt
-            :label     (str label)
-            :enum_name (name (types/enum-label->value-name (str label)))})
-         results)))
+(defn dataset-measures-resolver [all-measure-mappings]
+  (fn [_context _args {:keys [uri] :as dataset}]
+    (get all-measure-mappings uri)))
 
 (defn dimension-enum-value->graphql [{:keys [value label name] :as item}]
   (ls/tag-with-type
@@ -158,8 +152,6 @@
       (assoc base-dim :values (map dimension-enum-value->graphql (:values type)))
       (let [code-list (get unmapped-dimensions uri)]
         (assoc base-dim :values (map (fn [member] (ls/tag-with-type (util/rename-key member :member :uri) :unmapped_dim_value)) code-list))))))
-
-(def measure->graphql dimension-measure->graphql)
 
 (defn dataset-resolver [dataset]
   (fn [context args field]
