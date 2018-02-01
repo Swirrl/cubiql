@@ -26,6 +26,11 @@
     (let [mapped-args (mapping/transform-argument arg-mapping args)]
       (inner-resolver context mapped-args field))))
 
+(defn wrap-dataset-result-measures-resolver [inner-resolver measures-mapping]
+  (resolvers/wrap-post-resolver inner-resolver (fn [result]
+                                       (let [ds (::resolvers/dataset result)]
+                                         (assoc ds :measures measures-mapping ::resolvers/dataset ds)))))
+
 (defn create-aggregation-resolver [dataset aggregation-fn aggregation-measures-enum]
   (let [arg-mapping (mapping/->MapTransform {:measure aggregation-measures-enum})
         inner-resolver (fn [context args field]
@@ -128,7 +133,7 @@
       (let [aggregation-fields (get-aggregations-schema-model dataset aggregation-measures-enum-mapping)]
         (assoc-in obs-model [:type :fields :aggregations] aggregation-fields)))))
 
-(defn get-query-schema-model [{:keys [description] :as dataset} dataset-enum-mappings]
+(defn get-query-schema-model [{:keys [description] :as dataset} dataset-enum-mappings dataset-measure-mappings]
   (let [schema-name (types/dataset-schema dataset)
         observations-model (get-observation-schema-model dataset dataset-enum-mappings)]
     {schema-name
@@ -150,14 +155,14 @@
                                     :description "Measure types within the dataset"}
                      :observations observations-model}
        :description (or description "")}
-      :resolve (fn [context args field]
-                 (resolvers/resolve-dataset context dataset))}}))
+      :resolve (wrap-dataset-result-measures-resolver
+                 (resolvers/dataset-resolver dataset)
+                 dataset-measure-mappings)}}))
 
-(defn get-dataset-schema [dataset dataset-enum-mapping]
+(defn get-dataset-schema [dataset dataset-enum-mapping dataset-measure-mappings]
   (let [ds-enums-schema (mapping/dataset-enum-types-schema dataset dataset-enum-mapping)
         enums-schema {:enums ds-enums-schema}
-
-        query-model (get-query-schema-model dataset dataset-enum-mapping)
+        query-model (get-query-schema-model dataset dataset-enum-mapping dataset-measure-mappings)
         query-schema (sm/visit-queries query-model)]
     (-> query-schema
         (sm/merge-schemas enums-schema))))

@@ -196,3 +196,11 @@
   (apply merge (map (fn [[field-name enum-mapping]]
                       (enum-mapping->schema dataset field-name enum-mapping))
                     enum-mappings)))
+
+(defn get-measure-mappings [all-measure-values]
+  (util/map-values
+    (fn [ds-measures]
+      (mapv (fn [{:keys [mt label]}]
+              {:uri mt :label label :enum_name (name (label->enum-name (str label)))})
+            ds-measures))
+    (group-by :ds all-measure-values)))

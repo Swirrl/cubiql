@@ -136,11 +136,15 @@
   (let [dataset-enum-values (vec (sp/query "get-all-enum-dimension-values.sparql" repo))]
     (mapping/get-datasets-enum-mappings dataset-enum-values)))
 
-(defn get-schema [datasets enum-mappings]
+(defn get-datasets-measures-mapping [repo]
+  (let [measure-values (vec (sp/query "get-measure-types.sparql" {} repo))]
+    (mapping/get-measure-mappings measure-values)))
+
+(defn get-schema [datasets enum-mappings measure-mappings]
   (let [base-schema (read-edn-resource "base-schema.edn")
         base-schema (assoc base-schema :scalars scalars/custom-scalars)
         ds-schemas (map (fn [{:keys [uri] :as ds}]
-                          (schema/get-dataset-schema ds (get enum-mappings uri)))
+                          (schema/get-dataset-schema ds (get enum-mappings uri) (get measure-mappings uri)))
                         datasets)
         {:keys [resolvers] :as combined-schema} (reduce (fn [acc schema] (merge-with merge acc schema)) base-schema ds-schemas)
         query-resolvers (merge {:resolve-observation-sparql-query resolvers/resolve-observations-sparql-query
@@ -152,8 +156,9 @@
 
 (defn get-combined-schema [repo]
   (let [datasets (get-all-datasets repo)
-        enum-mappings (get-datasets-enum-mappings repo)]
-    (get-schema datasets enum-mappings)))
+        enum-mappings (get-datasets-enum-mappings repo)
+        measure-mappings (get-datasets-measures-mapping repo)]
+    (get-schema datasets enum-mappings measure-mappings)))
 
 (defn dump-schema [repo]
   (pprint/pprint (get-combined-schema repo)))
@@ -161,6 +166,7 @@
 (defn build-schema-context [repo]
   (let [datasets (get-all-datasets repo)
         enum-mappings (get-datasets-enum-mappings repo)
-        schema (get-schema datasets enum-mappings)]
+        measure-mappings (get-datasets-measures-mapping repo)
+        schema (get-schema datasets enum-mappings measure-mappings)]
     {:schema (lschema/compile schema)
      :datasets datasets}))

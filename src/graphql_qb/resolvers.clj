@@ -11,7 +11,11 @@
             [com.walmartlabs.lacinia.executor :as executor]
             [clojure.spec.alpha :as s]
             [clojure.pprint :as pp])
-  (:import (graphql_qb.types Dimension MeasureType)))
+  (:import [graphql_qb.types Dimension MeasureType]))
+
+(defn wrap-post-resolver [inner-resolver f]
+  (fn [context args field]
+    (f (inner-resolver context args field))))
 
 (s/def ::order-direction #{:ASC :DESC})
 (s/def ::dimension #(instance? Dimension %))
@@ -45,14 +49,15 @@
         results (util/eager-query repo query)]
     (:c (first results))))
 
-(defn resolve-observations [context args {:keys [uri] :as ds-field}]
-  (let [repo (context/get-repository context)
+(defn resolve-observations [context args field]
+  (let [{:keys [uri] :as dataset} (::dataset field)
+        repo (context/get-repository context)
         dimension-filter (::dimensions-filter args)
         filter-model (queries/get-observation-filter-model dimension-filter)
         total-matches (get-observation-count repo uri filter-model)]
     (merge
       (select-keys args [::dimensions-filter ::order-by])
-      {::dataset                     ds-field
+      {::dataset                     dataset
        ::filter-model                filter-model
        ::observation-selections      (get-observation-selections context)
        :total_matches                total-matches
@@ -156,8 +161,9 @@
 
 (def measure->graphql dimension-measure->graphql)
 
-(defn resolve-dataset [context {:keys [uri] :as dataset}]
-  (context/get-dataset context uri))
+(defn dataset-resolver [dataset]
+  (fn [context args field]
+    {::dataset dataset}))
 
 (defn resolve-dataset-dimensions [context _args {:keys [uri] :as ds-field}]
   (let [{:keys [dimensions]} (context/get-dataset context uri)
