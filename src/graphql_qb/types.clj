@@ -53,9 +53,6 @@
 (defprotocol SparqlQueryable
   (apply-order-by [this model direction]))
 
-(defprotocol EnumValue
-  (to-enum-value [this]))
-
 (defrecord RefAreaType [])
 
 (defrecord RefPeriodType [])
@@ -205,11 +202,7 @@
          :label (->PathProjection [[dim-key uri] [:label rdfs:label]] true identity)}
 
         :else
-        (->PathProjection [[dim-key uri]] false identity))))
-
-  EnumValue
-  (to-enum-value [this]
-    (->EnumItem this label (enum-label->value-name label))))
+        (->PathProjection [[dim-key uri]] false identity)))))
 
 (defrecord MeasureType [uri label order is-numeric?]
   SparqlQueryable
@@ -226,11 +219,7 @@
 
   (get-result-projection [_this]
     (let [dim-key (keyword (str "mv" order))]
-      (->PathProjection [[dim-key uri]] true identity)))
-
-  EnumValue
-  (to-enum-value [this]
-    (->EnumItem this label (enum-label->value-name label))))
+      (->PathProjection [[dim-key uri]] true identity))))
 
 (defrecord Dataset [uri title description dimensions measures])
 

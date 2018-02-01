@@ -131,7 +131,7 @@
 (defn resolve-dataset-measures [context _args {:keys [uri] :as ds-field}]
   (let [repo (context/get-repository context)
         results (vec (sp/query "get-measure-types.sparql" {:ds uri} repo))]
-    (map (fn [{:keys [mt label]}]
+    (mapv (fn [{:keys [mt label]}]
            {:uri       mt
             :label     (str label)
             :enum_name (name (types/enum-label->value-name (str label)))})
@@ -145,7 +145,7 @@
 (defn dimension-measure->graphql [{:keys [uri label] :as measure}]
   {:uri   uri
    :label (str label)
-   :enum_name  (name (:name (types/to-enum-value measure)))})
+   :enum_name  (name (types/enum-label->value-name label))})
 
 (defn dimension->graphql [unmapped-dimensions {:keys [uri type] :as dim}]
   (let [base-dim (dimension-measure->graphql dim)]
