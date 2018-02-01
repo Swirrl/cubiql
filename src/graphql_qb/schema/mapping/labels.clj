@@ -4,7 +4,8 @@
             [graphql-qb.util :as util]
             [clojure.string :as string]
             [clojure.pprint :as pp]
-            [graphql-qb.types :as types]))
+            [graphql-qb.types :as types]
+            [com.walmartlabs.lacinia.schema :as ls]))
 
 ;;TODO: add/use spec for graphql enum values
 (s/def ::graphql-enum keyword?)
@@ -192,6 +193,16 @@
       {type-name {:values (mapv :name items) :doc doc}}
       {type-name {:values (mapv :name items)}})))
 
+(defn enum-mapping-item->dimension-value [{:keys [name value label]}]
+  (ls/tag-with-type
+    {:uri value :label label :enum_name (clojure.core/name name)}
+    :enum_dim_value))
+
+(defn non-enum-item->dimension-value [{:keys [member label]}]
+  (ls/tag-with-type
+    {:uri member :label label}
+    :unmapped_dim_value))
+
 (defn dataset-enum-types-schema [dataset enum-mappings]
   (apply merge (map (fn [[field-name enum-mapping]]
                       (enum-mapping->schema dataset field-name enum-mapping))
@@ -204,3 +215,19 @@
               {:uri mt :label label :enum_name (name (label->enum-name (str label)))})
             ds-measures))
     (group-by :ds all-measure-values)))
+
+
+(defn format-dataset-dimension-values [dataset enum-dimension-mappings non-enum-dimension-mappings]
+  (mapv
+    (fn [{:keys [uri type field-name] :as dim}]
+      (if (types/is-enum-type? type)
+        (let [{:keys [label items] :as enum-mapping} (get enum-dimension-mappings field-name)]
+          {:uri uri
+           :enum_name (name (label->enum-name label))
+           :values (mapv enum-mapping-item->dimension-value items)})
+        (let [values (get non-enum-dimension-mappings uri)]
+          ;;TODO: add mapping for non-enum dimensions containing the label
+          {:uri uri
+           :enum_name (name (label->enum-name (:label dim)))
+           :values (mapv non-enum-item->dimension-value values)})))
+    (types/dataset-dimensions dataset)))

@@ -4,12 +4,12 @@
             [graphql-qb.types.scalars :as scalars]
             [graphql-qb.util :as util]
             [graphql-qb.context :as context]
-            [com.walmartlabs.lacinia.schema :as ls]
             [graphql-qb.query-model :as qm]
             [clojure.walk :as walk]
             [com.walmartlabs.lacinia.executor :as executor]
             [clojure.spec.alpha :as s]
-            [clojure.pprint :as pp])
+            [clojure.pprint :as pp]
+            [graphql-qb.schema.mapping.labels :as mapping])
   (:import [graphql_qb.types Dimension MeasureType]))
 
 (defn wrap-post-resolver [inner-resolver f]
@@ -136,29 +136,15 @@
   (fn [_context _args {:keys [uri] :as dataset}]
     (get all-measure-mappings uri)))
 
-(defn dimension-enum-value->graphql [{:keys [value label name] :as item}]
-  (ls/tag-with-type
-    {:uri (str value) :label (str label) :enum_name (clojure.core/name name)}
-    :enum_dim_value))
-
-(defn dimension-measure->graphql [{:keys [uri label] :as measure}]
-  {:uri   uri
-   :label (str label)
-   :enum_name  (name (types/enum-label->value-name label))})
-
-(defn dimension->graphql [unmapped-dimensions {:keys [uri type] :as dim}]
-  (let [base-dim (dimension-measure->graphql dim)]
-    (if (types/is-enum-type? type)
-      (assoc base-dim :values (map dimension-enum-value->graphql (:values type)))
-      (let [code-list (get unmapped-dimensions uri)]
-        (assoc base-dim :values (map (fn [member] (ls/tag-with-type (util/rename-key member :member :uri) :unmapped_dim_value)) code-list))))))
-
 (defn dataset-resolver [dataset]
   (fn [context args field]
     {::dataset dataset}))
 
-(defn resolve-dataset-dimensions [context _args {:keys [uri] :as ds-field}]
-  (let [{:keys [dimensions]} (context/get-dataset context uri)
-        repo (context/get-repository context)
-        unmapped-dimensions (queries/get-unmapped-dimension-values repo ds-field)]
-    (map #(dimension->graphql unmapped-dimensions %) dimensions)))
+(defn dataset-dimensions-resolver [all-enum-mappings]
+  (fn [context _args {:keys [uri] :as ds-field}]
+    (let [repo (context/get-repository context)
+          dataset (context/get-dataset context uri)
+          ds-enum-mappings (get all-enum-mappings uri)
+          unmapped-dimensions (queries/get-unmapped-dimension-values repo dataset)]
+      (mapping/format-dataset-dimension-values dataset ds-enum-mappings unmapped-dimensions))))
+

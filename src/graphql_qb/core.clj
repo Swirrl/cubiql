@@ -149,7 +149,7 @@
         {:keys [resolvers] :as combined-schema} (reduce (fn [acc schema] (merge-with merge acc schema)) base-schema ds-schemas)
         query-resolvers (merge {:resolve-observation-sparql-query resolvers/resolve-observations-sparql-query
                                 :resolve-datasets                 resolvers/resolve-datasets
-                                :resolve-dataset-dimensions       resolvers/resolve-dataset-dimensions
+                                :resolve-dataset-dimensions       (resolvers/dataset-dimensions-resolver enum-mappings)
                                 :resolve-dataset-measures         (resolvers/dataset-measures-resolver measure-mappings)}
                                resolvers)]
     (attach-resolvers (dissoc combined-schema :resolvers) query-resolvers)))

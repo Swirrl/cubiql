@@ -3,7 +3,9 @@
             [graphql-qb.resolvers :as resolvers]
             [graphql-qb.schema-model :as sm]
             [clojure.pprint :as pp]
-            [graphql-qb.schema.mapping.labels :as mapping]))
+            [graphql-qb.schema.mapping.labels :as mapping]
+            [graphql-qb.context :as context]
+            [graphql-qb.queries :as queries]))
 
 (defn enum-type-name [dataset {:keys [enum-name] :as enum-type}]
   (types/field-name->type-name enum-name (types/dataset-schema dataset)))
@@ -148,8 +150,10 @@
                      :publisher    {:type :uri :description "URI of the publisher of the dataset"}
                      :schema       {:type 'String :description "Name of the GraphQL query root field corresponding to this dataset"}
                      :dimensions   {:type        [:dim]
-                                    :resolve     (fn [context args _field]
-                                                   (resolvers/resolve-dataset-dimensions context args dataset))
+                                    :resolve     (fn [context _args _field]
+                                                   (let [repo (context/get-repository context)
+                                                         unmapped-dims (queries/get-unmapped-dimension-values repo dataset)]
+                                                     (mapping/format-dataset-dimension-values dataset dataset-enum-mappings unmapped-dims)))
                                     :description "Dimensions within the dataset"}
                      :measures     {:type        [:measure]
                                     :description "Measure types within the dataset"}

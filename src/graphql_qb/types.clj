@@ -232,6 +232,9 @@
 (defn dataset-dimension-measures [{:keys [dimensions measures] :as ds}]
   (concat dimensions measures))
 
+(defn dataset-dimensions [ds]
+  (:dimensions ds))
+
 (defn get-dataset-dimension-measure-by-uri [dataset uri]
   (util/find-first #(= uri (:uri %)) (dataset-dimension-measures dataset)))
 
