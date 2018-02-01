@@ -53,32 +53,16 @@
 (defprotocol SparqlQueryable
   (apply-order-by [this model direction]))
 
-(defprotocol TypeMapper
-  (to-graphql [this value]))
-
 (defprotocol EnumValue
   (to-enum-value [this]))
 
-(def id-mapper
-  {:to-graphql (fn [_this v] v)})
-
-(extend nil TypeMapper id-mapper)
-
 (defrecord RefAreaType [])
-
-(extend RefAreaType TypeMapper id-mapper)
 
 (defrecord RefPeriodType [])
 
-(extend RefPeriodType TypeMapper id-mapper)
-
 (defrecord EnumItem [value label name])
 
-(defrecord EnumType [enum-name values]
-  TypeMapper
-  (to-graphql [_this value]
-    (if-let [item (first (filter #(= value (:value %)) values))]
-      (:name item))))
+(defrecord EnumType [enum-name values])
 
 (defn is-enum-type? [type]
   (instance? EnumType type))
@@ -223,10 +207,6 @@
         :else
         (->PathProjection [[dim-key uri]] false identity))))
 
-  TypeMapper
-  (to-graphql [this binding]
-    (to-graphql type binding))
-
   EnumValue
   (to-enum-value [this]
     (->EnumItem this label (enum-label->value-name label))))
@@ -247,10 +227,6 @@
   (get-result-projection [_this]
     (let [dim-key (keyword (str "mv" order))]
       (->PathProjection [[dim-key uri]] true identity)))
-
-  TypeMapper
-  (to-graphql [this binding]
-    (some-> binding str))
 
   EnumValue
   (to-enum-value [this]
@@ -277,9 +253,3 @@
   (into {} (map (fn [{:keys [field-name] :as ft}]
                   [field-name (get-result-projection ft)])
                 (dataset-dimension-measures dataset))))
-
-(defn dataset-enum-types [{:keys [dimensions] :as dataset}]
-  (filter is-enum-type? (map :type dimensions)))
-
-(defn build-enum [enum-name values]
-  (->EnumType enum-name (mapv to-enum-value values)))
