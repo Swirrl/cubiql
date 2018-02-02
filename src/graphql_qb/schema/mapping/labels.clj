@@ -188,7 +188,7 @@
 (defn enum-mapping->schema [dataset field-name {:keys [doc items] :as enum-mapping}]
   (let [type-name (enum-type-name dataset field-name)]
     (if (some? doc)
-      {type-name {:values (mapv :name items) :doc doc}}
+      {type-name {:values (mapv :name items) :description doc}}
       {type-name {:values (mapv :name items)}})))
 
 (defn enum-mapping-item->dimension-value [{:keys [name value label]}]
