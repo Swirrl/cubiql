@@ -16,12 +16,11 @@
 
 (defn get-dataset-enum-dimensions [enum-dim-values]
   (map (fn [[dim values]]
-         (let [{:keys [label doc]} (first values)
+         (let [{:keys [label]} (first values)
                items (into #{} (map :member values))
                enum-name (types/label->field-name label)]
            {:uri   dim
             :label (str label)
-            :doc (str doc)
             :type (types/->EnumType enum-name items)}))
        (group-by :dim enum-dim-values)))
 
@@ -84,12 +83,11 @@
          results)))
 
 (defn collect-dimensions-results [known-dimension-types results]
-  (let [dim-results (group-by :dim results)
-        m (map (fn [[dim-uri type]]
-                 (if-let [{:keys [label comment]} (first (get dim-results dim-uri))]
-                   {:uri dim-uri :type type :label (str label) :doc (str comment)}))
-               known-dimension-types)]
-    (remove #(nil? (second %)) m)))
+  (let [dim-results (group-by :dim results)]
+    (map (fn [[dim-uri type]]
+           (if-let [{:keys [label]} (first (get dim-results dim-uri))]
+             {:uri dim-uri :type type :label (str label)}))
+         known-dimension-types)))
 
 (defn get-known-dimensions [repo known-dimension-types]
   (let [q (queries/get-dimensions-query (map first known-dimension-types))
