@@ -113,7 +113,7 @@
         nil
         (transform-f sparql-value)))))
 
-(defrecord Dimension [uri ds-uri schema label doc order type]
+(defrecord Dimension [uri schema label doc order type]
   SparqlQueryable
 
   (apply-order-by [_this model direction]

@@ -32,7 +32,6 @@
         dims (concat known-dims enum-dims)]
     (map-indexed (fn [index dim]
                    (-> dim
-                       (assoc :ds-uri ds-uri)
                        (assoc :schema schema)
                        (assoc :order (inc index))
                        (assoc :field-name (types/->field-name dim))
