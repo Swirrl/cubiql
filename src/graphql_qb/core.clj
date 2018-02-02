@@ -25,14 +25,13 @@
             :type (types/->EnumType enum-name items)}))
        (group-by :dim enum-dim-values)))
 
-(defn get-dataset-dimensions [ds-uri schema known-dimensions known-dimension-members enum-dims]
+(defn get-dataset-dimensions [ds-uri known-dimensions known-dimension-members enum-dims]
   (let [known-dims (filter (fn [{:keys [uri]}]
                              (contains? (get known-dimension-members uri) ds-uri))
                            known-dimensions)
         dims (concat known-dims enum-dims)]
     (map-indexed (fn [index dim]
                    (-> dim
-                       (assoc :schema schema)
                        (assoc :order (inc index))
                        (assoc :field-name (types/->field-name dim))
                        (types/map->Dimension)))
@@ -54,11 +53,10 @@
   (let [dataset-enum-values (group-by :ds dataset-enum-values)
         datasets (map (fn [{uri :ds :as dataset}]
                         (let [{:keys [title description issued modified publisher licence]} dataset
-                              schema (types/dataset-schema dataset)
                               enum-dim-values (get dataset-enum-values uri)
                               measures-mapping (get-dataset-measures-mapping dataset-measures)
                               enum-dims (get-dataset-enum-dimensions enum-dim-values)
-                              dimensions (get-dataset-dimensions uri schema known-dimensions known-dimension-members enum-dims)
+                              dimensions (get-dataset-dimensions uri known-dimensions known-dimension-members enum-dims)
                               measures (or (get measures-mapping uri) [])
                               d (types/->Dataset uri title description dimensions measures)]
                           (assoc d
