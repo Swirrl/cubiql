@@ -14,24 +14,10 @@
             [graphql-qb.vocabulary :as vocab]
             [graphql-qb.schema.mapping.labels :as mapping]))
 
-(defn code-list->enum-items [code-list]
-  (let [by-enum-name (group-by #(types/enum-label->value-name (:label %)) code-list)
-        items (mapcat (fn [[enum-name item-results]]
-                        (if (= 1 (count item-results))
-                          (map (fn [{:keys [member label]}]
-                                 (types/->EnumItem member label enum-name))
-                               item-results)
-                          (map-indexed (fn [n {:keys [member label]}]
-                                         (types/->EnumItem member label (types/enum-label->value-name label (inc n))))
-                                       item-results)))
-                      by-enum-name)]
-    (vec items)))
-
 (defn get-dataset-enum-dimensions [enum-dim-values]
   (map (fn [[dim values]]
          (let [{:keys [label doc]} (first values)
-               code-list (map #(util/rename-key % :vallabel :label) values)
-               items (code-list->enum-items code-list)
+               items (into #{} (map :member values))
                enum-name (types/label->field-name label)]
            {:uri   dim
             :label (str label)

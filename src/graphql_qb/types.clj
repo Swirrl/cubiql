@@ -22,12 +22,6 @@
        (string/join "_")
        (keyword)))
 
-(defn- segments->enum-value [segments]
-  (->> segments
-       (map string/upper-case)
-       (string/join "_")
-       (keyword)))
-
 (defn dataset-label->schema-name [label]
   (segments->schema-key (cons "dataset" (get-identifier-segments label))))
 
@@ -36,13 +30,6 @@
 
 (defn ->field-name [{:keys [label]}]
   (label->field-name label))
-
-(defn enum-label->value-name
-  ([label]
-   (segments->enum-value (get-identifier-segments label)))
-  ([label n]
-   (let [label-segments (get-identifier-segments label)]
-     (segments->enum-value (concat label-segments [(str n)])))))
 
 (defn field-name->type-name [field-name ds-schema]
   (keyword (str (name ds-schema) "_" (name field-name) "_type")))
@@ -56,8 +43,6 @@
 (defrecord RefAreaType [])
 
 (defrecord RefPeriodType [])
-
-(defrecord EnumItem [value label name])
 
 (defrecord EnumType [enum-name values])
 

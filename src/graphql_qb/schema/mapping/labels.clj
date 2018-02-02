@@ -84,7 +84,6 @@
           (cons "a" segments)
           segments)))))
 
-;;TODO: remove types/segments->enum-value
 (defn- segments->enum-value [segments]
   (->> segments
        (map string/upper-case)
@@ -123,7 +122,6 @@
           mapping-name (keyword (str (name schema) "_aggregation_measures"))]
       (create-group-mapping mapping-name aggregation-measures :uri))))
 
-;;TODO: remove core/code-list->enum-items
 (defn create-enum-mapping [enum-label enum-doc code-list]
   (let [by-enum-name (group-by #(label->enum-name (:label %)) code-list)
         items (mapcat (fn [[enum-name item-results]]
