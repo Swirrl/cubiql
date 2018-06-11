@@ -8,7 +8,16 @@
                  [com.walmartlabs/lacinia-pedestal "0.5.0-rc-2"]
                  [org.clojure/data.json "0.2.6"]
                  [grafter "0.9.0"]
-                 [org.clojure/tools.cli "0.3.5"]]
+                 [org.clojure/tools.cli "0.3.5"]
+
+                 ;; logging
+                 [org.slf4j/slf4j-api "1.7.25"]
+                 [org.apache.logging.log4j/log4j-slf4j-impl "2.11.0"]
+                 
+                 [org.slf4j/jul-to-slf4j "1.7.25"]
+                 [org.slf4j/jcl-over-slf4j "1.7.25"]
+
+                 ]
   :main ^:skip-aot graphql-qb.main
   :target-path "target/%s"
   :profiles {:uberjar {:aot :all}})
