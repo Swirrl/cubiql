@@ -192,7 +192,7 @@
 (defrecord MeasureType [uri label order is-numeric?]
   SparqlQueryable
   (apply-order-by [this model direction]
-    (qm/add-order-by model {direction [:mv]}))
+    (qm/add-order-by model {direction [(keyword (str "mv" order))]}))
 
   SparqlResultProjector
   (apply-projection [_this model selections]
