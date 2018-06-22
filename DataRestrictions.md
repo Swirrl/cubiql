@@ -1,10 +1,10 @@
-#CubiQL RDF data restrictions 
+## CubiQL RDF data restrictions 
 
-This list contains the temporary CubiQL data restrictions and will be updated when they change. The RDF data should apply to these restrictions when running CubiQL against your own SPARQL end point.
+This list contains the **temporary CubiQL data restrictions and will be updated when they change**. The RDF data should apply to these restrictions when running CubiQL against your own SPARQL end point.
 
 CubiQL requires data to be modeled using the [RDF Data Cube Vocabulary](https://www.w3.org/TR/vocab-data-cube/). However, there are some more assumptions/restrictions for the data to be compatible with CubiQL:
 
-- Literals should *not* have language tags (e.g. @en)
+- Literals should **not** have language tags (e.g. @en)
 - Always use the qb:measureType even if there is only one measure.
 - Reference area should be defined as: http://purl.org/linked-data/sdmx/2009/dimension#refArea
 - Reference period should be defined as: http://purl.org/linked-data/sdmx/2009/dimension#refPeriod
