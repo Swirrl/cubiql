@@ -9,7 +9,7 @@ CubiQL requires data to be modeled using the [RDF Data Cube Vocabulary](https://
 - Reference area should be defined as: http://purl.org/linked-data/sdmx/2009/dimension#refArea
 - Reference period should be defined as: http://purl.org/linked-data/sdmx/2009/dimension#refPeriod
 - Time values should be expressed using reference.data.gov.uk e.g. http://reference.data.gov.uk/id/year/2016
-- A qb:codeList should be defined for each dimension of the cube (except refArea and refPeriod) that contains *only* the values used at the cube 
+- A qb:codeList should be defined for each dimension of the cube (except refArea and refPeriod) that contains *only* the values used in the cube 
 - The code lists should be associated at the qb:ComponentSpecification (The QB vocabulary requires the code lists to be defined at the qb:DimensionProperty)
 - The skos:Concepts of the code list should use rdfs:label (instead of skos:prefLabel)
 - Data cubes should have at most one dcterms:license, dcterms:issued, dcterms:modified,  dcterms:publisher.
