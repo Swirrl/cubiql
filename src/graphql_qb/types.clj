@@ -179,7 +179,7 @@
       (cond
         (is-ref-period-type? type)
         {:uri   (->PathProjection [[dim-key uri]] false identity)
-         :label (->PathProjection [[dim-key :label]] true identity)
+         :label (->PathProjection [[dim-key uri][:label rdfs:label]] true identity)
          :start (->PathProjection [[dim-key uri] [:begin time:hasBeginning] [:time time:inXSDDateTime]] true grafter-date->datetime)
          :end   (->PathProjection [[dim-key uri] [:end time:hasEnd] [:time time:inXSDDateTime]] true grafter-date->datetime)}
         (is-ref-area-type? type)
