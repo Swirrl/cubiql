@@ -106,9 +106,9 @@
 
 (def resolve-observations-page (wrap-pagination-resolver inner-resolve-observations-page))
 
-(defn resolve-datasets [context {:keys [dimensions measures uri] :as args} _parent]
+(defn resolve-datasets [context {:keys [dimensions measures attributes componentValue uri] :as args} _parent]
   (let [repo (context/get-repository context)
-        q (queries/get-datasets-query dimensions measures uri)
+        q (queries/get-datasets-query dimensions measures attributes componentValue uri)
         results (util/eager-query repo q)]
     (map (fn [{:keys [title] :as bindings}]
            (-> bindings

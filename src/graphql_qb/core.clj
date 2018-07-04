@@ -101,7 +101,7 @@
    4. Get all dimension values for all enum dimensions
    5. Get all dataset measures
    6. Construct datasets"
-  (let [datasets-query (queries/get-datasets-query nil nil nil)
+  (let [datasets-query (queries/get-datasets-query nil nil nil nil nil)
         datasets (util/eager-query repo datasets-query)
         known-dimension-types [[vocab/sdmx:refArea (types/->RefAreaType)]
                                [vocab/sdmx:refPeriod (types/->RefPeriodType)]]

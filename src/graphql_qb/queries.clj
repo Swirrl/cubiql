@@ -39,9 +39,7 @@
 
 (defn get-dimensions-or [{dims-or :or}]
   (if (empty? dims-or)
-    (str "{ SELECT DISTINCT ?ds WHERE {"
-         "  ?ds a qb:DataSet ."
-         "} }")
+    ""
     (let [union-clauses (map (fn [dim]
                                (str "{ ?struct qb:component ?comp ."
                                     "  ?comp qb:dimension <" dim "> . }"))
@@ -64,18 +62,137 @@
                                          comp-var " a qb:ComponentSpecification .\n"
                                          comp-var " qb:dimension <" (str uri) "> .\n")))
                                    dims-and)]
-      (str
-        "  ?ds qb:structure ?struct ."
-        "  ?struct a qb:DataStructureDefinition ."
-        (string/join "\n" and-clauses)))))
+      (str (string/join "\n" and-clauses)))))
 
-(defn get-datasets-query [dimensions measures uri]
+
+
+;;Added by Dimitris
+(defn get-measures-filter [{meas-and :and}]
+  (if (empty? meas-and)
+    ""
+    (let [and-clauses (map-indexed (fn [idx uri]
+                                     (let [comp-var (str "?compMeas" (inc idx))]
+                                       (str
+                                        "?struct qb:component " comp-var ". \n"
+                                        comp-var " a qb:ComponentSpecification .\n"
+                                        comp-var " qb:measure <" (str uri) "> .\n")))
+                            meas-and)]
+      (str (string/join and-clauses)))))
+
+
+;;Added by Dimitris
+(defn get-measures-or [{meas-or :or}]
+  (if (empty? meas-or)
+    ""
+    (let [union-clauses (map (fn [meas]
+                               (str "{ ?struct qb:component ?comp .\n"
+                                    "  ?comp qb:measure <" meas "> . }\n"))
+                             meas-or)]
+      (str
+       "{ SELECT DISTINCT ?ds WHERE {\n"
+       "  ?ds a qb:DataSet .\n"
+       "  ?ds qb:structure ?struct .\n"
+       "  ?struct a qb:DataStructureDefinition .\n"
+       (string/join " UNION " union-clauses)
+       "} }"))))
+
+;;Added by Dimitris
+(defn get-attributes-filter [{attr-and :and}]
+  (if (empty? attr-and)
+    ""
+    (let [and-clauses (map-indexed (fn [idx uri]
+                                     (let [comp-var (str "?compAttr" (inc idx))]
+                                       (str
+                                        "?struct qb:component " comp-var ". \n"
+                                        comp-var " a qb:ComponentSpecification .\n"
+                                        comp-var " qb:attribute <" (str uri) "> .\n")))
+                            attr-and)]
+      (str (string/join and-clauses)))))
+
+
+;;Added by Dimitris
+(defn get-attributes-or [{attr-or :or}]
+  (if (empty? attr-or)
+    ""
+    (let [union-clauses (map (fn [attr]
+                               (str "{ ?struct qb:component ?comp .\n"
+                                    "  ?comp qb:attribute <" attr "> . }\n"))
+                             attr-or)]
+      (str
+       "{ SELECT DISTINCT ?ds WHERE {\n"
+       "  ?ds a qb:DataSet .\n"
+       "  ?ds qb:structure ?struct .\n"
+       "  ?struct a qb:DataStructureDefinition .\n"
+       (string/join " UNION " union-clauses)
+       "} }"))))
+
+;;Added by Dimitris
+(defn get-data-filter [{data-and :and}]
+  (if (empty? data-and)
+    ""
+    (let [and-clauses (map-indexed (fn [idx {comp :component vals :values levs :levels}]
+                                     (let [incidx (str (inc idx))]
+                                       (str " ?struct qb:component ?compdata" incidx " .\n"
+                                            " ?compdata" incidx " qb:dimension|qb:attribute <" comp "> .\n" ;;the component can be either a dimension or attribute
+                                            " ?compdata" incidx " qb:codeList ?cl" incidx ".\n" ;the codelist should contain ONLY the values used at the dataset
+                                             (if (some? vals)
+                                                (let [cl-vals
+                                                  (map (fn[uri] (str "  ?cl" incidx " skos:member <" uri ">.\n")) vals)]
+                                                  (str (string/join cl-vals))))
+                                             (if (some? levs)
+                                               (let [cl-levs
+                                                  (map (fn[uri] (str "  ?cl" incidx " skos:member/<http://publishmydata.com/def/ontology/foi/memberOf> <" uri ">.\n")) levs)]
+                                                  (str (string/join cl-levs)))))))
+                        data-and)]
+      (str (string/join and-clauses)))))
+
+;;Added by Dimitris
+(defn get-data-or [{data-or :or}]
+  (if (empty? data-or)
+    ""
+    (let [union-clauses (map (fn [{comp :component vals :values levs :levels}]
+                               (str "{ ?struct qb:component ?comp .\n"
+                                    "  ?comp qb:dimension|qb:attribute <" comp "> .\n" ;;the component can be either a dimension or attribute
+                                    "  ?comp qb:codeList ?cl.\n" ;;the codelist should contain ONLY the values used at the dataset
+                                    "  ?cl skos:member ?mem.\n"
+                                   (if (some? vals)
+                                       (let [members
+                                            (map (fn[uri] (str "  ?mem=<" uri ">")) vals)]
+                                            (str "FILTER("                                      
+                                              (string/join "||" members)
+                                              ")")))
+                                   (if (some? levs)
+                                     (str "  ?mem <http://publishmydata.com/def/ontology/foi/memberOf> ?lev.\n"
+                                       (let [levelsOr
+                                            (map (fn[uri] (str "  ?lev=<" uri ">")) levs)]
+                                            (str "FILTER("                                      
+                                              (string/join "||" levelsOr)
+                                              ")"))))                                                                                               
+                                    "}\n"))
+                             data-or)]
+    (str
+       "{ SELECT DISTINCT ?ds WHERE {\n"
+       "  ?ds a qb:DataSet .\n"
+       "  ?ds qb:structure ?struct .\n"
+       "  ?struct a qb:DataStructureDefinition .\n"
+       (string/join " UNION " union-clauses)
+       "} }"))))
+
+;;Modified by Dimitris
+(defn get-datasets-query [dimensions measures attributes componentValue uri]
   (str
     "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>"
     "PREFIX qb: <http://purl.org/linked-data/cube#>"
     "PREFIX dcterms: <http://purl.org/dc/terms/>"
-    "SELECT ?ds ?title ?description ?licence ?issued ?modified ?publisher WHERE {"
+    "PREFIX skos: <http://www.w3.org/2004/02/skos/core#>"
+    "SELECT DISTINCT ?ds ?title ?description ?licence ?issued ?modified ?publisher WHERE {"
+     "  ?ds a qb:DataSet ."
+     "  ?ds qb:structure ?struct ."
+     "  ?struct a qb:DataStructureDefinition ."
     (get-dimensions-or dimensions)
+    (get-measures-or measures)
+    (get-attributes-or attributes)
+    (get-data-or componentValue)
     "  ?ds rdfs:label ?title ."
     "  OPTIONAL { ?ds rdfs:comment ?description . }"
     "  OPTIONAL { ?ds dcterms:license ?licence }"
@@ -83,6 +200,9 @@
     "  OPTIONAL { ?ds dcterms:modified ?modified }"
     "  OPTIONAL { ?ds dcterms:publisher ?publisher }"
     (get-dimensions-filter dimensions)
+    (get-measures-filter measures)
+    (get-attributes-filter attributes)
+    (get-data-filter componentValue)
     (if (some? uri)
       (str "FILTER(?ds = <" uri ">) ."))
     "}"))

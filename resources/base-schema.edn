@@ -87,6 +87,21 @@
           :description "List of URIs for which at least one must be contained within matching datasets."}
     :and {:type        (list :uri)
           :description "List of URIs which must all be contained within matching datasets."}}}
+  
+   :valuefilter
+    {:fields
+    {:or  {:type        (list :componentvalue)
+           :description "List of :componentvalues for which at least one must be contained within matching datasets."}
+     :and {:type        (list :componentvalue)
+           :description "List of :componentvalues which must all be contained within matching datasets."}}}
+  
+  :componentvalue
+   {:fields
+    {:component {:type :uri :description "The URI of a dimension or attribute"}
+     :values    {:type (list :uri) :description "A list of dimension/attribute values"}
+     :levels    {:type (list :uri) :description "A list of URIs of the hierarchical levels of dimension/attribute value"}   
+    }
+   }
 
   :ref_period_filter
   {:fields
@@ -107,4 +122,7 @@
    :resolve :resolve-datasets
    :args
             {:dimensions {:type :filter}
+             :measures       {:type :filter} 
+             :attributes     {:type :filter}
+             :componentValue {:type :valuefilter}
              :uri        {:type :uri}}}}}
