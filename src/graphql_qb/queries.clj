@@ -3,13 +3,17 @@
             [graphql-qb.types :as types]
             [grafter.rdf.sparql :as sp]
             [graphql-qb.vocabulary :refer :all]
-            [graphql-qb.query-model :as qm]))
+            [graphql-qb.query-model :as qm])
+  (:import  [java.net URI]))
 
 (defn get-observation-filter-model [dim-filter]
-  (reduce (fn [m [dim value]]
-            (types/apply-filter dim m value))
-          qm/empty-model
-          dim-filter))
+   (let [m (-> qm/empty-model
+                    (qm/add-binding [[:mp (URI. "http://purl.org/linked-data/cube#measureType")]] ::qm/var)
+                    (qm/add-binding [[:mv (qm/->QueryVar "mp")]] ::qm/var))]
+       (reduce (fn [m [dim value]]
+                       (types/apply-filter dim m value))
+                     m
+                     dim-filter)))
 
 (defn apply-model-projections [filter-model dataset observation-selections]
   (reduce (fn [m dm]

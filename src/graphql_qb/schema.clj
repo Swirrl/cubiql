@@ -57,7 +57,8 @@
 (defn wrap-observations-mapping [inner-resolver dataset dataset-enum-mappings]
   (fn [context args observations-field]
     (let [result (inner-resolver context args observations-field)
-          projection (merge {:uri :obs} (types/dataset-result-projection dataset))
+          updated-result (first (::resolvers/observation-results result))
+          projection (merge {:uri :obs} (types/dataset-result-projection dataset updated-result))
           result-mapping (mapping/get-dataset-observations-result-mapping dataset dataset-enum-mappings)
           mapped-result (mapv (fn [obs-bindings]
                                 (let [sparql-result (types/project-result projection obs-bindings)]
