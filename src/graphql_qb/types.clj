@@ -79,7 +79,7 @@
 (defprotocol SparqlResultProjector
   (apply-projection [this model selections])
   (project-result [this sparql-binding])
-  (get-result-projection [this]))
+  (get-result-projection [this sparql-binding]))
 
 (extend-protocol SparqlResultProjector
   Keyword
@@ -120,7 +120,7 @@
     (let [dim-key (keyword (str "dim" order))]
       (if (is-ref-area-type? type)
         (-> model
-            (qm/add-binding [[dim-key uri] [:label rdfs:label]] ::qm/var :optional? true)
+            (qm/add-binding [[dim-key uri] [:label rdfs:label]] ::qm/var)
             (qm/add-order-by {direction [dim-key :label]}))
         ;;NOTE: binding should have already been added
         (qm/add-order-by model {direction [dim-key]}))))
@@ -142,7 +142,7 @@
         (is-ref-period-type? type)
         (let [model (qm/add-binding model [[dim-key uri]] ::qm/var)
               model (if (contains? field-selections :label)
-                      (qm/add-binding model [[dim-key uri] [:label rdfs:label]] ::qm/var :optional? true)
+                      (qm/add-binding model [[dim-key uri] [:label rdfs:label]] ::qm/var)
                       model)
               model (if (contains? field-selections :start)
                       (qm/add-binding model [[dim-key uri] [:begin time:hasBeginning] [:time time:inXSDDateTime]] ::qm/var)
@@ -154,7 +154,7 @@
         (is-ref-area-type? type)
         (let [label-selected? (contains? field-selections :label)]
           (if label-selected?
-            (qm/add-binding model [[dim-key uri] [:label rdfs:label]] ::qm/var :optional? true)
+            (qm/add-binding model [[dim-key uri] [:label rdfs:label]] ::qm/var)
             model))
 
         :else model)))
@@ -174,7 +174,7 @@
 
         :else (get bindings dim-key))))
 
-  (get-result-projection [_this]
+  (get-result-projection [_this bindings]
     (let [dim-key (keyword (str "dim" order))]
       (cond
         (is-ref-period-type? type)
@@ -192,19 +192,22 @@
 (defrecord MeasureType [uri label order is-numeric?]
   SparqlQueryable
   (apply-order-by [this model direction]
-    (qm/add-order-by model {direction [(keyword (str "mv" order))]}))
+    (qm/add-order-by model {direction [(keyword (str "mv"))]}))
 
   SparqlResultProjector
   (apply-projection [_this model selections]
-    (let [dim-key (keyword (str "mv" order))]
-      (qm/add-binding model [[dim-key uri]] ::qm/var :optional? true)))
+    model)
 
   (project-result [_this binding]
-    (get binding (keyword (str "mv" order))))
+    (if (= uri (get binding :mp))
+             (get binding :mv)
+             nil))
 
-  (get-result-projection [_this]
-    (let [dim-key (keyword (str "mv" order))]
-      (->PathProjection [[dim-key uri]] true identity))))
+  (get-result-projection [_this bindings]
+    (if (= uri (get bindings :mp))
+      (let [dim-key (keyword (str "mv"))]
+        (->PathProjection [[dim-key uri]] true identity))
+      (->PathProjection nil true identity))))
 
 (defrecord Dataset [uri title description dimensions measures])
 
@@ -226,7 +229,7 @@
 (defn get-dataset-measure-by-uri [{:keys [measures] :as dataset} uri]
   (util/find-first #(= uri (:uri %)) measures))
 
-(defn dataset-result-projection [dataset]
+(defn dataset-result-projection [dataset bindings]
   (into {} (map (fn [{:keys [field-name] :as ft}]
-                  [field-name (get-result-projection ft)])
+                  [field-name (get-result-projection ft bindings)])
                 (dataset-dimension-measures dataset))))
