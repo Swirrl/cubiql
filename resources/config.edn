@@ -1,0 +1,3 @@
+{:geo-dimension "http://purl.org/linked-data/sdmx/2009/dimension#refArea"
+ :time-dimension "http://purl.org/linked-data/sdmx/2009/dimension#refPeriod"
+ :codelist-source "component"}
