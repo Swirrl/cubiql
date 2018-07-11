@@ -16,6 +16,9 @@
                  
                  [org.slf4j/jul-to-slf4j "1.7.25"]
                  [org.slf4j/jcl-over-slf4j "1.7.25"]
+                 
+                 ;;configuration
+                 [aero "1.1.3"]
 
                  ]
   :main ^:skip-aot graphql-qb.main
