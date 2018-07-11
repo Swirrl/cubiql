@@ -23,8 +23,8 @@
 ;;accepted values: [dimension component]
 (defn codelist-source [config]
   (let [config-codelist (get-in config [:codelist-source])]    
-    ;;Return the default "dimension" if :codelist-source is not defined at configuration
+    ;;Return the default "?dim" if :codelist-source is not defined at configuration
     (case config-codelist
-      "dimension" "dimension"
-      "component" "component"
-      "dimension")))
+      "dimension" "?dim"
+      "component" "?comp"
+      "?dim")))

@@ -3,7 +3,9 @@
             [graphql-qb.types :as types]
             [grafter.rdf.sparql :as sp]
             [graphql-qb.vocabulary :refer :all]
-            [graphql-qb.query-model :as qm])
+            [graphql-qb.query-model :as qm]
+            [graphql-qb.config :as config]
+            [graphql-qb.util :as util])
   (:import  [java.net URI]))
 
 (defn get-observation-filter-model [dim-filter]
@@ -91,8 +93,28 @@
       (str "FILTER(?ds = <" uri ">) ."))
     "}"))
 
+(defn get-unmapped-dimension-values-query [uri]
+  (let [configuration (config/read-config)]
+    (str
+      "PREFIX qb: <http://purl.org/linked-data/cube#>"
+      "PREFIX skos: <http://www.w3.org/2004/02/skos/core#>"
+      "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>"
+      "PREFIX ui: <http://www.w3.org/ns/ui#>"
+      "SELECT ?dim ?member ?label WHERE {"
+      "<" (str uri) "> qb:structure ?struct ."
+      "?struct a qb:DataStructureDefinition ."
+      "?struct qb:component ?comp ."
+      "VALUES ?dim { <http://purl.org/linked-data/sdmx/2009/dimension#refArea>"
+      "<http://purl.org/linked-data/sdmx/2009/dimension#refPeriod> }"
+      "?comp qb:dimension ?dim ."
+      (config/codelist-source configuration) " qb:codeList ?list  ."
+      "?list skos:member ?member ."
+      "OPTIONAL { ?member rdfs:label ?label . }"
+      "}")))
+
 (defn get-unmapped-dimension-values [repo {:keys [uri] :as dataset}]
-  (let [results (vec (sp/query "get-unmapped-dimension-values.sparql" {:ds uri} repo))]
+  (let [dimvalues-query (get-unmapped-dimension-values-query uri)
+        results (util/eager-query repo dimvalues-query)]
     (group-by :dim results)))
 
 (defn get-datasets-containing-dimension [repo dimension-uri]
@@ -109,3 +131,24 @@
     "  ?dim rdfs:label ?label ."
     "  OPTIONAL { ?dim rdfs:comment ?comment }"
     "}"))
+
+(defn get-all-enum-dimension-values []
+  (let [configuration (config/read-config)]
+    (str
+      "PREFIX qb: <http://purl.org/linked-data/cube#>"
+      "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>"
+      "PREFIX skos: <http://www.w3.org/2004/02/skos/core#>"
+      "SELECT * WHERE {"
+      "?ds qb:structure ?struct ."
+      "?struct a qb:DataStructureDefinition ."
+      "?struct qb:component ?comp ."
+      "?comp a qb:ComponentSpecification ."
+      "?comp qb:dimension ?dim ."
+      "FILTER(?dim != <http://purl.org/linked-data/sdmx/2009/dimension#refArea>)"
+      "FILTER(?dim != <http://purl.org/linked-data/sdmx/2009/dimension#refPeriod>)"
+      "?dim rdfs:label ?label ."
+      "OPTIONAL { ?dim rdfs:comment ?doc }"
+      (config/codelist-source configuration) " qb:codeList ?list ."
+      "?list skos:member ?member ."
+      "OPTIONAL { ?member rdfs:label ?vallabel . }"
+      "}")))

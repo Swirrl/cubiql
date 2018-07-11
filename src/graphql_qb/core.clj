@@ -109,12 +109,14 @@
         known-dimension-members (into {} (map (fn [[dim-uri _type]]
                                                 [dim-uri (queries/get-datasets-containing-dimension repo dim-uri)])
                                               known-dimension-types))
-        dataset-enum-values (vec (sp/query "get-all-enum-dimension-values.sparql" repo))
+        enum-dimension-values-query (queries/get-all-enum-dimension-values)
+        dataset-enum-values (util/eager-query repo enum-dimension-values-query)
         dataset-measures (get-dataset-measures repo)]
     (construct-datasets datasets dataset-enum-values dataset-measures known-dimensions known-dimension-members)))
 
 (defn get-datasets-enum-mappings [repo]
-  (let [dataset-enum-values (vec (sp/query "get-all-enum-dimension-values.sparql" repo))]
+  (let [enum-dimension-values-query (queries/get-all-enum-dimension-values)
+        dataset-enum-values (util/eager-query repo enum-dimension-values-query)]
     (mapping/get-datasets-enum-mappings dataset-enum-values)))
 
 (defn get-datasets-measures-mapping [repo]
