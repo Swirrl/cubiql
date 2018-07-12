@@ -94,7 +94,9 @@
     "}"))
 
 (defn get-unmapped-dimension-values-query [uri]
-  (let [configuration (config/read-config)]
+  (let [configuration (config/read-config)
+        area-dim (config/geo-dimension configuration)
+        time-dim (config/time-dimension configuration)]
     (str
       "PREFIX qb: <http://purl.org/linked-data/cube#>"
       "PREFIX skos: <http://www.w3.org/2004/02/skos/core#>"
@@ -104,8 +106,7 @@
       "<" (str uri) "> qb:structure ?struct ."
       "?struct a qb:DataStructureDefinition ."
       "?struct qb:component ?comp ."
-      "VALUES ?dim { <http://purl.org/linked-data/sdmx/2009/dimension#refArea>"
-      "<http://purl.org/linked-data/sdmx/2009/dimension#refPeriod> }"
+      "VALUES ?dim { <" (str area-dim) "> <" (str time-dim) "> }"
       "?comp qb:dimension ?dim ."
       (config/codelist-source configuration) " qb:codeList ?list  ."
       "?list skos:member ?member ."
@@ -133,7 +134,9 @@
     "}"))
 
 (defn get-all-enum-dimension-values []
-  (let [configuration (config/read-config)]
+  (let [configuration (config/read-config)
+        area-dim (config/geo-dimension configuration)
+        time-dim (config/time-dimension configuration)]
     (str
       "PREFIX qb: <http://purl.org/linked-data/cube#>"
       "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>"
@@ -144,8 +147,8 @@
       "?struct qb:component ?comp ."
       "?comp a qb:ComponentSpecification ."
       "?comp qb:dimension ?dim ."
-      "FILTER(?dim != <http://purl.org/linked-data/sdmx/2009/dimension#refArea>)"
-      "FILTER(?dim != <http://purl.org/linked-data/sdmx/2009/dimension#refPeriod>)"
+      "FILTER(?dim != <" (str area-dim) ">)"
+      "FILTER(?dim != <" (str time-dim) ">)"
       "?dim rdfs:label ?label ."
       "OPTIONAL { ?dim rdfs:comment ?doc }"
       (config/codelist-source configuration) " qb:codeList ?list ."

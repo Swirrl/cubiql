@@ -6,13 +6,13 @@
             [graphql-qb.util :refer [read-edn-resource rename-key] :as util]
             [graphql-qb.types :refer :all :as types]
             [graphql-qb.types.scalars :as scalars]
-            [graphql-qb.types.scalars :as scalars]
             [clojure.pprint :as pprint]
             [graphql-qb.schema :as schema]
             [graphql-qb.resolvers :as resolvers]
             [graphql-qb.queries :as queries]
             [graphql-qb.vocabulary :as vocab]
-            [graphql-qb.schema.mapping.labels :as mapping]))
+            [graphql-qb.schema.mapping.labels :as mapping]
+            [graphql-qb.config :as config]))
 
 (defn get-dataset-enum-dimensions [enum-dim-values]
   (map (fn [[dim values]]
@@ -103,8 +103,11 @@
    6. Construct datasets"
   (let [datasets-query (queries/get-datasets-query nil nil nil)
         datasets (util/eager-query repo datasets-query)
-        known-dimension-types [[vocab/sdmx:refArea (types/->RefAreaType)]
-                               [vocab/sdmx:refPeriod (types/->RefPeriodType)]]
+        configuration (config/read-config)
+        area-dim (config/geo-dimension configuration)
+        time-dim (config/time-dimension configuration)
+        known-dimension-types [[area-dim (types/->RefAreaType)]
+                               [time-dim (types/->RefPeriodType)]]
         known-dimensions (get-known-dimensions repo known-dimension-types)
         known-dimension-members (into {} (map (fn [[dim-uri _type]]
                                                 [dim-uri (queries/get-datasets-containing-dimension repo dim-uri)])

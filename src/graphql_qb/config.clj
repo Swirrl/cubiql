@@ -13,7 +13,7 @@
       sdmx:refArea
       (URI. config-geo))))
 
-(defn geo-dimension [config]
+(defn time-dimension [config]
   (let [config-time (get-in config [:time-dimension])]    
     ;;Return the default sdmx:refPeriod if :time-dimension is not defined at configuration
     (if (nil? config-time)
