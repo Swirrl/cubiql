@@ -76,27 +76,30 @@
         (string/join "\n" and-clauses)))))
 
 (defn get-datasets-query [dimensions measures uri]
-  (str
-    "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>"
-    "PREFIX qb: <http://purl.org/linked-data/cube#>"
-    "PREFIX dcterms: <http://purl.org/dc/terms/>"
-    "SELECT ?ds ?title ?description ?licence ?issued ?modified ?publisher WHERE {"
-    (get-dimensions-or dimensions)
-    "  ?ds rdfs:label ?title ."
-    "  OPTIONAL { ?ds rdfs:comment ?description . }"
-    "  OPTIONAL { ?ds dcterms:license ?licence }"
-    "  OPTIONAL { ?ds dcterms:issued ?issued }"
-    "  OPTIONAL { ?ds dcterms:modified ?modified }"
-    "  OPTIONAL { ?ds dcterms:publisher ?publisher }"
-    (get-dimensions-filter dimensions)
-    (if (some? uri)
-      (str "FILTER(?ds = <" uri ">) ."))
-    "}"))
+  (let [configuration (config/read-config)
+        dataset-label (config/dataset-label configuration)]
+    (str
+      "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>"
+      "PREFIX qb: <http://purl.org/linked-data/cube#>"
+      "PREFIX dcterms: <http://purl.org/dc/terms/>"
+      "SELECT ?ds ?title ?description ?licence ?issued ?modified ?publisher WHERE {"
+      (get-dimensions-or dimensions)
+      "  ?ds <" (str dataset-label) "> ?title ."
+      "  OPTIONAL { ?ds rdfs:comment ?description . }"
+      "  OPTIONAL { ?ds dcterms:license ?licence }"
+      "  OPTIONAL { ?ds dcterms:issued ?issued }"
+      "  OPTIONAL { ?ds dcterms:modified ?modified }"
+      "  OPTIONAL { ?ds dcterms:publisher ?publisher }"
+      (get-dimensions-filter dimensions)
+      (if (some? uri)
+        (str "FILTER(?ds = <" uri ">) ."))
+      "}")))
 
 (defn get-unmapped-dimension-values-query [uri]
   (let [configuration (config/read-config)
         area-dim (config/geo-dimension configuration)
-        time-dim (config/time-dimension configuration)]
+        time-dim (config/time-dimension configuration)
+        codelist-label (config/codelist-label configuration)]
     (str
       "PREFIX qb: <http://purl.org/linked-data/cube#>"
       "PREFIX skos: <http://www.w3.org/2004/02/skos/core#>"
@@ -110,7 +113,7 @@
       "?comp qb:dimension ?dim ."
       (config/codelist-source configuration) " qb:codeList ?list  ."
       "?list skos:member ?member ."
-      "OPTIONAL { ?member rdfs:label ?label . }"
+      "OPTIONAL { ?member <" (str codelist-label) "> ?label . }"
       "}")))
 
 (defn get-unmapped-dimension-values [repo {:keys [uri] :as dataset}]
@@ -123,20 +126,24 @@
     (into #{} (map :ds results))))
 
 (defn get-dimensions-query [dim-uris]
-  (str
-    "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>"
-    "PREFIX qb: <http://purl.org/linked-data/cube#>"
-    "SELECT ?dim ?label ?comment WHERE {"
-    "  VALUES ?dim { " (string/join " " (map #(str "<" % ">") dim-uris)) " }"
-    "  ?dim a qb:DimensionProperty ."
-    "  ?dim rdfs:label ?label ."
-    "  OPTIONAL { ?dim rdfs:comment ?comment }"
-    "}"))
+  (let [configuration (config/read-config)
+        dataset-label (config/dataset-label configuration)]
+    (str
+      "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>"
+      "PREFIX qb: <http://purl.org/linked-data/cube#>"
+      "SELECT ?dim ?label ?comment WHERE {"
+      "  VALUES ?dim { " (string/join " " (map #(str "<" % ">") dim-uris)) " }"
+      "  ?dim a qb:DimensionProperty ."
+      "  ?dim <" (str dataset-label) "> ?label ."
+      "  OPTIONAL { ?dim rdfs:comment ?comment }"
+      "}")))
 
 (defn get-all-enum-dimension-values []
   (let [configuration (config/read-config)
         area-dim (config/geo-dimension configuration)
-        time-dim (config/time-dimension configuration)]
+        time-dim (config/time-dimension configuration)
+        dataset-label (config/dataset-label configuration)
+        codelist-label (config/codelist-label configuration)]
     (str
       "PREFIX qb: <http://purl.org/linked-data/cube#>"
       "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>"
@@ -149,9 +156,9 @@
       "?comp qb:dimension ?dim ."
       "FILTER(?dim != <" (str area-dim) ">)"
       "FILTER(?dim != <" (str time-dim) ">)"
-      "?dim rdfs:label ?label ."
+      "?dim <" (str dataset-label) "> ?label ."
       "OPTIONAL { ?dim rdfs:comment ?doc }"
       (config/codelist-source configuration) " qb:codeList ?list ."
       "?list skos:member ?member ."
-      "OPTIONAL { ?member rdfs:label ?vallabel . }"
+      "OPTIONAL { ?member <" (str codelist-label) "> ?vallabel . }"
       "}")))

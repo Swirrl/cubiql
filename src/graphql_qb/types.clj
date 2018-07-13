@@ -4,7 +4,8 @@
             [graphql-qb.query-model :as qm]
             [graphql-qb.vocabulary :refer [time:hasBeginning time:hasEnd time:inXSDDateTime rdfs:label]]
             [graphql-qb.types.scalars :refer [grafter-date->datetime]]
-            [graphql-qb.util :as util])
+            [graphql-qb.util :as util]
+            [graphql-qb.config :as config])
   (:import [clojure.lang Keyword IPersistentMap]))
 
 (defn get-identifier-segments [label]
@@ -117,10 +118,12 @@
   SparqlQueryable
 
   (apply-order-by [_this model direction]
-    (let [dim-key (keyword (str "dim" order))]
+    (let [configuration (config/read-config)
+          codelist-label (config/dataset-label configuration)
+          dim-key (keyword (str "dim" order))]
       (if (is-ref-area-type? type)
         (-> model
-            (qm/add-binding [[dim-key uri] [:label rdfs:label]] ::qm/var)
+            (qm/add-binding [[dim-key uri] [:label codelist-label]] ::qm/var)
             (qm/add-order-by {direction [dim-key :label]}))
         ;;NOTE: binding should have already been added
         (qm/add-order-by model {direction [dim-key]}))))
@@ -137,12 +140,14 @@
   (apply-projection [this model observation-selections]
     (let [dim-key (keyword (str "dim" order))
           field-name (:field-name this)
-          field-selections (get observation-selections field-name)]
+          field-selections (get observation-selections field-name)
+          configuration (config/read-config)
+          codelist-label (config/dataset-label configuration)]
       (cond
         (is-ref-period-type? type)
         (let [model (qm/add-binding model [[dim-key uri]] ::qm/var)
               model (if (contains? field-selections :label)
-                      (qm/add-binding model [[dim-key uri] [:label rdfs:label]] ::qm/var)
+                      (qm/add-binding model [[dim-key uri] [:label codelist-label]] ::qm/var)
                       model)
               model (if (contains? field-selections :start)
                       (qm/add-binding model [[dim-key uri] [:begin time:hasBeginning] [:time time:inXSDDateTime]] ::qm/var)
@@ -154,7 +159,7 @@
         (is-ref-area-type? type)
         (let [label-selected? (contains? field-selections :label)]
           (if label-selected?
-            (qm/add-binding model [[dim-key uri] [:label rdfs:label]] ::qm/var)
+            (qm/add-binding model [[dim-key uri] [:label codelist-label]] ::qm/var)
             model))
 
         :else model)))
@@ -175,16 +180,18 @@
         :else (get bindings dim-key))))
 
   (get-result-projection [_this bindings]
-    (let [dim-key (keyword (str "dim" order))]
+    (let [dim-key (keyword (str "dim" order))
+          configuration (config/read-config)
+          codelist-label (config/dataset-label configuration)]
       (cond
         (is-ref-period-type? type)
         {:uri   (->PathProjection [[dim-key uri]] false identity)
-         :label (->PathProjection [[dim-key uri][:label rdfs:label]] true identity)
+         :label (->PathProjection [[dim-key uri][:label codelist-label]] true identity)
          :start (->PathProjection [[dim-key uri] [:begin time:hasBeginning] [:time time:inXSDDateTime]] true grafter-date->datetime)
          :end   (->PathProjection [[dim-key uri] [:end time:hasEnd] [:time time:inXSDDateTime]] true grafter-date->datetime)}
         (is-ref-area-type? type)
         {:uri   (->PathProjection [[dim-key uri]] false identity)
-         :label (->PathProjection [[dim-key uri] [:label rdfs:label]] true identity)}
+         :label (->PathProjection [[dim-key uri] [:label codelist-label]] true identity)}
 
         :else
         (->PathProjection [[dim-key uri]] false identity)))))
