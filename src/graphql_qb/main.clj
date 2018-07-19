@@ -2,7 +2,8 @@
   (:require [graphql-qb.server :as server]
             [clojure.tools.cli :as cli]
             [graphql-qb.data :as data]
-            [grafter.rdf.repository :as repo])
+            [grafter.rdf.repository :as repo]
+            [graphql-qb.config :as config])
   (:gen-class)
   (:import [java.net URI]))
 
@@ -41,6 +42,8 @@
         (print-errors-and-usage errors summary)
         (System/exit 1))
       (let [{:keys [port endpoint]} options
-            repo (get-repo endpoint)]
-        (server/start-server port repo)
+            repo (get-repo endpoint)
+            ;;TODO: add command line argument for configuration
+            config (config/read-config)]
+        (server/start-server port repo config)
         (println "Started server on port " port)))))
