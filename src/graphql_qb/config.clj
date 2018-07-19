@@ -1,10 +1,13 @@
 (ns graphql-qb.config
-  (:require [graphql-qb.vocabulary :refer :all] 
-            [aero.core :as aero])
+  (:require [graphql-qb.vocabulary :refer :all]
+            [aero.core :as aero]
+            [clojure.java.io :as io])
   (:import [java.net URI]))
 
-(defn read-config []
-  (aero/read-config "resources/config.edn"))
+(defn read-config
+  ([] (read-config (io/resource "config.edn")))
+  ([source]
+   (aero/read-config source)))
 
 (defn geo-dimension [{config-geo :geo-dimension-uri :as config}]
   ;;Return the default sdmx:refArea if :geo-dimension is not defined at configuration

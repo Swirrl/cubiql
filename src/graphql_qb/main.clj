@@ -3,9 +3,11 @@
             [clojure.tools.cli :as cli]
             [graphql-qb.data :as data]
             [grafter.rdf.repository :as repo]
-            [graphql-qb.config :as config])
+            [graphql-qb.config :as config]
+            [clojure.java.io :as io])
   (:gen-class)
-  (:import [java.net URI]))
+  (:import [java.net URI]
+           (java.io File)))
 
 (def cli-options
   [["-p" "--port PORT" "Port number to start the server on"
@@ -14,7 +16,11 @@
     :validate [#(< 0 % 65536) "Port number must be in the range (0, 65536)"]]
 
    ["-e" "--endpoint ENDPOINT" "Uri of the SPARQL query endpoint to search for datasets. Uses the test repository if not specified"
-    :parse-fn #(URI. %)]])
+    :parse-fn #(URI. %)]
+
+   ["-c" "--configuration CONFIGURATION" "File containing data cube configuration"
+    :parse-fn io/file
+    :validate [(fn [^File f] (.exists f)) "Configuration file not found"]]])
 
 (defn print-usage [arg-summary]
   (println "Usage: graphql-qb OPTIONS")
@@ -41,9 +47,10 @@
       (do
         (print-errors-and-usage errors summary)
         (System/exit 1))
-      (let [{:keys [port endpoint]} options
+      (let [{:keys [port endpoint configuration]} options
             repo (get-repo endpoint)
-            ;;TODO: add command line argument for configuration
-            config (config/read-config)]
+            config (if (some? configuration)
+                     (config/read-config configuration)
+                     (config/read-config))]
         (server/start-server port repo config)
         (println "Started server on port " port)))))
