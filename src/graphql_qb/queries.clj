@@ -4,8 +4,7 @@
             [grafter.rdf.sparql :as sp]
             [graphql-qb.vocabulary :refer :all]
             [graphql-qb.query-model :as qm]
-            [graphql-qb.config :as config]
-            [graphql-qb.util :as util])
+            [graphql-qb.config :as config])
   (:import  [java.net URI]))
 
 (defn get-observation-filter-model [dim-filter]
@@ -95,30 +94,11 @@
         (str "FILTER(?ds = <" uri ">) ."))
       "}")))
 
-(defn get-unmapped-dimension-values-query [uri]
-  (let [configuration (config/read-config)
-        area-dim (config/geo-dimension configuration)
-        time-dim (config/time-dimension configuration)
-        codelist-label (config/codelist-label configuration)]
-    (str
-      "PREFIX qb: <http://purl.org/linked-data/cube#>"
-      "PREFIX skos: <http://www.w3.org/2004/02/skos/core#>"
-      "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>"
-      "PREFIX ui: <http://www.w3.org/ns/ui#>"
-      "SELECT ?dim ?member ?label WHERE {"
-      "<" (str uri) "> qb:structure ?struct ."
-      "?struct a qb:DataStructureDefinition ."
-      "?struct qb:component ?comp ."
-      "VALUES ?dim { <" (str area-dim) "> <" (str time-dim) "> }"
-      "?comp qb:dimension ?dim ."
-      (config/codelist-source configuration) " qb:codeList ?list  ."
-      "?list skos:member ?member ."
-      "OPTIONAL { ?member <" (str codelist-label) "> ?label . }"
-      "}")))
-
 (defn get-unmapped-dimension-values [repo {:keys [uri] :as dataset}]
-  (let [dimvalues-query (get-unmapped-dimension-values-query uri)
-        results (util/eager-query repo dimvalues-query)]
+  (let [config (config/read-config)
+        area-dim (config/geo-dimension config)
+        time-dim (config/time-dimension config)
+        results (sp/query "get-unmapped-dimension-values.sparql" {:ds uri :refareadim area-dim :refperioddim time-dim} repo)]
     (group-by :dim results)))
 
 (defn get-datasets-containing-dimension [repo dimension-uri]
