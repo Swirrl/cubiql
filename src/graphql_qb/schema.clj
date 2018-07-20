@@ -58,7 +58,8 @@
   (fn [context args observations-field]
     (let [result (inner-resolver context args observations-field)
           updated-result (first (::resolvers/observation-results result))
-          projection (merge {:uri :obs} (types/dataset-result-projection dataset updated-result))
+          config (context/get-configuration context)
+          projection (merge {:uri :obs} (types/dataset-result-projection dataset updated-result config))
           result-mapping (mapping/get-dataset-observations-result-mapping dataset dataset-enum-mappings)
           mapped-result (mapv (fn [obs-bindings]
                                 (let [sparql-result (types/project-result projection obs-bindings)]
@@ -153,7 +154,8 @@
                      :dimensions   {:type        [:dim]
                                     :resolve     (fn [context _args _field]
                                                    (let [repo (context/get-repository context)
-                                                         unmapped-dims (queries/get-unmapped-dimension-values repo dataset)]
+                                                         config (context/get-configuration context)
+                                                         unmapped-dims (queries/get-unmapped-dimension-values repo dataset config)]
                                                      (mapping/format-dataset-dimension-values dataset dataset-enum-mappings unmapped-dims)))
                                     :description "Dimensions within the dataset"}
                      :measures     {:type        [:measure]
