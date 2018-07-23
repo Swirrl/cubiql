@@ -3,7 +3,8 @@
             [graphql-qb.data :as data]
             [graphql-qb.context :as context]
             [com.walmartlabs.lacinia.pedestal :as lp]
-            [io.pedestal.http :as http]))
+            [io.pedestal.http :as http]
+            [graphql-qb.config :as config]))
 
 (def cors-config {:allowed-origins (constantly true)
                   :creds           false
@@ -11,10 +12,10 @@
                   :methods         "GET, POST, OPTIONS"})
 
 (defn create-server
-  ([port] (create-server port (data/get-test-repo)))
-  ([port repo]
-   (let [{:keys [schema datasets]} (core/build-schema-context repo)
-         context (context/create repo datasets)
+  ([port] (create-server port (data/get-test-repo) (config/read-config)))
+  ([port repo config]
+   (let [{:keys [schema datasets]} (core/build-schema-context repo config)
+         context (context/create repo datasets config)
          opts {:app-context context
                :port        port
                :graphiql    true}
@@ -23,5 +24,5 @@
          (assoc ::http/allowed-origins cors-config)
          (http/create-server)))))
 
-(defn start-server [port repo]
-  (http/start (create-server port repo)))
+(defn start-server [port repo config]
+  (http/start (create-server port repo config)))

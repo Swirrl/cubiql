@@ -34,16 +34,6 @@
       (str "\"" (.format fmt date) "Z\"^^<http://www.w3.org/2001/XMLSchema#dateTime>"))))
 
 (def time:DateTime (URI. "http://www.w3.org/2006/time#inXSDDateTime"))
-{:bindings {:dim1 [(URI. "http://purl.org/linked-data/sdmx/2009/dimension#refArea") {::match ::var
-                                                                                     ::optional? true
-                                                                                     :label  {::match ::var}}]
-            :dim2 [(URI. "http://refPeriod") {:end   [(URI. "http://www.w3.org/2006/time#hasEnd") {:time [time:DateTime {::match ::var}]}]
-                                              :begin [(URI. "http://www.w3.org/2006/time#hasStart") {:time [time:DateTime {::match ::var}]}]}]
-            :dim3 [(URI. "http://statistics.gov.scot/def/dimension/gender") (URI. "http://statistics.gov.scot/def/concept/gender/male")]
-            :dim4 [(URI. "http://purl.org/linked-data/cube#measureType") {::match ::var}]
-            :dim5 [(URI. "http://statistics.gov.scot/def/dimension/populationGroup") {::match ::var}]}
- :filters  {:dim2 {:end {:time ['(>= "2008-01-01T00:00:00Z")]}}}
- :order-by [{:ASC [:dim1 :label]}]}
 
 (def empty-model {:bindings {}
                   :filters {}

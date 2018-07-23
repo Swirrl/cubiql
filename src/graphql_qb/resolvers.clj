@@ -62,9 +62,10 @@
        :total_matches                total-matches
        :aggregations                 {::dimensions-filter dimension-filter ::filter-model filter-model :ds-uri uri}})))
 
-(defn resolve-observations-sparql-query [_context _args obs-field]
-  (let [#::{:keys [dataset observation-selections order-by filter-model]} obs-field
-        model (queries/filter-model->observations-query filter-model dataset order-by observation-selections)]
+(defn resolve-observations-sparql-query [context _args obs-field]
+  (let [config (context/get-configuration context)
+        #::{:keys [dataset observation-selections order-by filter-model]} obs-field
+        model (queries/filter-model->observations-query filter-model dataset order-by observation-selections config)]
     (qm/get-query model "obs" (:uri dataset))))
 
 (def default-limit 10)
@@ -99,7 +100,8 @@
         observation-selections (::observation-selections observations-field)
         filter-model (::filter-model observations-field)
         #::{:keys [page-offset page-size]} (::page args)
-        query (queries/get-observation-page-query dataset filter-model page-size page-offset order-by observation-selections)
+        config (context/get-configuration context)
+        query (queries/get-observation-page-query dataset filter-model page-size page-offset order-by observation-selections config)
         repo (context/get-repository context)
         results (util/eager-query repo query)]
     {::observation-results results}))
@@ -108,7 +110,8 @@
 
 (defn resolve-datasets [context {:keys [dimensions measures uri] :as args} _parent]
   (let [repo (context/get-repository context)
-        q (queries/get-datasets-query dimensions measures uri)
+        config (context/get-configuration context)
+        q (queries/get-datasets-query dimensions measures uri config)
         results (util/eager-query repo q)]
     (map (fn [{:keys [title] :as bindings}]
            (-> bindings
@@ -144,7 +147,8 @@
   (fn [context _args {:keys [uri] :as ds-field}]
     (let [repo (context/get-repository context)
           dataset (context/get-dataset context uri)
+          config (context/get-configuration context)
           ds-enum-mappings (get all-enum-mappings uri)
-          unmapped-dimensions (queries/get-unmapped-dimension-values repo dataset)]
+          unmapped-dimensions (queries/get-unmapped-dimension-values repo dataset config)]
       (mapping/format-dataset-dimension-values dataset ds-enum-mappings unmapped-dimensions))))
 

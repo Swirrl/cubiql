@@ -4,7 +4,8 @@
             [graphql-qb.query-model :as qm]
             [graphql-qb.vocabulary :refer [time:hasBeginning time:hasEnd time:inXSDDateTime rdfs:label]]
             [graphql-qb.types.scalars :refer [grafter-date->datetime]]
-            [graphql-qb.util :as util])
+            [graphql-qb.util :as util]
+            [graphql-qb.config :as config])
   (:import [clojure.lang Keyword IPersistentMap]))
 
 (defn get-identifier-segments [label]
@@ -38,7 +39,7 @@
   (apply-filter [this model graphql-value]))
 
 (defprotocol SparqlQueryable
-  (apply-order-by [this model direction]))
+  (apply-order-by [this model direction config]))
 
 (defrecord RefAreaType [])
 
@@ -77,22 +78,22 @@
             (maybe-add-period-filter dim-key dim-uri [:end time:hasEnd] '>= ends_after))))))
 
 (defprotocol SparqlResultProjector
-  (apply-projection [this model selections])
+  (apply-projection [this model selections config])
   (project-result [this sparql-binding])
-  (get-result-projection [this sparql-binding]))
+  (get-result-projection [this sparql-binding config]))
 
 (extend-protocol SparqlResultProjector
   Keyword
-  (apply-projection [kw model selections]
+  (apply-projection [kw model selections config]
     model)
   (project-result [kw sparql-binding]
     (get sparql-binding kw))
 
   IPersistentMap
-  (apply-projection [m model selections]
+  (apply-projection [m model selections config]
     (reduce (fn [acc [k inner-selections]]
               (let [proj (get m k)]
-                (apply-projection proj acc inner-selections)))
+                (apply-projection proj acc inner-selections config)))
             model
             selections))
 
@@ -103,7 +104,7 @@
 
 (defrecord PathProjection [path optional? transform-f]
   SparqlResultProjector
-  (apply-projection [_this model selections]
+  (apply-projection [_this model selections config]
     (qm/add-binding model path ::qm/var :optional? optional?))
   (project-result [_this sparql-binding]
     (let [key-path (mapv first path)
@@ -116,11 +117,12 @@
 (defrecord Dimension [uri label order type]
   SparqlQueryable
 
-  (apply-order-by [_this model direction]
-    (let [dim-key (keyword (str "dim" order))]
+  (apply-order-by [_this model direction configuration]
+    (let [codelist-label (config/dataset-label configuration)
+          dim-key (keyword (str "dim" order))]
       (if (is-ref-area-type? type)
         (-> model
-            (qm/add-binding [[dim-key uri] [:label rdfs:label]] ::qm/var)
+            (qm/add-binding [[dim-key uri] [:label codelist-label]] ::qm/var)
             (qm/add-order-by {direction [dim-key :label]}))
         ;;NOTE: binding should have already been added
         (qm/add-order-by model {direction [dim-key]}))))
@@ -134,15 +136,16 @@
           (qm/add-binding model [[dim-key uri]] value)))))
 
   SparqlResultProjector
-  (apply-projection [this model observation-selections]
+  (apply-projection [this model observation-selections configuration]
     (let [dim-key (keyword (str "dim" order))
           field-name (:field-name this)
-          field-selections (get observation-selections field-name)]
+          field-selections (get observation-selections field-name)
+          codelist-label (config/dataset-label configuration)]
       (cond
         (is-ref-period-type? type)
         (let [model (qm/add-binding model [[dim-key uri]] ::qm/var)
               model (if (contains? field-selections :label)
-                      (qm/add-binding model [[dim-key uri] [:label rdfs:label]] ::qm/var)
+                      (qm/add-binding model [[dim-key uri] [:label codelist-label]] ::qm/var)
                       model)
               model (if (contains? field-selections :start)
                       (qm/add-binding model [[dim-key uri] [:begin time:hasBeginning] [:time time:inXSDDateTime]] ::qm/var)
@@ -154,7 +157,7 @@
         (is-ref-area-type? type)
         (let [label-selected? (contains? field-selections :label)]
           (if label-selected?
-            (qm/add-binding model [[dim-key uri] [:label rdfs:label]] ::qm/var)
+            (qm/add-binding model [[dim-key uri] [:label codelist-label]] ::qm/var)
             model))
 
         :else model)))
@@ -174,28 +177,29 @@
 
         :else (get bindings dim-key))))
 
-  (get-result-projection [_this bindings]
-    (let [dim-key (keyword (str "dim" order))]
+  (get-result-projection [_this bindings config]
+    (let [dim-key (keyword (str "dim" order))
+          codelist-label (config/dataset-label config)]
       (cond
         (is-ref-period-type? type)
         {:uri   (->PathProjection [[dim-key uri]] false identity)
-         :label (->PathProjection [[dim-key uri][:label rdfs:label]] true identity)
+         :label (->PathProjection [[dim-key uri][:label codelist-label]] true identity)
          :start (->PathProjection [[dim-key uri] [:begin time:hasBeginning] [:time time:inXSDDateTime]] true grafter-date->datetime)
          :end   (->PathProjection [[dim-key uri] [:end time:hasEnd] [:time time:inXSDDateTime]] true grafter-date->datetime)}
         (is-ref-area-type? type)
         {:uri   (->PathProjection [[dim-key uri]] false identity)
-         :label (->PathProjection [[dim-key uri] [:label rdfs:label]] true identity)}
+         :label (->PathProjection [[dim-key uri] [:label codelist-label]] true identity)}
 
         :else
         (->PathProjection [[dim-key uri]] false identity)))))
 
 (defrecord MeasureType [uri label order is-numeric?]
   SparqlQueryable
-  (apply-order-by [this model direction]
+  (apply-order-by [_this model direction _configuration]
     (qm/add-order-by model {direction [(keyword (str "mv"))]}))
 
   SparqlResultProjector
-  (apply-projection [_this model selections]
+  (apply-projection [_this model selections config]
     model)
 
   (project-result [_this binding]
@@ -203,7 +207,7 @@
              (get binding :mv)
              nil))
 
-  (get-result-projection [_this bindings]
+  (get-result-projection [_this bindings _config]
     (if (= uri (get bindings :mp))
       (let [dim-key (keyword (str "mv"))]
         (->PathProjection [[dim-key uri]] true identity))
@@ -229,7 +233,7 @@
 (defn get-dataset-measure-by-uri [{:keys [measures] :as dataset} uri]
   (util/find-first #(= uri (:uri %)) measures))
 
-(defn dataset-result-projection [dataset bindings]
+(defn dataset-result-projection [dataset bindings config]
   (into {} (map (fn [{:keys [field-name] :as ft}]
-                  [field-name (get-result-projection ft bindings)])
+                  [field-name (get-result-projection ft bindings config)])
                 (dataset-dimension-measures dataset))))

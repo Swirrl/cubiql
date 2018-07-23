@@ -4,9 +4,9 @@
 
 (defn create
   "Creates a context map from a repository and collection of datasets"
-  [repo datasets]
+  [repo datasets config]
   (let [uri->dataset (util/keyed-by :uri datasets)]
-    {:repo repo :uri->dataset uri->dataset}))
+    {:repo repo :uri->dataset uri->dataset :config config}))
 
 (defn get-dataset
   "Fetches a dataset from the context by its URI. Returns nil if the dataset was not found."
@@ -17,3 +17,6 @@
   "Gets the SPARQL repository from the context"
   [context]
   (:repo context))
+
+(defn get-configuration [context]
+  (:config context))
