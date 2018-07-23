@@ -75,17 +75,25 @@ You'll see something like:
 
 The available options are:
 
-|  Name    | Default |
-|----------|---------|
-| port     | 8080    |
-| endpoint |         |
+|  Name         | Description                             | Required | Default |
+|---------------|-----------------------------------------|----------|---------|
+| port          | Port to run server on                   | no       | 8080    |
+| endpoint      | Endpoint for datasets                   | yes      |         |
+| configuration | Configuration for the dataset structure | no       |         |
 
 For example to run the server against a remote SPARQL endpoint on port 9000:
 
     $ java -jar graphql-qb-standalone.jar --port 9000 --endpoint http://remote-endpoint/sparql/query
+    
+The endpoint can also refer to a local directory containing RDF data files. The repository contains test datasets in the data directory.
+When running from the root directory this repository can be specified with:
 
+    $ java -jar graphql-qb-standalone.jar --port 9000 --endpoint data
+    
+During development `lein run` can be used instead of building the uberjar:
 
-If the endpoint is not specified the built-in test data will be used.
+    $ lein run --port 9000 --endpoint data
+
 
 The server hosts a GraphQL endpoint at http://localhost:PORT/graphql which follows the
 protocol described [here](http://graphql.org/learn/serving-over-http/).

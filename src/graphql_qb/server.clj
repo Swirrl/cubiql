@@ -1,10 +1,8 @@
 (ns graphql-qb.server
   (:require [graphql-qb.core :as core]
-            [graphql-qb.data :as data]
             [graphql-qb.context :as context]
             [com.walmartlabs.lacinia.pedestal :as lp]
-            [io.pedestal.http :as http]
-            [graphql-qb.config :as config]))
+            [io.pedestal.http :as http]))
 
 (def cors-config {:allowed-origins (constantly true)
                   :creds           false
@@ -12,7 +10,6 @@
                   :methods         "GET, POST, OPTIONS"})
 
 (defn create-server
-  ([port] (create-server port (data/get-test-repo) (config/read-config)))
   ([port repo config]
    (let [{:keys [schema datasets]} (core/build-schema-context repo config)
          context (context/create repo datasets config)
