@@ -166,10 +166,17 @@
                  (resolvers/dataset-resolver dataset)
                  dataset-measure-mappings)}}))
 
-(defn get-dataset-schema [dataset dataset-enum-mapping dataset-measure-mappings]
-  (let [ds-enums-schema (mapping/dataset-enum-types-schema dataset dataset-enum-mapping)
-        enums-schema {:enums ds-enums-schema}
-        query-model (get-query-schema-model dataset dataset-enum-mapping dataset-measure-mappings)
-        query-schema (sm/visit-queries query-model)]
-    (-> query-schema
-        (sm/merge-schemas enums-schema))))
+(defn get-qb-fields-schema [datasets enum-mappings measure-mappings]
+  (reduce (fn [{:keys [qb-fields] :as acc} {:keys [uri] :as ds}]
+            (let [ds-enums-mapping (get enum-mappings uri)
+                  m (get-query-schema-model ds ds-enums-mapping (get measure-mappings uri))
+                  [field-name field] (first m)
+                  field-schema (sm/visit-field [field-name] field-name field :objects)
+                  ds-enums-schema {:enums (mapping/dataset-enum-types-schema ds ds-enums-mapping)}
+                  field (::sm/field field-schema)
+                  schema (::sm/schema field-schema)
+                  schema (sm/merge-schemas schema ds-enums-schema)]
+              {:qb-fields (assoc qb-fields field-name field)
+               :schema (sm/merge-schemas (:schema acc) schema)}))
+          {:qb-fields {} :schema {}}
+          datasets))

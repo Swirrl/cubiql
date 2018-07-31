@@ -10,7 +10,7 @@
             [graphql-qb.schema :as schema]
             [graphql-qb.resolvers :as resolvers]
             [graphql-qb.queries :as queries]
-            [graphql-qb.vocabulary :as vocab]
+            [graphql-qb.schema-model :as sm]
             [graphql-qb.schema.mapping.labels :as mapping]
             [graphql-qb.config :as config]))
 
@@ -130,24 +130,28 @@
 (defn get-schema [datasets enum-mappings measure-mappings]
   (let [base-schema (read-edn-resource "base-schema.edn")
         base-schema (assoc base-schema :scalars scalars/custom-scalars)
-        ds-schemas (map (fn [{:keys [uri] :as ds}]
-                          (schema/get-dataset-schema ds (get enum-mappings uri) (get measure-mappings uri)))
-                        datasets)
-        {:keys [resolvers] :as combined-schema} (reduce (fn [acc schema] (merge-with merge acc schema)) base-schema ds-schemas)
+        {:keys [qb-fields schema]} (schema/get-qb-fields-schema datasets enum-mappings measure-mappings)
+        base-schema (update-in base-schema [:objects :qb :fields] merge qb-fields)
+        {:keys [resolvers] :as combined-schema} (sm/merge-schemas base-schema schema)
         query-resolvers (merge {:resolve-observation-sparql-query resolvers/resolve-observations-sparql-query
                                 :resolve-datasets                 resolvers/resolve-datasets
                                 :resolve-dataset-dimensions       (resolvers/dataset-dimensions-resolver enum-mappings)
-                                :resolve-dataset-measures         (resolvers/dataset-measures-resolver measure-mappings)}
+                                :resolve-dataset-measures         (resolvers/dataset-measures-resolver measure-mappings)
+                                :resolve-cuibiql                  (fn [_context _args _field]
+                                                                    (println "RESOLVING!")
+                                                                    {})}
                                resolvers)]
     (attach-resolvers (dissoc combined-schema :resolvers) query-resolvers)))
 
-(defn dump-schema [repo]
+(defn generate-schema [repo]
   (let [config (config/read-config)
         datasets (get-all-datasets repo config)
         enum-mappings (get-datasets-enum-mappings repo config)
-        measure-mappings (get-datasets-measures-mapping repo)
-        schema (get-schema datasets enum-mappings measure-mappings)]
-    (pprint/pprint schema)))
+        measure-mappings (get-datasets-measures-mapping repo)]
+    (get-schema datasets enum-mappings measure-mappings)))
+
+(defn dump-schema [repo]
+  (pprint/pprint (generate-schema repo)))
 
 (defn build-schema-context [repo config]
   (let [datasets (get-all-datasets repo config)
