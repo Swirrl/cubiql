@@ -155,7 +155,8 @@
                                              :resolve     (resolvers/create-dataset-dimensions-resolver dataset dataset-enum-mappings)
                                              :description "Dimensions within the dataset"}
                               :measures     {:type        [:measure]
-                                             :description "Measure types within the dataset"}
+                                             :description "Measure types within the dataset"
+                                             :resolve (resolvers/create-dataset-measures-resolver dataset dataset-measure-mappings)}
                               :observations observations-model}
                 :description (or description "")}
       :resolve (resolvers/wrap-options (wrap-dataset-result-measures-resolver

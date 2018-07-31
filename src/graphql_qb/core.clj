@@ -134,7 +134,7 @@
         base-schema (update-in base-schema [:objects :qb :fields] merge qb-fields)
         {:keys [resolvers] :as combined-schema} (sm/merge-schemas base-schema schema)
         query-resolvers (merge {:resolve-observation-sparql-query resolvers/resolve-observations-sparql-query
-                                :resolve-datasets                 resolvers/resolve-datasets
+                                :resolve-datasets                 (resolvers/wrap-options resolvers/resolve-datasets)
                                 :resolve-dataset-dimensions       (resolvers/dataset-dimensions-resolver enum-mappings)
                                 :resolve-dataset-measures         (resolvers/dataset-measures-resolver measure-mappings)
                                 :resolve-cuibiql                  resolvers/resolve-cubiql}

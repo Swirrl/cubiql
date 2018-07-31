@@ -9,7 +9,8 @@
             [com.walmartlabs.lacinia.executor :as executor]
             [clojure.spec.alpha :as s]
             [clojure.pprint :as pp]
-            [graphql-qb.schema.mapping.labels :as mapping])
+            [graphql-qb.schema.mapping.labels :as mapping]
+            [grafter.rdf.sparql :as sp])
   (:import [graphql_qb.types Dimension MeasureType]))
 
 (defn wrap-post-resolver [inner-resolver f]
@@ -135,22 +136,42 @@
         filter-model (::filter-model aggregation-field)]
     (exec-observation-aggregation repo dataset measure filter-model aggregation-fn)))
 
-(defn dataset-measures-resolver [all-measure-mappings]
-  (fn [_context _args {:keys [uri] :as dataset}]
-    (get all-measure-mappings uri)))
-
-(defn dataset-resolver [dataset]
-  (fn [context args field]
-    {::dataset dataset}))
-
 (defn wrap-options [inner-resolver]
   (fn [context args field]
     (let [opts (::options field)
           result (inner-resolver context args field)]
-      (assoc result ::options opts))))
+      (cond
+        (seq? result)
+        (map (fn [r] (assoc r ::options opts)) result)
+
+        (map? result)
+        (assoc result ::options opts)
+
+        :else
+        (throw (ex-info "Unexpected result type when associating options" {:result result}))))))
 
 (defn get-lang [field]
   (get-in field [::options ::lang]))
+
+(defn- resolve-dataset-measures [repo dataset-uri uri->measure-mapping lang]
+  (let [results (sp/query "get-measures-by-lang.sparql" {:ds dataset-uri :expectedlabel (or lang "")} repo)]
+    (mapv (fn [{:keys [mt label]}]
+            {:uri   mt
+             :label (str label)
+             :enum_name (:enum_name (get uri->measure-mapping mt))})
+          results)))
+
+(defn dataset-measures-resolver [all-measure-mappings]
+  (fn [context _args {:keys [uri] :as dataset}]
+    (let [lang (get-lang dataset)
+          repo (context/get-repository context)
+          dataset-measures-mapping (get all-measure-mappings uri)
+          uri->measure-mapping (into {} (map (fn [m] [(:uri m) m]) dataset-measures-mapping))]
+      (resolve-dataset-measures repo uri uri->measure-mapping lang))))
+
+(defn dataset-resolver [dataset]
+  (fn [context args field]
+    {::dataset dataset}))
 
 (defn dataset-dimensions-resolver [all-enum-mappings]
   (fn [context _args {:keys [uri] :as ds-field}]
@@ -172,3 +193,10 @@
           config (context/get-configuration context)
           unmapped-dims (queries/get-unmapped-dimension-values repo dataset config lang)]
       (mapping/format-dataset-dimension-values dataset dataset-enum-mappings unmapped-dims))))
+
+(defn create-dataset-measures-resolver [dataset dataset-measures-mapping]
+  (let [uri->measure-mapping (into {} (map (fn [m] [(:uri m) m]) dataset-measures-mapping))]
+    (fn [context _args field]
+      (let [lang (get-lang field)
+            repo (context/get-repository context)]
+        (resolve-dataset-measures repo (:uri dataset) uri->measure-mapping lang)))))
