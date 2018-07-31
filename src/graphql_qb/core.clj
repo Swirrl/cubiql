@@ -137,9 +137,7 @@
                                 :resolve-datasets                 resolvers/resolve-datasets
                                 :resolve-dataset-dimensions       (resolvers/dataset-dimensions-resolver enum-mappings)
                                 :resolve-dataset-measures         (resolvers/dataset-measures-resolver measure-mappings)
-                                :resolve-cuibiql                  (fn [_context _args _field]
-                                                                    (println "RESOLVING!")
-                                                                    {})}
+                                :resolve-cuibiql                  resolvers/resolve-cubiql}
                                resolvers)]
     (attach-resolvers (dissoc combined-schema :resolvers) query-resolvers)))
 

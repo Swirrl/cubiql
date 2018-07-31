@@ -130,7 +130,7 @@
                    {:dimensions {:type {:fields (dataset-observation-dimensions-input-schema-model dataset)}}
                     :order      {:type [dimensions-measures-enum-mapping]}
                     :order_spec {:type {:fields (dataset-order-spec-schema-model dataset)}}}
-                   :resolve (create-observation-resolver dataset dataset-enum-mappings)}
+                   :resolve (resolvers/wrap-options (create-observation-resolver dataset dataset-enum-mappings))}
         aggregation-measures-enum-mapping (mapping/dataset-aggregation-measures-enum-group dataset)]
     (if (nil? aggregation-measures-enum-mapping)
       obs-model
@@ -142,29 +142,25 @@
         observations-model (get-observation-schema-model dataset dataset-enum-mappings)]
     {schema-name
      {:type
-      {:implements  [:dataset_meta]
-       :fields      {:uri          {:type :uri :description "Dataset URI"}
-                     :title        {:type 'String :description "Dataset title"}
-                     :description  {:type 'String :description "Dataset description"}
-                     :licence      {:type :uri :description "URI of the licence the dataset is published under"}
-                     :issued       {:type :DateTime :description "When the dataset was issued"}
-                     :modified     {:type :DateTime :description "When the dataset was last modified"}
-                     :publisher    {:type :uri :description "URI of the publisher of the dataset"}
-                     :schema       {:type 'String :description "Name of the GraphQL query root field corresponding to this dataset"}
-                     :dimensions   {:type        [:dim]
-                                    :resolve     (fn [context _args _field]
-                                                   (let [repo (context/get-repository context)
-                                                         config (context/get-configuration context)
-                                                         unmapped-dims (queries/get-unmapped-dimension-values repo dataset config)]
-                                                     (mapping/format-dataset-dimension-values dataset dataset-enum-mappings unmapped-dims)))
-                                    :description "Dimensions within the dataset"}
-                     :measures     {:type        [:measure]
-                                    :description "Measure types within the dataset"}
-                     :observations observations-model}
-       :description (or description "")}
-      :resolve (wrap-dataset-result-measures-resolver
-                 (resolvers/dataset-resolver dataset)
-                 dataset-measure-mappings)}}))
+               {:implements  [:dataset_meta]
+                :fields      {:uri          {:type :uri :description "Dataset URI"}
+                              :title        {:type 'String :description "Dataset title"}
+                              :description  {:type 'String :description "Dataset description"}
+                              :licence      {:type :uri :description "URI of the licence the dataset is published under"}
+                              :issued       {:type :DateTime :description "When the dataset was issued"}
+                              :modified     {:type :DateTime :description "When the dataset was last modified"}
+                              :publisher    {:type :uri :description "URI of the publisher of the dataset"}
+                              :schema       {:type 'String :description "Name of the GraphQL query root field corresponding to this dataset"}
+                              :dimensions   {:type        [:dim]
+                                             :resolve     (resolvers/create-dataset-dimensions-resolver dataset dataset-enum-mappings)
+                                             :description "Dimensions within the dataset"}
+                              :measures     {:type        [:measure]
+                                             :description "Measure types within the dataset"}
+                              :observations observations-model}
+                :description (or description "")}
+      :resolve (resolvers/wrap-options (wrap-dataset-result-measures-resolver
+                                         (resolvers/dataset-resolver dataset)
+                                         dataset-measure-mappings))}}))
 
 (defn get-qb-fields-schema [datasets enum-mappings measure-mappings]
   (reduce (fn [{:keys [qb-fields] :as acc} {:keys [uri] :as ds}]

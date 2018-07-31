@@ -95,7 +95,7 @@
         (str "FILTER(?ds = <" uri ">) ."))
       "}")))
 
-(defn get-unmapped-dimension-values-query [uri configuration]
+(defn get-unmapped-dimension-values-query [uri configuration lang]
   (let [area-dim (config/geo-dimension configuration)
         time-dim (config/time-dimension configuration)
         codelist-label (config/codelist-label configuration)]
@@ -112,11 +112,15 @@
       "?comp qb:dimension ?dim ."
       (config/codelist-source configuration) " qb:codeList ?list  ."
       "?list skos:member ?member ."
-      "OPTIONAL { ?member <" (str codelist-label) "> ?label . }"
+      "OPTIONAL {"
+      "  ?member <" (str codelist-label) "> ?label ."
+      (when lang
+        (str "FILTER(LANG(?label) = \"" lang "\") ."))
+      "}"
       "}")))
 
-(defn get-unmapped-dimension-values [repo {:keys [uri] :as dataset} config]
-  (let [dimvalues-query (get-unmapped-dimension-values-query uri config)
+(defn get-unmapped-dimension-values [repo {:keys [uri] :as dataset} config lang]
+  (let [dimvalues-query (get-unmapped-dimension-values-query uri config lang)
         results (util/eager-query repo dimvalues-query)]
     (group-by :dim results)))
 

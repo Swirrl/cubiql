@@ -143,12 +143,32 @@
   (fn [context args field]
     {::dataset dataset}))
 
+(defn wrap-options [inner-resolver]
+  (fn [context args field]
+    (let [opts (::options field)
+          result (inner-resolver context args field)]
+      (assoc result ::options opts))))
+
+(defn get-lang [field]
+  (get-in field [::options ::lang]))
+
 (defn dataset-dimensions-resolver [all-enum-mappings]
   (fn [context _args {:keys [uri] :as ds-field}]
-    (let [repo (context/get-repository context)
+    (let [lang (get-lang ds-field)
+          repo (context/get-repository context)
           dataset (context/get-dataset context uri)
           config (context/get-configuration context)
           ds-enum-mappings (get all-enum-mappings uri)
-          unmapped-dimensions (queries/get-unmapped-dimension-values repo dataset config)]
+          unmapped-dimensions (queries/get-unmapped-dimension-values repo dataset config lang)]
       (mapping/format-dataset-dimension-values dataset ds-enum-mappings unmapped-dimensions))))
 
+(defn resolve-cubiql [_context {lang :lang_preference :as args} _field]
+  {::options {::lang lang}})
+
+(defn create-dataset-dimensions-resolver [dataset dataset-enum-mappings]
+  (fn [context _args field]
+    (let [lang (get-lang field)
+          repo (context/get-repository context)
+          config (context/get-configuration context)
+          unmapped-dims (queries/get-unmapped-dimension-values repo dataset config lang)]
+      (mapping/format-dataset-dimension-values dataset dataset-enum-mappings unmapped-dims))))
