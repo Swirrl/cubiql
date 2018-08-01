@@ -213,10 +213,10 @@
         (->PathProjection [[dim-key uri]] true identity))
       (->PathProjection nil true identity))))
 
-(defrecord Dataset [uri title description dimensions measures])
+(defrecord Dataset [uri name description dimensions measures])
 
-(defn dataset-schema [{:keys [title] :as ds}]
-  (keyword (dataset-label->schema-name title)))
+(defn dataset-schema [ds]
+  (keyword (dataset-label->schema-name (:name ds))))
 
 (defn dataset-aggregate-measures [{:keys [measures] :as ds}]
   (filter :is-numeric? measures))

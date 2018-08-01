@@ -76,15 +76,21 @@
         (string/join "\n" and-clauses)))))
 
 (defn get-datasets-query
-  [dimensions measures uri configuration]
+  [dimensions measures uri configuration lang]
   (let [dataset-label (config/dataset-label configuration)]
     (str
       "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>"
       "PREFIX qb: <http://purl.org/linked-data/cube#>"
       "PREFIX dcterms: <http://purl.org/dc/terms/>"
-      "SELECT ?ds ?title ?description ?licence ?issued ?modified ?publisher WHERE {"
+      "SELECT ?ds ?name ?title ?description ?licence ?issued ?modified ?publisher WHERE {"
       (get-dimensions-or dimensions)
-      "  ?ds <" (str dataset-label) "> ?title ."
+      "  ?ds <" (str dataset-label) "> ?name ."
+      "  FILTER(LANG(?name) = '')"
+      "  OPTIONAL {"
+      "    ?ds <" (str dataset-label) "> ?title ."
+      (when lang
+        (str "FILTER(LANG(?title) = \"" lang "\")"))
+      "  }"
       "  OPTIONAL { ?ds rdfs:comment ?description . }"
       "  OPTIONAL { ?ds dcterms:license ?licence }"
       "  OPTIONAL { ?ds dcterms:issued ?issued }"
@@ -94,6 +100,32 @@
       (if (some? uri)
         (str "FILTER(?ds = <" uri ">) ."))
       "}")))
+
+(defn get-datasets [repo dimensions measures uri configuration lang]
+  (let [q (get-datasets-query dimensions measures uri configuration lang)
+        results (util/eager-query repo q)]
+    (map (fn [ds]
+           (update ds :title str))
+         results)))
+
+(defn- get-dataset-strings-query [dataset-uri configuration lang]
+  (let [label-predicate (str (config/dataset-label configuration))]
+    (str
+      "PREFIX qb: <http://purl.org/linked-data/cube#>"
+      "SELECT ?title WHERE {"
+      "  <" dataset-uri "> a qb:DataSet ."
+      "  OPTIONAL {"
+      "    <" dataset-uri "> <" label-predicate "> ?title ."
+      (when lang
+        (str "FILTER(LANG(?title) = \"" lang "\")"))
+      "  }"
+      "}")))
+
+(defn get-dataset-strings [repo dataset-uri configuration lang]
+  (let [q (get-dataset-strings-query dataset-uri configuration lang)
+        results (util/eager-query repo q)
+        {:keys [title] :as bindings} (first results)]
+    {:title (str title)}))
 
 (defn get-dimension-codelist-values-query [ds-uri configuration lang]
   (let [codelist-label (config/codelist-label configuration)]

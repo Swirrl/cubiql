@@ -57,8 +57,9 @@
                               enum-dims (get-dataset-enum-dimensions enum-dim-values)
                               dimensions (get-dataset-dimensions uri known-dimensions known-dimension-members enum-dims)
                               measures (or (get measures-mapping uri) [])
-                              d (types/->Dataset uri title description dimensions measures)]
+                              d (types/->Dataset uri (:name dataset) description dimensions measures)]
                           (assoc d
+                            :title title
                             :issued (some-> issued (scalars/grafter-date->datetime))
                             :modified (some-> modified (scalars/grafter-date->datetime))
                             :publisher publisher
@@ -102,8 +103,7 @@
    4. Get all dimension values for all enum dimensions
    5. Get all dataset measures
    6. Construct datasets"
-  (let [datasets-query (queries/get-datasets-query nil nil nil configuration)
-        datasets (util/eager-query repo datasets-query)
+  (let [datasets (queries/get-datasets repo nil nil nil configuration nil)
         area-dim (config/geo-dimension configuration)
         time-dim (config/time-dimension configuration)
         known-dimension-types [[area-dim (types/->RefAreaType)]

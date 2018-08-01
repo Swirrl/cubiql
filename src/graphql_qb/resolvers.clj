@@ -109,32 +109,8 @@
 
 (def resolve-observations-page (wrap-pagination-resolver inner-resolve-observations-page))
 
-(defn resolve-datasets [context {:keys [dimensions measures uri] :as args} _parent]
-  (let [repo (context/get-repository context)
-        config (context/get-configuration context)
-        q (queries/get-datasets-query dimensions measures uri config)
-        results (util/eager-query repo q)]
-    (map (fn [{:keys [title] :as bindings}]
-           (-> bindings
-               (util/rename-key :ds :uri)
-               (update :issued #(some-> % scalars/grafter-date->datetime))
-               (update :modified #(some-> % scalars/grafter-date->datetime))
-               (assoc :schema (name (types/dataset-label->schema-name title)))))
-         results)))
-
-(defn exec-observation-aggregation [repo dataset measure filter-model aggregation-fn]
-  (let [q (qm/get-observation-aggregation-query filter-model aggregation-fn (:uri dataset) (:uri measure))
-        results (util/eager-query repo q)]
-    (get (first results) aggregation-fn)))
-
-(defn resolve-observations-aggregation [aggregation-fn
-                                        context
-                                        {:keys [measure] :as args}
-                                        {:keys [ds-uri] :as aggregation-field}]
-  (let [repo (context/get-repository context)
-        dataset (context/get-dataset context ds-uri)
-        filter-model (::filter-model aggregation-field)]
-    (exec-observation-aggregation repo dataset measure filter-model aggregation-fn)))
+(defn get-lang [field]
+  (get-in field [::options ::lang]))
 
 (defn wrap-options [inner-resolver]
   (fn [context args field]
@@ -150,8 +126,32 @@
         :else
         (throw (ex-info "Unexpected result type when associating options" {:result result}))))))
 
-(defn get-lang [field]
-  (get-in field [::options ::lang]))
+(defn resolve-datasets [context {:keys [dimensions measures uri] :as args} parent-field]
+  (let [repo (context/get-repository context)
+        config (context/get-configuration context)
+        lang (get-lang parent-field)
+        results (queries/get-datasets repo dimensions measures uri config lang)]
+    (map (fn [bindings]
+           (-> bindings
+               (util/rename-key :ds :uri)
+               (update :issued #(some-> % scalars/grafter-date->datetime))
+               (update :modified #(some-> % scalars/grafter-date->datetime))
+               (assoc :schema (name (types/dataset-label->schema-name (:name bindings))))))
+         results)))
+
+(defn exec-observation-aggregation [repo dataset measure filter-model aggregation-fn]
+  (let [q (qm/get-observation-aggregation-query filter-model aggregation-fn (:uri dataset) (:uri measure))
+        results (util/eager-query repo q)]
+    (get (first results) aggregation-fn)))
+
+(defn resolve-observations-aggregation [aggregation-fn
+                                        context
+                                        {:keys [measure] :as args}
+                                        {:keys [ds-uri] :as aggregation-field}]
+  (let [repo (context/get-repository context)
+        dataset (context/get-dataset context ds-uri)
+        filter-model (::filter-model aggregation-field)]
+    (exec-observation-aggregation repo dataset measure filter-model aggregation-fn)))
 
 (defn- resolve-dataset-measures [repo dataset-uri uri->measure-mapping lang]
   (let [results (sp/query "get-measures-by-lang.sparql" {:ds dataset-uri :expectedlabel (or lang "")} repo)]
@@ -169,9 +169,13 @@
           uri->measure-mapping (into {} (map (fn [m] [(:uri m) m]) dataset-measures-mapping))]
       (resolve-dataset-measures repo uri uri->measure-mapping lang))))
 
-(defn dataset-resolver [dataset]
-  (fn [context args field]
-    {::dataset dataset}))
+(defn dataset-resolver [{:keys [uri] :as dataset}]
+  (fn [context _args field]
+    (let [repo (context/get-repository context)
+          config (context/get-configuration context)
+          lang (get-lang field)
+          string-fields (queries/get-dataset-strings repo uri config lang)]
+      {::dataset (merge dataset string-fields)})))
 
 (defn dataset-dimensions-resolver [all-enum-mappings]
   (fn [context _args {:keys [uri] :as ds-field}]
