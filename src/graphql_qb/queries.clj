@@ -181,7 +181,11 @@
       "  OPTIONAL { ?dim rdfs:comment ?comment }"
       "}")))
 
-(defn get-all-enum-dimension-values [configuration]
+(defn get-all-enum-dimension-values
+  "Gets all codelist members for all dimensions across all datasets. Each dimension is expected to have a
+  single label without a language code. Each codelist item should have at most one label without a language
+  code used to generate the enum name."
+  [configuration]
   (let [area-dim (config/geo-dimension configuration)
         time-dim (config/time-dimension configuration)
         dataset-label (config/dataset-label configuration)
@@ -199,8 +203,12 @@
       "FILTER(?dim != <" (str area-dim) ">)"
       "FILTER(?dim != <" (str time-dim) ">)"
       "?dim <" (str dataset-label) "> ?label ."
+      "FILTER(LANG(?label) = '')"
       "OPTIONAL { ?dim rdfs:comment ?doc }"
       (config/codelist-source configuration) " qb:codeList ?list ."
       "?list skos:member ?member ."
-      "OPTIONAL { ?member <" (str codelist-label) "> ?vallabel . }"
+      "OPTIONAL {"
+      "  ?member <" (str codelist-label) "> ?vallabel ."
+      "  FILTER(LANG(?vallabel) = '')"
+      "}"
       "}")))
