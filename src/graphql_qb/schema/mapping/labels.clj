@@ -191,9 +191,9 @@
       {type-name {:values (mapv :name items) :description doc}}
       {type-name {:values (mapv :name items)}})))
 
-(defn enum-mapping-item->dimension-value [{:keys [name value label]}]
+(defn enum-mapping-item->dimension-value [codelist-item->label {:keys [name value]}]
   (ls/tag-with-type
-    {:uri value :label label :enum_name (clojure.core/name name)}
+    {:uri value :label (get codelist-item->label value) :enum_name (clojure.core/name name)}
     :enum_dim_value))
 
 (defn non-enum-item->dimension-value [{:keys [member label]}]
@@ -214,18 +214,16 @@
             ds-measures))
     (group-by :ds all-measure-values)))
 
-
-(defn format-dataset-dimension-values [dataset enum-dimension-mappings non-enum-dimension-mappings]
-  (mapv
-    (fn [{:keys [uri type field-name] :as dim}]
-      (if (types/is-enum-type? type)
-        (let [{:keys [label items] :as enum-mapping} (get enum-dimension-mappings field-name)]
-          {:uri uri
-           :enum_name (name (label->enum-name label))
-           :values (mapv enum-mapping-item->dimension-value items)})
-        (let [values (get non-enum-dimension-mappings uri)]
-          ;;TODO: add mapping for non-enum dimensions containing the label
-          {:uri uri
-           :enum_name (name (label->enum-name (:label dim)))
-           :values (mapv non-enum-item->dimension-value values)})))
-    (types/dataset-dimensions dataset)))
+(defn format-dataset-dimension-values [dataset enum-dimension-mappings dimension-uri->codelist]
+  (mapv (fn [{:keys [uri type field-name] :as dim}]
+          (let [dim-codelist (get dimension-uri->codelist uri)]
+            (if (types/is-enum-type? type)
+              (let [{:keys [label items] :as enum-mapping} (get enum-dimension-mappings field-name)
+                    codelist-item->label (into {} (map (juxt :member :label) dim-codelist))]
+                {:uri       uri
+                 :enum_name (name (label->enum-name label))
+                 :values    (mapv #(enum-mapping-item->dimension-value codelist-item->label %) items)})
+              {:uri uri
+               :enum_name (name (label->enum-name (:label dim)))
+               :values (mapv non-enum-item->dimension-value dim-codelist)})))
+        (types/dataset-dimensions dataset)))

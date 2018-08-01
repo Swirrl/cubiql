@@ -95,20 +95,17 @@
         (str "FILTER(?ds = <" uri ">) ."))
       "}")))
 
-(defn get-unmapped-dimension-values-query [uri configuration lang]
-  (let [area-dim (config/geo-dimension configuration)
-        time-dim (config/time-dimension configuration)
-        codelist-label (config/codelist-label configuration)]
+(defn get-dimension-codelist-values-query [ds-uri configuration lang]
+  (let [codelist-label (config/codelist-label configuration)]
     (str
       "PREFIX qb: <http://purl.org/linked-data/cube#>"
       "PREFIX skos: <http://www.w3.org/2004/02/skos/core#>"
       "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>"
       "PREFIX ui: <http://www.w3.org/ns/ui#>"
       "SELECT ?dim ?member ?label WHERE {"
-      "<" (str uri) "> qb:structure ?struct ."
+      "<" (str ds-uri) "> qb:structure ?struct ."
       "?struct a qb:DataStructureDefinition ."
       "?struct qb:component ?comp ."
-      "VALUES ?dim { <" (str area-dim) "> <" (str time-dim) "> }"
       "?comp qb:dimension ?dim ."
       (config/codelist-source configuration) " qb:codeList ?list  ."
       "?list skos:member ?member ."
@@ -119,8 +116,8 @@
       "}"
       "}")))
 
-(defn get-unmapped-dimension-values [repo {:keys [uri] :as dataset} config lang]
-  (let [dimvalues-query (get-unmapped-dimension-values-query uri config lang)
+(defn get-dimension-codelist-values [repo {:keys [uri] :as dataset} config lang]
+  (let [dimvalues-query (get-dimension-codelist-values-query uri config lang)
         results (util/eager-query repo dimvalues-query)]
     (group-by :dim results)))
 

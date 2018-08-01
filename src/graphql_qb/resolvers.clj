@@ -180,8 +180,8 @@
           dataset (context/get-dataset context uri)
           config (context/get-configuration context)
           ds-enum-mappings (get all-enum-mappings uri)
-          unmapped-dimensions (queries/get-unmapped-dimension-values repo dataset config lang)]
-      (mapping/format-dataset-dimension-values dataset ds-enum-mappings unmapped-dimensions))))
+          dimension-codelists (queries/get-dimension-codelist-values repo dataset config lang)]
+      (mapping/format-dataset-dimension-values dataset ds-enum-mappings dimension-codelists))))
 
 (defn resolve-cubiql [_context {lang :lang_preference :as args} _field]
   {::options {::lang lang}})
@@ -191,8 +191,8 @@
     (let [lang (get-lang field)
           repo (context/get-repository context)
           config (context/get-configuration context)
-          unmapped-dims (queries/get-unmapped-dimension-values repo dataset config lang)]
-      (mapping/format-dataset-dimension-values dataset dataset-enum-mappings unmapped-dims))))
+          dimension-codelists (queries/get-dimension-codelist-values repo dataset config lang)]
+      (mapping/format-dataset-dimension-values dataset dataset-enum-mappings dimension-codelists))))
 
 (defn create-dataset-measures-resolver [dataset dataset-measures-mapping]
   (let [uri->measure-mapping (into {} (map (fn [m] [(:uri m) m]) dataset-measures-mapping))]
