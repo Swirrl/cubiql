@@ -9,7 +9,7 @@ CubiQL requires data to be modeled using the [RDF Data Cube Vocabulary](https://
 - A qb:codeList should be defined for each dimension of the cube (except the geo and time dimensions) that contains *only* the values used in the cube 
 - The geo dimension defined at the cofiguration should take values URIs that have a label 
 - The time dimension defined at the configuration should take values URIs defined by reference.data.gov.uk e.g. http://reference.data.gov.uk/id/year/2016
-- If data have a geo and/or time dimension that do not match the 2 above criteria then geo and/or time dimensions should **not** be defined at the configuration and they will be handled like all the other dimensions (issue [#108](https://github.com/Swirrl/graphql-qb/issues/108) should be fixed to allow NULL values for geo and time dimensions at the configuration)
+- If geo and/or time dimensions do not match the 2 above criteria then they should **not** be defined at the configuration and they will be handled like all the other dimensions (issue [#108](https://github.com/Swirrl/graphql-qb/issues/108) should be fixed to allow NULL values for geo and time dimensions at the configuration)
 
 Temporal requirements that will be fixed:
 - Literals should **not** have language tags (e.g. @en) (this will be fixed by [#6](https://github.com/Swirrl/graphql-qb/issues/6))
