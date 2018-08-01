@@ -213,7 +213,7 @@
         (->PathProjection [[dim-key uri]] true identity))
       (->PathProjection nil true identity))))
 
-(defrecord Dataset [uri name description dimensions measures])
+(defrecord Dataset [uri name dimensions measures])
 
 (defn dataset-schema [ds]
   (keyword (dataset-label->schema-name (:name ds))))

@@ -91,7 +91,10 @@
       (when lang
         (str "FILTER(LANG(?title) = \"" lang "\")"))
       "  }"
-      "  OPTIONAL { ?ds rdfs:comment ?description . }"
+      "  OPTIONAL {"
+      (when lang
+        (str "FILTER(LANG(?description) = \"" lang "\")"))
+      "  }"
       "  OPTIONAL { ?ds dcterms:license ?licence }"
       "  OPTIONAL { ?ds dcterms:issued ?issued }"
       "  OPTIONAL { ?ds dcterms:modified ?modified }"
@@ -101,31 +104,39 @@
         (str "FILTER(?ds = <" uri ">) ."))
       "}")))
 
+(defn- process-dataset-bindings [bindings]
+  (-> bindings
+      (update :title str)
+      (update :description str)))
+
 (defn get-datasets [repo dimensions measures uri configuration lang]
   (let [q (get-datasets-query dimensions measures uri configuration lang)
         results (util/eager-query repo q)]
-    (map (fn [ds]
-           (update ds :title str))
-         results)))
+    (map process-dataset-bindings results)))
 
 (defn- get-dataset-strings-query [dataset-uri configuration lang]
   (let [label-predicate (str (config/dataset-label configuration))]
     (str
       "PREFIX qb: <http://purl.org/linked-data/cube#>"
-      "SELECT ?title WHERE {"
+      "SELECT ?title ?description WHERE {"
       "  <" dataset-uri "> a qb:DataSet ."
       "  OPTIONAL {"
       "    <" dataset-uri "> <" label-predicate "> ?title ."
       (when lang
         (str "FILTER(LANG(?title) = \"" lang "\")"))
       "  }"
+      "  OPTIONAL {"
+      "    <" dataset-uri "> rdfs:comment ?description ."
+      (when lang
+        (str "FILTER(LANG(?description) = \"" lang "\")"))
+      "  }"
       "}")))
 
 (defn get-dataset-strings [repo dataset-uri configuration lang]
   (let [q (get-dataset-strings-query dataset-uri configuration lang)
         results (util/eager-query repo q)
-        {:keys [title] :as bindings} (first results)]
-    {:title (str title)}))
+        bindings (first results)]
+    (process-dataset-bindings bindings)))
 
 (defn get-dimension-codelist-values-query [ds-uri configuration lang]
   (let [codelist-label (config/codelist-label configuration)]
