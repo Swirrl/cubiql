@@ -212,3 +212,18 @@
       "  FILTER(LANG(?vallabel) = '')"
       "}"
       "}")))
+
+(defn get-measures-by-lang-query [ds-uri lang configuration]
+  (str
+    "PREFIX qb: <http://purl.org/linked-data/cube#>"
+    "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>"
+    "SELECT ?mt ?label WHERE {"
+    "  <" ds-uri "> qb:structure ?struct ."
+    "  ?struct qb:component ?comp ."
+    "  ?comp qb:measure ?mt ."
+    "  ?mt a qb:MeasureProperty ."
+    "  OPTIONAL {"
+    "    ?mt <" (config/dataset-label configuration) "> ?label ."
+    "    FILTER(LANG(?label) = \"" lang "\")"
+    "  }"
+    "}"))

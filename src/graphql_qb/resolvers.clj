@@ -153,8 +153,9 @@
         filter-model (::filter-model aggregation-field)]
     (exec-observation-aggregation repo dataset measure filter-model aggregation-fn)))
 
-(defn- resolve-dataset-measures [repo dataset-uri uri->measure-mapping lang]
-  (let [results (sp/query "get-measures-by-lang.sparql" {:ds dataset-uri :expectedlabel (or lang "")} repo)]
+(defn- resolve-dataset-measures [repo dataset-uri uri->measure-mapping lang configuration]
+  (let [q (queries/get-measures-by-lang-query dataset-uri lang configuration)
+        results (util/eager-query repo q)]
     (mapv (fn [{:keys [mt label]}]
             {:uri   mt
              :label (util/label->string label)
@@ -165,9 +166,10 @@
   (fn [context _args {:keys [uri] :as dataset}]
     (let [lang (get-lang dataset)
           repo (context/get-repository context)
+          configuration (context/get-configuration context)
           dataset-measures-mapping (get all-measure-mappings uri)
           uri->measure-mapping (into {} (map (fn [m] [(:uri m) m]) dataset-measures-mapping))]
-      (resolve-dataset-measures repo uri uri->measure-mapping lang))))
+      (resolve-dataset-measures repo uri uri->measure-mapping lang configuration))))
 
 (defn dataset-resolver [{:keys [uri] :as dataset}]
   (fn [context _args field]
@@ -202,5 +204,6 @@
   (let [uri->measure-mapping (into {} (map (fn [m] [(:uri m) m]) dataset-measures-mapping))]
     (fn [context _args field]
       (let [lang (get-lang field)
-            repo (context/get-repository context)]
-        (resolve-dataset-measures repo (:uri dataset) uri->measure-mapping lang)))))
+            repo (context/get-repository context)
+            configuration (context/get-configuration context)]
+        (resolve-dataset-measures repo (:uri dataset) uri->measure-mapping lang configuration)))))
