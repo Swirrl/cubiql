@@ -88,12 +88,11 @@
       "  FILTER(LANG(?name) = '')"
       "  OPTIONAL {"
       "    ?ds <" (str dataset-label) "> ?title ."
-      (when lang
-        (str "FILTER(LANG(?title) = \"" lang "\")"))
+      "    FILTER(LANG(?title) = \"" (or lang "") "\")"
       "  }"
       "  OPTIONAL {"
-      (when lang
-        (str "FILTER(LANG(?description) = \"" lang "\")"))
+      "    ?ds rdfs:comment ?description ."
+      "    FILTER(LANG(?description) = \"" lang "\")"
       "  }"
       "  OPTIONAL { ?ds dcterms:license ?licence }"
       "  OPTIONAL { ?ds dcterms:issued ?issued }"
