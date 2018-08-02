@@ -157,7 +157,7 @@
   (let [results (sp/query "get-measures-by-lang.sparql" {:ds dataset-uri :expectedlabel (or lang "")} repo)]
     (mapv (fn [{:keys [mt label]}]
             {:uri   mt
-             :label (str label)
+             :label (util/label->string label)
              :enum_name (:enum_name (get uri->measure-mapping mt))})
           results)))
 

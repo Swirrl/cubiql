@@ -106,8 +106,8 @@
 
 (defn- process-dataset-bindings [bindings]
   (-> bindings
-      (update :title str)
-      (update :description str)))
+      (update :title util/label->string)
+      (update :description util/label->string)))
 
 (defn get-datasets [repo dimensions measures uri configuration lang]
   (let [q (get-datasets-query dimensions measures uri configuration lang)
@@ -118,6 +118,7 @@
   (let [label-predicate (str (config/dataset-label configuration))]
     (str
       "PREFIX qb: <http://purl.org/linked-data/cube#>"
+      "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>"
       "SELECT ?title ?description WHERE {"
       "  <" dataset-uri "> a qb:DataSet ."
       "  OPTIONAL {"

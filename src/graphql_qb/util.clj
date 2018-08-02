@@ -70,3 +70,6 @@
   "Returns the first item in s which satisfies the predicate p. Returns nil if no items satisfy p."
   [p s]
   (first (filter p s)))
+
+(defn label->string [l]
+  (some-> l str))
