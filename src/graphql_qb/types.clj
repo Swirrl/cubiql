@@ -23,7 +23,7 @@
        (string/join "_")
        (keyword)))
 
-(defn dataset-label->schema-name [label]
+(defn dataset-name->schema-name [label]
   (segments->schema-key (cons "dataset" (get-identifier-segments label))))
 
 (defn label->field-name [label]
@@ -216,7 +216,7 @@
 (defrecord Dataset [uri name dimensions measures])
 
 (defn dataset-schema [ds]
-  (keyword (dataset-label->schema-name (:name ds))))
+  (keyword (dataset-name->schema-name (:name ds))))
 
 (defn dataset-aggregate-measures [{:keys [measures] :as ds}]
   (filter :is-numeric? measures))

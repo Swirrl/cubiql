@@ -133,8 +133,9 @@
         results (queries/get-datasets repo dimensions measures uri config)]
     (map (fn [ds]
            (let [{:keys [uri] :as dataset} (util/rename-key ds :ds :uri)
-                 metadata (queries/get-dataset-metadata repo uri config lang)]
-             (merge dataset metadata)))
+                 metadata (queries/get-dataset-metadata repo uri config lang)
+                 with-metadata (merge dataset metadata)]
+             (assoc with-metadata :schema (name (types/dataset-name->schema-name (:name dataset))))))
          results)))
 
 (defn exec-observation-aggregation [repo dataset measure filter-model aggregation-fn]
@@ -174,8 +175,9 @@
     (let [repo (context/get-repository context)
           config (context/get-configuration context)
           lang (get-lang field)
-          metadata (queries/get-dataset-metadata repo uri config lang)]
-      {::dataset (merge dataset metadata)})))
+          metadata (queries/get-dataset-metadata repo uri config lang)
+          with-metadata (merge dataset metadata)]
+      {::dataset (assoc with-metadata :schema (name (types/dataset-name->schema-name (:name dataset))))})))
 
 (defn dataset-dimensions-resolver [all-enum-mappings]
   (fn [context _args {:keys [uri] :as ds-field}]

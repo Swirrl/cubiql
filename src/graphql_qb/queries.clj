@@ -140,9 +140,8 @@
     (process-dataset-metadata-bindings bindings)))
 
 (defn get-datasets [repo dimensions measures uri configuration]
-  (let [q (get-datasets-query dimensions measures uri configuration)
-        results (util/eager-query repo q)]
-    results))
+  (let [q (get-datasets-query dimensions measures uri configuration)]
+    (util/eager-query repo q)))
 
 (defn get-dimension-codelist-values-query [ds-uri configuration lang]
   (let [codelist-label (config/codelist-label configuration)]
