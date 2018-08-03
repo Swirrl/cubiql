@@ -5,7 +5,8 @@
             [graphql-qb.vocabulary :refer :all]
             [graphql-qb.query-model :as qm]
             [graphql-qb.config :as config]
-            [graphql-qb.util :as util])
+            [graphql-qb.util :as util]
+            [graphql-qb.types.scalars :as scalars])
   (:import  [java.net URI]))
 
 (defn get-observation-filter-model [dim-filter]
@@ -76,7 +77,7 @@
         (string/join "\n" and-clauses)))))
 
 (defn get-datasets-query
-  [dimensions measures uri configuration lang]
+  [dimensions measures uri configuration]
   (let [dataset-label (config/dataset-label configuration)]
     (str
       "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>"
@@ -86,57 +87,62 @@
       (get-dimensions-or dimensions)
       "  ?ds <" (str dataset-label) "> ?name ."
       "  FILTER(LANG(?name) = '')"
-      "  OPTIONAL {"
-      "    ?ds <" (str dataset-label) "> ?title ."
-      "    FILTER(LANG(?title) = \"" (or lang "") "\")"
-      "  }"
-      "  OPTIONAL {"
-      "    ?ds rdfs:comment ?description ."
-      "    FILTER(LANG(?description) = \"" lang "\")"
-      "  }"
-      "  OPTIONAL { ?ds dcterms:license ?licence }"
-      "  OPTIONAL { ?ds dcterms:issued ?issued }"
-      "  OPTIONAL { ?ds dcterms:modified ?modified }"
-      "  OPTIONAL { ?ds dcterms:publisher ?publisher }"
       (get-dimensions-filter dimensions)
       (if (some? uri)
         (str "FILTER(?ds = <" uri ">) ."))
       "}")))
 
-(defn- process-dataset-bindings [bindings]
-  (-> bindings
-      (update :title util/label->string)
-      (update :description util/label->string)))
-
-(defn get-datasets [repo dimensions measures uri configuration lang]
-  (let [q (get-datasets-query dimensions measures uri configuration lang)
-        results (util/eager-query repo q)]
-    (map process-dataset-bindings results)))
-
-(defn- get-dataset-strings-query [dataset-uri configuration lang]
+(defn- get-dataset-metadata-query [dataset-uri configuration lang]
   (let [label-predicate (str (config/dataset-label configuration))]
     (str
       "PREFIX qb: <http://purl.org/linked-data/cube#>"
       "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>"
-      "SELECT ?title ?description WHERE {"
+      "PREFIX dcterms: <http://purl.org/dc/terms/>"
+      "SELECT * WHERE {"
       "  <" dataset-uri "> a qb:DataSet ."
-      "  OPTIONAL {"
+      "{"
       "    <" dataset-uri "> <" label-predicate "> ?title ."
-      (when lang
-        (str "FILTER(LANG(?title) = \"" lang "\")"))
-      "  }"
-      "  OPTIONAL {"
-      "    <" dataset-uri "> rdfs:comment ?description ."
-      (when lang
-        (str "FILTER(LANG(?description) = \"" lang "\")"))
-      "  }"
+      "    FILTER(LANG(?title) = \"" lang "\")"
+      "}"
+      "UNION {"
+      "  <" dataset-uri "> rdfs:comment ?description ."
+      "  FILTER(LANG(?description) = \"" lang "\")"
+      "}"
+      "UNION { <" dataset-uri "> dcterms:issued ?issued . }"
+      "UNION { <" dataset-uri "> dcterms:publisher ?publisher . }"
+      "UNION { <" dataset-uri "> dcterms:license ?licence . }"
+      "UNION {"
+      "  SELECT ?modified WHERE {"
+      "    <" dataset-uri "> dcterms:modified ?modified ."
+      "  } ORDER BY DESC(?modified) LIMIT 1"
+      "}"
       "}")))
 
-(defn get-dataset-strings [repo dataset-uri configuration lang]
-  (let [q (get-dataset-strings-query dataset-uri configuration lang)
-        results (util/eager-query repo q)
-        bindings (first results)]
-    (process-dataset-bindings bindings)))
+(defn to-multimap [maps]
+  (let [non-nil-pairs (mapcat (fn [m] (filter (comp some? val) m)) maps)]
+    (reduce (fn [acc [k v]]
+              (update acc k (fnil conj []) v))
+            {}
+            non-nil-pairs)))
+
+(defn- process-dataset-metadata-bindings [bindings]
+  (let [{:keys [title description issued publisher licence modified]} (to-multimap bindings)]
+    {:title       (util/label->string (first title))              ;;TODO: allow multiple titles?
+     :description (mapv util/label->string description)
+     :issued      (mapv scalars/grafter-date->datetime issued)
+     :publisher   (or publisher [])
+     :licence     (or licence [])
+     :modified    (some-> (first modified) (scalars/grafter-date->datetime))}))
+
+(defn get-dataset-metadata [repo dataset-uri configuration lang]
+  (let [q (get-dataset-metadata-query dataset-uri configuration lang)
+        bindings (util/eager-query repo q)]
+    (process-dataset-metadata-bindings bindings)))
+
+(defn get-datasets [repo dimensions measures uri configuration]
+  (let [q (get-datasets-query dimensions measures uri configuration)
+        results (util/eager-query repo q)]
+    results))
 
 (defn get-dimension-codelist-values-query [ds-uri configuration lang]
   (let [codelist-label (config/codelist-label configuration)]

@@ -51,18 +51,12 @@
 (defn construct-datasets [datasets dataset-enum-values dataset-measures known-dimensions known-dimension-members]
   (let [dataset-enum-values (group-by :ds dataset-enum-values)
         datasets (map (fn [{uri :ds :as dataset}]
-                        (let [{:keys [issued modified publisher licence]} dataset
-                              enum-dim-values (get dataset-enum-values uri)
+                        (let [enum-dim-values (get dataset-enum-values uri)
                               measures-mapping (get-dataset-measures-mapping dataset-measures)
                               enum-dims (get-dataset-enum-dimensions enum-dim-values)
                               dimensions (get-dataset-dimensions uri known-dimensions known-dimension-members enum-dims)
-                              measures (or (get measures-mapping uri) [])
-                              d (types/->Dataset uri (:name dataset) dimensions measures)]
-                          (assoc d
-                            :issued (some-> issued (scalars/grafter-date->datetime))
-                            :modified (some-> modified (scalars/grafter-date->datetime))
-                            :publisher publisher
-                            :licence licence)))
+                              measures (or (get measures-mapping uri) [])]
+                          (types/->Dataset uri (:name dataset) dimensions measures)))
                       datasets)]
     (filter can-generate-schema? datasets)))
 
@@ -102,7 +96,7 @@
    4. Get all dimension values for all enum dimensions
    5. Get all dataset measures
    6. Construct datasets"
-  (let [datasets (queries/get-datasets repo nil nil nil configuration nil)
+  (let [datasets (queries/get-datasets repo nil nil nil configuration)
         area-dim (config/geo-dimension configuration)
         time-dim (config/time-dimension configuration)
         known-dimension-types [[area-dim (types/->RefAreaType)]

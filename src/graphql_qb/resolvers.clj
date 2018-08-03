@@ -130,13 +130,11 @@
   (let [repo (context/get-repository context)
         config (context/get-configuration context)
         lang (get-lang parent-field)
-        results (queries/get-datasets repo dimensions measures uri config lang)]
-    (map (fn [bindings]
-           (-> bindings
-               (util/rename-key :ds :uri)
-               (update :issued #(some-> % scalars/grafter-date->datetime))
-               (update :modified #(some-> % scalars/grafter-date->datetime))
-               (assoc :schema (name (types/dataset-label->schema-name (:name bindings))))))
+        results (queries/get-datasets repo dimensions measures uri config)]
+    (map (fn [ds]
+           (let [{:keys [uri] :as dataset} (util/rename-key ds :ds :uri)
+                 metadata (queries/get-dataset-metadata repo uri config lang)]
+             (merge dataset metadata)))
          results)))
 
 (defn exec-observation-aggregation [repo dataset measure filter-model aggregation-fn]
@@ -176,8 +174,8 @@
     (let [repo (context/get-repository context)
           config (context/get-configuration context)
           lang (get-lang field)
-          string-fields (queries/get-dataset-strings repo uri config lang)]
-      {::dataset (merge dataset string-fields)})))
+          metadata (queries/get-dataset-metadata repo uri config lang)]
+      {::dataset (merge dataset metadata)})))
 
 (defn dataset-dimensions-resolver [all-enum-mappings]
   (fn [context _args {:keys [uri] :as ds-field}]
