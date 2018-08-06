@@ -34,9 +34,14 @@
 
 (defn merge-schemas [s1 s2]
   (merge-with (fn [v1 v2]
-                (if (and (map? v1) (map? v2))
-                  (merge-schemas v1 v2)
-                  v2))
+                (cond
+                  (and (map? v1) (map? v2)) (merge-schemas v1 v2)
+
+                  (nil? v1) v2
+
+                  (nil? v2) v1
+
+                  :else v2))
               s1 s2))
 
 (defn path->object-name [path]

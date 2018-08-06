@@ -1,5 +1,12 @@
 {:objects
- {:dataset
+ {:qb
+  {:fields
+   {:datasets {:type    (list :dataset)
+               :resolve :resolve-datasets
+               :args    {:dimensions {:type :filter}
+                         :uri        {:type :uri}}}}}
+
+  :dataset
   {:implements [:dataset_meta]
    :fields
    {:uri         {:type :uri :description "Dataset URI"}
@@ -102,9 +109,7 @@
     :after {:type :SparqlCursor :description "Cursor to the start of the results page"}}}}
 
  :queries
- {:datasets
-  {:type    (list :dataset)
-   :resolve :resolve-datasets
-   :args
-            {:dimensions {:type :filter}
-             :uri        {:type :uri}}}}}
+ {:cubiql
+  {:type :qb
+   :resolve :resolve-cuibiql
+   :args {:lang_preference {:type String}}}}}

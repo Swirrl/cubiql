@@ -10,7 +10,7 @@
             [graphql-qb.schema :as schema]
             [graphql-qb.resolvers :as resolvers]
             [graphql-qb.queries :as queries]
-            [graphql-qb.vocabulary :as vocab]
+            [graphql-qb.schema-model :as sm]
             [graphql-qb.schema.mapping.labels :as mapping]
             [graphql-qb.config :as config]))
 
@@ -51,13 +51,13 @@
 (defn construct-datasets [datasets dataset-enum-values dataset-measures known-dimensions known-dimension-members]
   (let [dataset-enum-values (group-by :ds dataset-enum-values)
         datasets (map (fn [{uri :ds :as dataset}]
-                        (let [{:keys [title description issued modified publisher licence]} dataset
+                        (let [{:keys [issued modified publisher licence]} dataset
                               enum-dim-values (get dataset-enum-values uri)
                               measures-mapping (get-dataset-measures-mapping dataset-measures)
                               enum-dims (get-dataset-enum-dimensions enum-dim-values)
                               dimensions (get-dataset-dimensions uri known-dimensions known-dimension-members enum-dims)
                               measures (or (get measures-mapping uri) [])
-                              d (types/->Dataset uri title description dimensions measures)]
+                              d (types/->Dataset uri (:name dataset) dimensions measures)]
                           (assoc d
                             :issued (some-> issued (scalars/grafter-date->datetime))
                             :modified (some-> modified (scalars/grafter-date->datetime))
@@ -102,8 +102,7 @@
    4. Get all dimension values for all enum dimensions
    5. Get all dataset measures
    6. Construct datasets"
-  (let [datasets-query (queries/get-datasets-query nil nil nil configuration)
-        datasets (util/eager-query repo datasets-query)
+  (let [datasets (queries/get-datasets repo nil nil nil configuration nil)
         area-dim (config/geo-dimension configuration)
         time-dim (config/time-dimension configuration)
         known-dimension-types [[area-dim (types/->RefAreaType)]
@@ -130,24 +129,26 @@
 (defn get-schema [datasets enum-mappings measure-mappings]
   (let [base-schema (read-edn-resource "base-schema.edn")
         base-schema (assoc base-schema :scalars scalars/custom-scalars)
-        ds-schemas (map (fn [{:keys [uri] :as ds}]
-                          (schema/get-dataset-schema ds (get enum-mappings uri) (get measure-mappings uri)))
-                        datasets)
-        {:keys [resolvers] :as combined-schema} (reduce (fn [acc schema] (merge-with merge acc schema)) base-schema ds-schemas)
+        {:keys [qb-fields schema]} (schema/get-qb-fields-schema datasets enum-mappings measure-mappings)
+        base-schema (update-in base-schema [:objects :qb :fields] merge qb-fields)
+        {:keys [resolvers] :as combined-schema} (sm/merge-schemas base-schema schema)
         query-resolvers (merge {:resolve-observation-sparql-query resolvers/resolve-observations-sparql-query
-                                :resolve-datasets                 resolvers/resolve-datasets
+                                :resolve-datasets                 (resolvers/wrap-options resolvers/resolve-datasets)
                                 :resolve-dataset-dimensions       (resolvers/dataset-dimensions-resolver enum-mappings)
-                                :resolve-dataset-measures         (resolvers/dataset-measures-resolver measure-mappings)}
+                                :resolve-dataset-measures         (resolvers/dataset-measures-resolver measure-mappings)
+                                :resolve-cuibiql                  resolvers/resolve-cubiql}
                                resolvers)]
     (attach-resolvers (dissoc combined-schema :resolvers) query-resolvers)))
 
-(defn dump-schema [repo]
+(defn generate-schema [repo]
   (let [config (config/read-config)
         datasets (get-all-datasets repo config)
         enum-mappings (get-datasets-enum-mappings repo config)
-        measure-mappings (get-datasets-measures-mapping repo)
-        schema (get-schema datasets enum-mappings measure-mappings)]
-    (pprint/pprint schema)))
+        measure-mappings (get-datasets-measures-mapping repo)]
+    (get-schema datasets enum-mappings measure-mappings)))
+
+(defn dump-schema [repo]
+  (pprint/pprint (generate-schema repo)))
 
 (defn build-schema-context [repo config]
   (let [datasets (get-all-datasets repo config)

@@ -6,4 +6,5 @@ SELECT ?ds ?mt ?label WHERE {
   ?comp qb:measure ?mt .
   ?mt a qb:MeasureProperty .
   ?mt rdfs:label ?label .
+  FILTER(LANG(?label) = '')
 }
