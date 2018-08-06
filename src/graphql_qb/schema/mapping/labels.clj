@@ -117,7 +117,7 @@
     (create-group-mapping mapping-name (types/dataset-dimension-measures dataset) :uri)))
 
 (defn dataset-aggregation-measures-enum-group [dataset]
-  (if-let [aggregation-measures (types/dataset-aggregate-measures dataset)]
+  (if-let [aggregation-measures (seq (types/dataset-aggregate-measures dataset))]
     (let [schema (types/dataset-schema dataset)
           mapping-name (keyword (str (name schema) "_aggregation_measures"))]
       (create-group-mapping mapping-name aggregation-measures :uri))))
