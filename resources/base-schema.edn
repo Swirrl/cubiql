@@ -11,11 +11,11 @@
    :fields
    {:uri         {:type :uri :description "Dataset URI"}
     :title       {:type String :description "Dataset title"}
-    :description {:type String :description "Dataset description"}
-    :licence     {:type :uri :description "URI of the licence the dataset is published under"}
-    :issued      {:type :DateTime :description "When the dataset was issued"}
+    :description {:type (list String) :description "Dataset descriptions"}
+    :licence     {:type (list :uri) :description "URIs of the licences the dataset is published under"}
+    :issued      {:type (list :DateTime) :description "When the dataset was issued"}
     :modified    {:type :DateTime :description "When the dataset was last modified"}
-    :publisher   {:type :uri :description "URI of the publisher of the dataset"}
+    :publisher   {:type (list :uri) :description "URIs of the publishers of the dataset"}
     :schema      {:type String :description "Name of the GraphQL query root field corresponding to this dataset"}
     :dimensions  {:type        (list :dim)
                   :resolve     :resolve-dataset-dimensions
@@ -68,10 +68,10 @@
    :fields
    {:uri         {:type :uri :description "Dataset URI"}
     :title       {:type String :description "Dataset title"}
-    :description {:type String :description "Dataset description"}
+    :description {:type (list String) :description "Dataset description"}
     :schema      {:type String :description "Name of the GraphQL query root field corresponding to this dataset"}
     :dimensions  {:type (list :dim) :description "Dimensions within the dataset"}
-    :measures {:type (list :measure) :description "Measure types within the dataset"}}}
+    :measures    {:type (list :measure) :description "Measure types within the dataset"}}}
   :resource
   {:description "Resource with a URI and optional label"
    :fields
