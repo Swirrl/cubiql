@@ -73,3 +73,12 @@
 
 (defn label->string [l]
   (some-> l str))
+
+(defn convert-binding-labels
+  "Returns a function which converts each label associated with the specified keys to a string."
+  [keys]
+  (fn [bindings]
+    (reduce (fn [acc k]
+              (update acc k label->string))
+            bindings
+            keys)))

@@ -66,8 +66,8 @@
                         (number? (:measure (first results)))))
                     measures)))
 
-(defn get-dataset-measures [repo]
-  (let [results (vec (sp/query "get-measure-types.sparql" repo))
+(defn get-dataset-measures [repo configuration]
+  (let [results (queries/get-measure-types repo configuration)
         measure-type-uris (distinct (map :mt results))
         numeric-measures (get-numeric-measures repo measure-type-uris)]
     (map (fn [{:keys [mt] :as measure}]
@@ -107,17 +107,18 @@
                                               known-dimension-types))
         enum-dimension-values-query (queries/get-all-enum-dimension-values configuration)
         dataset-enum-values (util/eager-query repo enum-dimension-values-query)
-        dataset-measures (get-dataset-measures repo)]
+        dataset-measures (get-dataset-measures repo configuration)]
     (construct-datasets datasets dataset-enum-values dataset-measures known-dimensions known-dimension-members)))
 
 (defn get-datasets-enum-mappings
   [repo config]
   (let [enum-dimension-values-query (queries/get-all-enum-dimension-values config)
-        dataset-enum-values (util/eager-query repo enum-dimension-values-query)]
+        results (util/eager-query repo enum-dimension-values-query)
+        dataset-enum-values (map (util/convert-binding-labels [:label :vallabel]) results)]
     (mapping/get-datasets-enum-mappings dataset-enum-values)))
 
-(defn get-datasets-measures-mapping [repo]
-  (let [measure-values (vec (sp/query "get-measure-types.sparql" {} repo))]
+(defn get-datasets-measures-mapping [repo configuration]
+  (let [measure-values (queries/get-measure-types repo configuration)]
     (mapping/get-measure-mappings measure-values)))
 
 (defn get-schema [datasets enum-mappings measure-mappings]
@@ -138,7 +139,7 @@
   (let [config (config/read-config)
         datasets (get-all-datasets repo config)
         enum-mappings (get-datasets-enum-mappings repo config)
-        measure-mappings (get-datasets-measures-mapping repo)]
+        measure-mappings (get-datasets-measures-mapping repo config)]
     (get-schema datasets enum-mappings measure-mappings)))
 
 (defn dump-schema [repo]
@@ -147,7 +148,7 @@
 (defn build-schema-context [repo config]
   (let [datasets (get-all-datasets repo config)
         enum-mappings (get-datasets-enum-mappings repo config)
-        measure-mappings (get-datasets-measures-mapping repo)
+        measure-mappings (get-datasets-measures-mapping repo config)
         schema (get-schema datasets enum-mappings measure-mappings)]
     {:schema (lschema/compile schema)
      :datasets datasets}))

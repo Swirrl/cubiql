@@ -78,7 +78,8 @@
 
 (defn get-datasets-query
   [dimensions measures uri configuration]
-  (let [dataset-label (config/dataset-label configuration)]
+  (let [dataset-label (config/dataset-label configuration)
+        schema-lang (config/schema-label-language configuration)]
     (str
       "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>"
       "PREFIX qb: <http://purl.org/linked-data/cube#>"
@@ -86,7 +87,7 @@
       "SELECT ?ds ?name ?title ?description ?licence ?issued ?modified ?publisher WHERE {"
       (get-dimensions-or dimensions)
       "  ?ds <" (str dataset-label) "> ?name ."
-      "  FILTER(LANG(?name) = '')"
+      "  FILTER(LANG(?name) = \"" schema-lang "\")"
       (get-dimensions-filter dimensions)
       (if (some? uri)
         (str "FILTER(?ds = <" uri ">) ."))
@@ -140,8 +141,9 @@
     (process-dataset-metadata-bindings bindings)))
 
 (defn get-datasets [repo dimensions measures uri configuration]
-  (let [q (get-datasets-query dimensions measures uri configuration)]
-    (util/eager-query repo q)))
+  (let [q (get-datasets-query dimensions measures uri configuration)
+        results (util/eager-query repo q)]
+    (map (util/convert-binding-labels [:name]) results)))
 
 (defn get-dimension-codelist-values-query [ds-uri configuration lang]
   (let [codelist-label (config/codelist-label configuration)]
@@ -175,7 +177,8 @@
 
 (defn get-dimensions-query
   [dim-uris configuration]
-  (let [dataset-label (config/dataset-label configuration)]
+  (let [dataset-label (config/dataset-label configuration)
+        schema-lang (config/schema-label-language configuration)]
     (str
       "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>"
       "PREFIX qb: <http://purl.org/linked-data/cube#>"
@@ -183,6 +186,7 @@
       "  VALUES ?dim { " (string/join " " (map #(str "<" % ">") dim-uris)) " }"
       "  ?dim a qb:DimensionProperty ."
       "  ?dim <" (str dataset-label) "> ?label ."
+      "  FILTER(LANG(?label) = \"" schema-lang "\")"
       "  OPTIONAL { ?dim rdfs:comment ?comment }"
       "}")))
 
@@ -194,7 +198,8 @@
   (let [area-dim (config/geo-dimension configuration)
         time-dim (config/time-dimension configuration)
         dataset-label (config/dataset-label configuration)
-        codelist-label (config/codelist-label configuration)]
+        codelist-label (config/codelist-label configuration)
+        schema-lang (config/schema-label-language configuration)]
     (str
       "PREFIX qb: <http://purl.org/linked-data/cube#>"
       "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>"
@@ -208,13 +213,13 @@
       "FILTER(?dim != <" (str area-dim) ">)"
       "FILTER(?dim != <" (str time-dim) ">)"
       "?dim <" (str dataset-label) "> ?label ."
-      "FILTER(LANG(?label) = '')"
+      "FILTER(LANG(?label) = \"" schema-lang "\")"
       "OPTIONAL { ?dim rdfs:comment ?doc }"
       (config/codelist-source configuration) " qb:codeList ?list ."
       "?list skos:member ?member ."
       "OPTIONAL {"
       "  ?member <" (str codelist-label) "> ?vallabel ."
-      "  FILTER(LANG(?vallabel) = '')"
+      "  FILTER(LANG(?vallabel) = \"" schema-lang "\")"
       "}"
       "}")))
 
@@ -232,3 +237,22 @@
     "    FILTER(LANG(?label) = \"" lang "\")"
     "  }"
     "}"))
+
+(defn get-measure-types-query [configuration]
+  (let [schema-lang (config/schema-label-language configuration)]
+    (str
+      "PREFIX qb: <http://purl.org/linked-data/cube#>"
+      "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>"
+      "SELECT ?ds ?mt ?label WHERE {"
+      "  ?ds qb:structure ?struct ."
+      "  ?struct qb:component ?comp ."
+      "  ?comp qb:measure ?mt ."
+      "  ?mt a qb:MeasureProperty ."
+      "  ?mt rdfs:label ?label ."
+      "  FILTER(LANG(?label) = \"" schema-lang "\")"
+      "}")))
+
+(defn get-measure-types [repo configuration]
+  (let [q (get-measure-types-query configuration)
+        results (util/eager-query repo q)]
+    (map (util/convert-binding-labels [:label]) results)))

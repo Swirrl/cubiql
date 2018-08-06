@@ -14,8 +14,9 @@ CubiQL requires data to be modeled using the [RDF Data Cube Vocabulary](https://
 Temporal requirements that will be fixed:
 - Literals should **not** have language tags (e.g. @en) (this will be fixed by [#6](https://github.com/Swirrl/graphql-qb/issues/6))
 - Data cubes should have at most one dcterms:license, dcterms:issued, dcterms:modified,  dcterms:publisher (this will be fixed by [#96](https://github.com/Swirrl/graphql-qb/issues/96))
-- Datasets, dimensions and codelist members should all have a single `rdfs:label` string literal (i.e. with no language tag). This value is used to generate elements of the GraphQL schema
-  such as field names and enum values. Additional `rdfs:label`s with language tags can be defined, although only a single label should be defined for each element for a particular language. 
+- Datasets, dimensions, measures and codelist members should all have a single `rdfs:label` with a language tag matching the configured `:schema-label-language` in the configuration (nil can
+  be specified to use strings without an associated language tag). This value is used to generate elements of the GraphQL schema such as field names and enum values. 
+  Additional `rdfs:label`s with language tags can be defined, although only a single label should be defined for each element for a particular language. 
   The requirement for string literal labels will be lifted when the GraphQL schema mapping is defined explicitly, see [#10](https://github.com/Swirrl/graphql-qb/issues/10) and 
   [#40](https://github.com/Swirrl/graphql-qb/issues/40).
 

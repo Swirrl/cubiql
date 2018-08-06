@@ -40,3 +40,6 @@
   (if (nil? config-dataset-label)
     rdfs:label
     (URI. config-dataset-label)))
+
+(defn schema-label-language [config]
+  (:schema-label-language config))
