@@ -1,10 +1,26 @@
 <http://purl.org/linked-data/sdmx/2009/dimension#refArea> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/1999/02/22-rdf-syntax-ns#Property> .
 <http://purl.org/linked-data/sdmx/2009/dimension#refArea> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://purl.org/linked-data/cube#DimensionProperty> .
+<http://purl.org/linked-data/sdmx/2009/dimension#refArea> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://publishmydata.com/def/ontology/foi/ReferenceFeatureProperty> .
 <http://purl.org/linked-data/sdmx/2009/dimension#refArea> <http://www.w3.org/2000/01/rdf-schema#label> "Reference Area"@en .
 <http://purl.org/linked-data/sdmx/2009/dimension#refArea> <http://www.w3.org/2000/01/rdf-schema#comment> "The country or geographic area to which the measured statistical phenomenon relates."@en .
 <http://purl.org/linked-data/sdmx/2009/dimension#refArea> <http://www.w3.org/2000/01/rdf-schema#isDefinedBy> <http://sdmx.org/wp-content/uploads/2009/01/01_sdmx_cog_annex_1_cdc_2009.pdf> .
 <http://purl.org/linked-data/sdmx/2009/dimension#refArea> <http://www.w3.org/2000/01/rdf-schema#range> <http://www.w3.org/2000/01/rdf-schema#Resource> .
 <http://purl.org/linked-data/sdmx/2009/dimension#refArea> <http://purl.org/linked-data/cube#concept> <http://purl.org/linked-data/sdmx/2009/concept#refArea> .
+<http://purl.org/linked-data/sdmx/2009/dimension#refArea> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/1999/02/22-rdf-syntax-ns#Property> .
+<http://purl.org/linked-data/sdmx/2009/dimension#refArea> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://purl.org/linked-data/cube#DimensionProperty> .
+<http://purl.org/linked-data/sdmx/2009/dimension#refArea> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://publishmydata.com/def/ontology/foi/ReferenceFeatureProperty> .
+<http://purl.org/linked-data/sdmx/2009/dimension#refArea> <http://www.w3.org/2000/01/rdf-schema#label> "Reference Area"@en .
+<http://purl.org/linked-data/sdmx/2009/dimension#refArea> <http://www.w3.org/2000/01/rdf-schema#comment> "The country or geographic area to which the measured statistical phenomenon relates."@en .
+<http://purl.org/linked-data/sdmx/2009/dimension#refArea> <http://www.w3.org/2000/01/rdf-schema#isDefinedBy> <http://sdmx.org/wp-content/uploads/2009/01/01_sdmx_cog_annex_1_cdc_2009.pdf> .
+<http://purl.org/linked-data/sdmx/2009/dimension#refArea> <http://www.w3.org/2000/01/rdf-schema#range> <http://www.w3.org/2000/01/rdf-schema#Resource> .
+<http://purl.org/linked-data/sdmx/2009/dimension#refArea> <http://purl.org/linked-data/cube#concept> <http://purl.org/linked-data/sdmx/2009/concept#refArea> .
+<http://purl.org/linked-data/sdmx/2009/dimension#refPeriod> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/1999/02/22-rdf-syntax-ns#Property> .
+<http://purl.org/linked-data/sdmx/2009/dimension#refPeriod> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://purl.org/linked-data/cube#DimensionProperty> .
+<http://purl.org/linked-data/sdmx/2009/dimension#refPeriod> <http://www.w3.org/2000/01/rdf-schema#label> "Reference Period"@en .
+<http://purl.org/linked-data/sdmx/2009/dimension#refPeriod> <http://www.w3.org/2000/01/rdf-schema#comment> "The period of time or point in time to which the measured observation is intended to refer."@en .
+<http://purl.org/linked-data/sdmx/2009/dimension#refPeriod> <http://www.w3.org/2000/01/rdf-schema#isDefinedBy> <http://sdmx.org/wp-content/uploads/2009/01/01_sdmx_cog_annex_1_cdc_2009.pdf> .
+<http://purl.org/linked-data/sdmx/2009/dimension#refPeriod> <http://www.w3.org/2000/01/rdf-schema#range> <http://www.w3.org/2000/01/rdf-schema#Resource> .
+<http://purl.org/linked-data/sdmx/2009/dimension#refPeriod> <http://purl.org/linked-data/cube#concept> <http://purl.org/linked-data/sdmx/2009/concept#refPeriod> .
 <http://purl.org/linked-data/sdmx/2009/dimension#refPeriod> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/1999/02/22-rdf-syntax-ns#Property> .
 <http://purl.org/linked-data/sdmx/2009/dimension#refPeriod> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://purl.org/linked-data/cube#DimensionProperty> .
 <http://purl.org/linked-data/sdmx/2009/dimension#refPeriod> <http://www.w3.org/2000/01/rdf-schema#label> "Reference Period"@en .
@@ -19,6 +35,18 @@
 <http://purl.org/linked-data/cube#measureType> <http://www.w3.org/2000/01/rdf-schema#isDefinedBy> <http://purl.org/linked-data/cube> .
 <http://purl.org/linked-data/cube#measureType> <http://www.w3.org/2000/01/rdf-schema#range> <http://purl.org/linked-data/cube#MeasureProperty> .
 <http://purl.org/linked-data/cube#measureType> <http://purl.org/linked-data/cube#concept> <http://purl.org/linked-data/sdmx#measureTypeConcept> .
+<http://purl.org/linked-data/cube#measureType> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/1999/02/22-rdf-syntax-ns#Property> .
+<http://purl.org/linked-data/cube#measureType> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://purl.org/linked-data/cube#DimensionProperty> .
+<http://purl.org/linked-data/cube#measureType> <http://www.w3.org/2000/01/rdf-schema#label> "measure type"@en .
+<http://purl.org/linked-data/cube#measureType> <http://www.w3.org/2000/01/rdf-schema#comment> "Generic measure dimension, the value of this dimension indicates which measure (from the set of measures in the DSD) is being given by the obsValue (or other primary measure)"@en .
+<http://purl.org/linked-data/cube#measureType> <http://www.w3.org/2000/01/rdf-schema#isDefinedBy> <http://purl.org/linked-data/cube> .
+<http://purl.org/linked-data/cube#measureType> <http://www.w3.org/2000/01/rdf-schema#range> <http://purl.org/linked-data/cube#MeasureProperty> .
+<http://purl.org/linked-data/cube#measureType> <http://purl.org/linked-data/cube#concept> <http://purl.org/linked-data/sdmx#measureTypeConcept> .
+<http://statistics.gov.scot/def/dimension/gender> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/1999/02/22-rdf-syntax-ns#Property> .
+<http://statistics.gov.scot/def/dimension/gender> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://purl.org/linked-data/cube#DimensionProperty> .
+<http://statistics.gov.scot/def/dimension/gender> <http://www.w3.org/2000/01/rdf-schema#label> "Gender" .
+<http://statistics.gov.scot/def/dimension/gender> <http://www.w3.org/2000/01/rdf-schema#isDefinedBy> <http://statistics.gov.scot/def/ontology/dimensions> .
+<http://statistics.gov.scot/def/dimension/gender> <http://www.w3.org/2000/01/rdf-schema#range> <http://statistics.gov.scot/def/dimension/Gender> .
 <http://statistics.gov.scot/def/dimension/gender> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/1999/02/22-rdf-syntax-ns#Property> .
 <http://statistics.gov.scot/def/dimension/gender> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://purl.org/linked-data/cube#DimensionProperty> .
 <http://statistics.gov.scot/def/dimension/gender> <http://www.w3.org/2000/01/rdf-schema#label> "Gender" .
@@ -29,3 +57,8 @@
 <http://statistics.gov.scot/def/dimension/populationGroup> <http://www.w3.org/2000/01/rdf-schema#label> "Population Group" .
 <http://statistics.gov.scot/def/dimension/populationGroup> <http://www.w3.org/2000/01/rdf-schema#isDefinedBy> <http://statistics.gov.scot/def/ontology/dimensions> .
 <http://statistics.gov.scot/def/dimension/populationGroup> <http://www.w3.org/2000/01/rdf-schema#range> <http://statistics.gov.scot/def/dimension/PopulationGroup> .
+<http://statistics.gov.scot/def/dimension/confidenceInterval> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/1999/02/22-rdf-syntax-ns#Property> .
+<http://statistics.gov.scot/def/dimension/confidenceInterval> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://purl.org/linked-data/cube#DimensionProperty> .
+<http://statistics.gov.scot/def/dimension/confidenceInterval> <http://www.w3.org/2000/01/rdf-schema#label> "Confidence Interval" .
+<http://statistics.gov.scot/def/dimension/confidenceInterval> <http://www.w3.org/2000/01/rdf-schema#isDefinedBy> <http://statistics.gov.scot/def/ontology/dimensions> .
+<http://statistics.gov.scot/def/dimension/confidenceInterval> <http://www.w3.org/2000/01/rdf-schema#range> <http://statistics.gov.scot/def/dimension/ConfidenceInterval> .

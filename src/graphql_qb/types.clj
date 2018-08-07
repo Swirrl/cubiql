@@ -227,8 +227,14 @@
 (defn dataset-dimensions [ds]
   (:dimensions ds))
 
+(defn dataset-measures [ds]
+  (:measures ds))
+
 (defn get-dataset-dimension-measure-by-uri [dataset uri]
   (util/find-first #(= uri (:uri %)) (dataset-dimension-measures dataset)))
+
+(defn get-dataset-dimension-by-uri [dataset dimension-uri]
+  (util/find-first (fn [dim] (= dimension-uri (:uri dim))) (dataset-dimensions dataset)))
 
 (defn get-dataset-measure-by-uri [{:keys [measures] :as dataset} uri]
   (util/find-first #(= uri (:uri %)) measures))

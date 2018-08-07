@@ -1,0 +1,14 @@
+PREFIX qb: <http://purl.org/linked-data/cube#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX dcterms: <http://purl.org/dc/terms/>
+
+SELECT * WHERE {
+  ?ds qb:structure ?dsd .
+  ?dsd a qb:DataStructureDefinition .
+  ?dsd qb:component ?comp .
+  OPTIONAL { ?comp qb:order ?order }
+  OPTIONAL { ?comp qb:codeList ?codelist }
+  OPTIONAL { ?comp qb:dimension ?dimension }
+  OPTIONAL { ?comp qb:measure ?measure }
+}
