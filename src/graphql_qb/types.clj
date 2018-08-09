@@ -138,7 +138,7 @@
   SparqlResultProjector
   (apply-projection [this model observation-selections configuration]
     (let [dim-key (keyword (str "dim" order))
-          field-name (:field-name this)
+          field-name (->field-name this)
           field-selections (get observation-selections field-name)
           codelist-label (config/dataset-label configuration)]
       (cond
@@ -240,6 +240,6 @@
   (util/find-first #(= uri (:uri %)) measures))
 
 (defn dataset-result-projection [dataset bindings config]
-  (into {} (map (fn [{:keys [field-name] :as ft}]
-                  [field-name (get-result-projection ft bindings config)])
+  (into {} (map (fn [ft]
+                  [(->field-name ft) (get-result-projection ft bindings config)])
                 (dataset-dimension-measures dataset))))
