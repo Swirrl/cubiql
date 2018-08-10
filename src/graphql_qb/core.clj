@@ -2,7 +2,7 @@
   (:require [com.walmartlabs.lacinia.schema :as lschema]
             [com.walmartlabs.lacinia.util :refer [attach-resolvers]]
             [com.walmartlabs.lacinia :refer [execute]]
-            [graphql-qb.util :refer [read-edn-resource rename-key] :as util]
+            [graphql-qb.util :refer [read-edn-resource] :as util]
             [graphql-qb.types :refer :all :as types]
             [graphql-qb.types.scalars :as scalars]
             [clojure.pprint :as pprint]

@@ -132,7 +132,7 @@
         lang (get-lang parent-field)
         results (queries/get-datasets repo dimensions measures uri config)]
     (map (fn [ds]
-           (let [{:keys [uri] :as dataset} (util/rename-key ds :ds :uri)
+           (let [{:keys [uri] :as dataset} (util/rename-key ds :ds :uri :strict? true)
                  metadata (queries/get-dataset-metadata repo uri config lang)
                  with-metadata (merge dataset metadata)]
              (assoc with-metadata :schema (name (types/dataset-name->schema-name (:name dataset))))))

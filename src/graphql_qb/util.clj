@@ -21,15 +21,21 @@
     (throw (IllegalArgumentException. "Resource not found"))))
 
 (defn rename-key
-  "Renames the key k in the map m to new-k."
-  [m k new-k]
-  {:pre [(contains? m k)]
-   :post [(contains? % new-k)
-          (not (contains? % k))]}
-  (let [v (get m k)]
-    (-> m
-        (assoc new-k v)
-        (dissoc k))))
+  "Renames the key k in the map m to new-k. If the optional keyword argument strict? is true
+   then an exception will be thrown if k does not exist in m."
+  [m k new-k & {:keys [strict?] :or {strict? false}}]
+  (cond
+    (contains? m k)
+    (let [v (get m k)]
+      (-> m
+          (assoc new-k v)
+          (dissoc k)))
+
+    strict?
+    (throw (IllegalArgumentException. (format "Source key %s not found in input map" (str k))))
+
+    :else
+    m))
 
 (defn keyed-by [f s]
   (into {} (map (fn [v] [(f v) v]) s)))

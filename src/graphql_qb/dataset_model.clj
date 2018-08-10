@@ -30,7 +30,7 @@
     (str
       "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>"
       "PREFIX qb: <http://purl.org/linked-data/cube#>"
-      "SELECT ?dim ?label ?comment WHERE {"
+      "SELECT ?dim ?label WHERE {"
       "  ?dim a qb:DimensionProperty ."
       "  ?dim <" (str dataset-label) "> ?label ."
       "}")))
@@ -82,8 +82,28 @@
            (assoc measure :is-numeric? (contains? numeric-measures uri)))
          measures)))
 
-(defn- get-all-components [repo]
-  (util/distinct-by :comp (sp/query "get-all-components.sparql" repo)))
+(defn- get-all-components-query [configuration]
+  (str
+    "PREFIX qb: <http://purl.org/linked-data/cube#>"
+    "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>"
+    "PREFIX skos: <http://www.w3.org/2004/02/skos/core#>"
+    "PREFIX dcterms: <http://purl.org/dc/terms/>"
+    "SELECT * WHERE {"
+    "  ?ds qb:structure ?dsd ."
+    "  ?dsd a qb:DataStructureDefinition ."
+    "  ?dsd qb:component ?comp ."
+    "  OPTIONAL { ?comp qb:order ?order }"
+    "  OPTIONAL { ?comp qb:dimension ?dim }"
+    "  OPTIONAL { " (config/codelist-source configuration) " qb:codeList ?codelist }"
+    "  OPTIONAL { ?comp qb:measure ?measure }"
+    "}"))
+
+(defn- get-all-components [repo configuration]
+  (let [q (get-all-components-query configuration)
+        results (util/eager-query repo q)]
+    (->> results
+         (map (fn [bindings] (util/rename-key bindings :dim :dimension)))
+         (util/distinct-by :comp))))
 
 (defn get-codelist-members-query [configuration]
   (let [dimension-filters (map (fn [dim] (str "FILTER(?dim != <" dim ">)")) (config/ignored-codelist-dimensions configuration))]
@@ -97,7 +117,7 @@
       "  ?dsd qb:component ?comp ."
       "  ?comp qb:dimension ?dim ."
       (string/join "\n" dimension-filters)
-      "  ?comp qb:codeList ?codelist ."
+      (config/codelist-source configuration) " qb:codeList ?codelist ."
       "  ?codelist skos:member ?member ."
       "}")))
 
@@ -175,7 +195,7 @@
    6. Find which measures are numeric"
   [repo configuration]
   (let [datasets (find-all-datasets repo configuration)
-        components (get-all-components repo)
+        components (get-all-components repo configuration)
         dimensions (find-all-dimensions repo configuration)
         measures (find-all-measures repo configuration)
         codelists (get-all-codelists repo configuration)]
