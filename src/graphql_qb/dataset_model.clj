@@ -94,7 +94,7 @@
     "  ?dsd qb:component ?comp ."
     "  OPTIONAL { ?comp qb:order ?order }"
     "  OPTIONAL { ?comp qb:dimension ?dim }"
-    "  OPTIONAL { " (config/codelist-source configuration) " qb:codeList ?codelist }"
+    "  OPTIONAL { " (config/codelist-source configuration) " <" (config/codelist-predicate configuration) "> ?codelist }"
     "  OPTIONAL { ?comp qb:measure ?measure }"
     "}"))
 
@@ -117,7 +117,7 @@
       "  ?dsd qb:component ?comp ."
       "  ?comp qb:dimension ?dim ."
       (string/join "\n" dimension-filters)
-      (config/codelist-source configuration) " qb:codeList ?codelist ."
+      (config/codelist-source configuration) " <" (config/codelist-predicate configuration) "> ?codelist ."
       "  ?codelist skos:member ?member ."
       "}")))
 

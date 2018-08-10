@@ -29,6 +29,11 @@
     "component" "?comp"
     "?dim"))
 
+(defn codelist-predicate [{predicate :codelist-predicate :as config}]
+  (if (nil? predicate)
+    qb:codeList
+    (URI. predicate)))
+
 (defn codelist-label [{config-cl-label :codelist-label-uri :as config}]
   ;;Return the default skos:prefLabel if :codelist-label-uri is not defined at configuration
   (if (nil? config-cl-label)
