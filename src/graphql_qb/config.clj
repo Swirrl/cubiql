@@ -40,3 +40,12 @@
   (if (nil? config-dataset-label)
     rdfs:label
     (URI. config-dataset-label)))
+
+(defn schema-label-language [config]
+  (:schema-label-language config))
+
+(defn ignored-codelist-dimensions
+  "Returns a collection of URIs for dimensions which should not have an associated codelist."
+  [config]
+  (remove nil? [(geo-dimension config)
+                (time-dimension config)]))

@@ -4,8 +4,7 @@
             [graphql-qb.schema-model :as sm]
             [clojure.pprint :as pp]
             [graphql-qb.schema.mapping.labels :as mapping]
-            [graphql-qb.context :as context]
-            [graphql-qb.queries :as queries]))
+            [graphql-qb.context :as context]))
 
 (defn enum-type-name [dataset {:keys [enum-name] :as enum-type}]
   (types/field-name->type-name enum-name (types/dataset-schema dataset)))
@@ -82,29 +81,31 @@
       (create-aggregation-field dataset :sum aggregation-measures-enum-mapping :sum)
       (create-aggregation-field dataset :average aggregation-measures-enum-mapping :avg))}})
 
-(defn dataset-observation-dimensions-schema-model [{:keys [dimensions] :as dataset}]
-  (into {} (map (fn [{:keys [field-name type] :as dim}]
-                  [field-name {:type (type-schema-type-name dataset type)}])
-                dimensions)))
+(defn dataset-observation-dimensions-schema-model [dataset]
+  (let [dimensions (types/dataset-dimensions dataset)]
+    (into {} (map (fn [{:keys [type] :as dim}]
+                    [(types/->field-name dim) {:type (type-schema-type-name dataset type)}])
+                  dimensions))))
 
 ;;TODO: combine with dataset-observation-dimensions-schema-model?
-(defn dataset-observation-dimensions-input-schema-model [{:keys [dimensions] :as dataset}]
-  (into {} (map (fn [{:keys [field-name type] :as dim}]
-                  [field-name {:type (type-schema-input-type-name dataset type)}])
-                dimensions)))
+(defn dataset-observation-dimensions-input-schema-model [dataset]
+  (let [dimensions (types/dataset-dimensions dataset)]
+    (into {} (map (fn [{:keys [type] :as dim}]
+                    [(types/->field-name dim) {:type (type-schema-input-type-name dataset type)}])
+                  dimensions))))
 
 (defn dataset-observation-schema-model [dataset]
   (let [dimensions-model (dataset-observation-dimensions-schema-model dataset)
-        measures (map (fn [{:keys [field-name] :as measure}]
-                        [field-name {:type 'String}])
+        measures (map (fn [measure]
+                        [(types/->field-name measure) {:type 'String}])
                       (:measures dataset))]
     (into {:uri {:type :uri}}
           (concat dimensions-model measures))))
 
 (defn dataset-order-spec-schema-model [dataset]
   (let [dim-measures (types/dataset-dimension-measures dataset)]
-    (into {} (map (fn [{:keys [field-name]}]
-                    [field-name {:type :sort_direction}]))
+    (into {} (map (fn [measure]
+                    [(types/->field-name measure) {:type :sort_direction}]))
           dim-measures)))
 
 (defn get-observation-schema-model [dataset dataset-enum-mappings]

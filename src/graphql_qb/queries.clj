@@ -7,7 +7,7 @@
             [graphql-qb.config :as config]
             [graphql-qb.util :as util]
             [graphql-qb.types.scalars :as scalars])
-  (:import  [java.net URI]))
+  (:import [java.net URI]))
 
 (defn get-observation-filter-model [dim-filter]
    (let [m (-> qm/empty-model
@@ -78,7 +78,8 @@
 
 (defn get-datasets-query
   [dimensions measures uri configuration]
-  (let [dataset-label (config/dataset-label configuration)]
+  (let [dataset-label (config/dataset-label configuration)
+        schema-lang (config/schema-label-language configuration)]
     (str
       "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>"
       "PREFIX qb: <http://purl.org/linked-data/cube#>"
@@ -86,11 +87,16 @@
       "SELECT ?ds ?name ?title ?description ?licence ?issued ?modified ?publisher WHERE {"
       (get-dimensions-or dimensions)
       "  ?ds <" (str dataset-label) "> ?name ."
-      "  FILTER(LANG(?name) = '')"
+      "  FILTER(LANG(?name) = \"" schema-lang "\")"
       (get-dimensions-filter dimensions)
       (if (some? uri)
         (str "FILTER(?ds = <" uri ">) ."))
       "}")))
+
+(defn get-datasets [repo dimensions measures uri configuration]
+  (let [q (get-datasets-query dimensions measures uri configuration)
+        results (util/eager-query repo q)]
+    (map (util/convert-binding-labels [:name]) results)))
 
 (defn- get-dataset-metadata-query [dataset-uri configuration lang]
   (let [label-predicate (str (config/dataset-label configuration))]
@@ -102,11 +108,13 @@
       "  <" dataset-uri "> a qb:DataSet ."
       "{"
       "    <" dataset-uri "> <" label-predicate "> ?title ."
-      "    FILTER(LANG(?title) = \"" lang "\")"
+      (when lang
+        (str "FILTER(LANG(?title) = \"" lang "\")"))
       "}"
       "UNION {"
       "  <" dataset-uri "> rdfs:comment ?description ."
-      "  FILTER(LANG(?description) = \"" lang "\")"
+      (when lang
+        (str "FILTER(LANG(?description) = \"" lang "\")"))
       "}"
       "UNION { <" dataset-uri "> dcterms:issued ?issued . }"
       "UNION { <" dataset-uri "> dcterms:publisher ?publisher . }"
@@ -139,10 +147,6 @@
         bindings (util/eager-query repo q)]
     (process-dataset-metadata-bindings bindings)))
 
-(defn get-datasets [repo dimensions measures uri configuration]
-  (let [q (get-datasets-query dimensions measures uri configuration)]
-    (util/eager-query repo q)))
-
 (defn get-dimension-codelist-values-query [ds-uri configuration lang]
   (let [codelist-label (config/codelist-label configuration)]
     (str
@@ -169,53 +173,29 @@
         results (util/eager-query repo dimvalues-query)]
     (group-by :dim results)))
 
-(defn get-datasets-containing-dimension [repo dimension-uri]
-  (let [results (vec (sp/query "get-datasets-with-dimension.sparql" {:dim dimension-uri} repo))]
-    (into #{} (map :ds results))))
-
-(defn get-dimensions-query
-  [dim-uris configuration]
-  (let [dataset-label (config/dataset-label configuration)]
-    (str
-      "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>"
-      "PREFIX qb: <http://purl.org/linked-data/cube#>"
-      "SELECT ?dim ?label ?comment WHERE {"
-      "  VALUES ?dim { " (string/join " " (map #(str "<" % ">") dim-uris)) " }"
-      "  ?dim a qb:DimensionProperty ."
-      "  ?dim <" (str dataset-label) "> ?label ."
-      "  OPTIONAL { ?dim rdfs:comment ?comment }"
-      "}")))
-
 (defn get-all-enum-dimension-values
   "Gets all codelist members for all dimensions across all datasets. Each dimension is expected to have a
   single label without a language code. Each codelist item should have at most one label without a language
   code used to generate the enum name."
   [configuration]
-  (let [area-dim (config/geo-dimension configuration)
-        time-dim (config/time-dimension configuration)
-        dataset-label (config/dataset-label configuration)
-        codelist-label (config/codelist-label configuration)]
+  (let [codelist-label (config/codelist-label configuration)
+        ignored-dimensions (config/ignored-codelist-dimensions configuration)
+        dimension-filters (map (fn [dim-uri] (format "FILTER(?dim != <%s>)" dim-uri)) ignored-dimensions)]
     (str
       "PREFIX qb: <http://purl.org/linked-data/cube#>"
       "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>"
       "PREFIX skos: <http://www.w3.org/2004/02/skos/core#>"
       "SELECT * WHERE {"
-      "?ds qb:structure ?struct ."
-      "?struct a qb:DataStructureDefinition ."
-      "?struct qb:component ?comp ."
-      "?comp a qb:ComponentSpecification ."
-      "?comp qb:dimension ?dim ."
-      "FILTER(?dim != <" (str area-dim) ">)"
-      "FILTER(?dim != <" (str time-dim) ">)"
-      "?dim <" (str dataset-label) "> ?label ."
-      "FILTER(LANG(?label) = '')"
-      "OPTIONAL { ?dim rdfs:comment ?doc }"
-      (config/codelist-source configuration) " qb:codeList ?list ."
-      "?list skos:member ?member ."
-      "OPTIONAL {"
+      "  ?ds qb:structure ?struct ."
+      "  ?struct a qb:DataStructureDefinition ."
+      "  ?struct qb:component ?comp ."
+      "  ?comp a qb:ComponentSpecification ."
+      "  ?comp qb:dimension ?dim ."
+      (string/join "\n" dimension-filters)
+      "  OPTIONAL { ?dim rdfs:comment ?doc }"
+      (config/codelist-source configuration) " qb:codeList ?codelist ."
+      "  ?codelist skos:member ?member ."
       "  ?member <" (str codelist-label) "> ?vallabel ."
-      "  FILTER(LANG(?vallabel) = '')"
-      "}"
       "}")))
 
 (defn get-measures-by-lang-query [ds-uri lang configuration]

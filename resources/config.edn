@@ -2,4 +2,5 @@
  :time-dimension-uri "http://purl.org/linked-data/sdmx/2009/dimension#refPeriod"
  :codelist-source "component"
  :codelist-label-uri "http://www.w3.org/2000/01/rdf-schema#label"
- :dataset-label-uri "http://www.w3.org/2000/01/rdf-schema#label"}
+ :dataset-label-uri "http://www.w3.org/2000/01/rdf-schema#label"
+ :schema-label-language nil}
