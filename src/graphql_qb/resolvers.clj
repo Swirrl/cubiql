@@ -1,7 +1,6 @@
 (ns graphql-qb.resolvers
   (:require [graphql-qb.queries :as queries]
             [graphql-qb.types :as types]
-            [graphql-qb.types.scalars :as scalars]
             [graphql-qb.util :as util]
             [graphql-qb.context :as context]
             [graphql-qb.query-model :as qm]
@@ -9,8 +8,7 @@
             [com.walmartlabs.lacinia.executor :as executor]
             [clojure.spec.alpha :as s]
             [clojure.pprint :as pp]
-            [graphql-qb.schema.mapping.labels :as mapping]
-            [grafter.rdf.sparql :as sp])
+            [graphql-qb.schema.mapping.labels :as mapping])
   (:import [graphql_qb.types Dimension MeasureType]))
 
 (defn wrap-post-resolver [inner-resolver f]

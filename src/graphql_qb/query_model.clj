@@ -85,6 +85,9 @@
 (defn key-path->var-name [key-path]
   (string/join "" (map name key-path)))
 
+(defn key-path->var-key [key-path]
+  (keyword (key-path->var-name key-path)))
+
 (defn key-path->query-var [key-path]
   (->QueryVar (key-path->var-name key-path)))
 
