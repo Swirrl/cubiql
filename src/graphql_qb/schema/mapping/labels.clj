@@ -34,7 +34,11 @@
                             (= value result)))
          (:name))))
 
-(defrecord MeasureMapping []
+(defrecord FloatMeasureMapping []
+  ResultTransform
+  (transform-result [_this r] (some-> r double)))
+
+(defrecord StringMeasureMapping []
   ResultTransform
   (transform-result [_this r] (str r)))
 
@@ -156,11 +160,15 @@
                      :order      (->SeqTransform dim-measures-enum)
                      :order_spec idtrans})))
 
+
+(defn- get-measure-mapping [m]
+  (types/is-numeric-measure? m) (->FloatMeasureMapping) (->StringMeasureMapping))
+
 (defn get-dataset-observations-result-mapping [dataset field-enum-mappings]
   (let [dim-mapping (get-dataset-dimensions-mapping dataset field-enum-mappings)
         measure-mapping (map (fn [measure]
-                               [(types/->field-name measure) (->MeasureMapping)])
-                             (:measures dataset))
+                               [(types/->field-name measure) (get-measure-mapping measure)])
+                             (types/dataset-measures dataset))
         obs-mapping (merge (into {:uri idtrans} measure-mapping)
                            dim-mapping)]
     (->MapTransform obs-mapping)))

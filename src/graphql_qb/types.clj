@@ -200,6 +200,9 @@
 (defn dataset-measures [ds]
   (:measures ds))
 
+(defn is-numeric-measure? [m]
+  (:is-numeric? m))
+
 (defn get-dataset-dimension-measure-by-uri [dataset uri]
   (util/find-first #(= uri (:uri %)) (dataset-dimension-measures dataset)))
 

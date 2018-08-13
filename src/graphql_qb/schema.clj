@@ -92,10 +92,13 @@
                     [(types/->field-name dim) {:type (type-schema-input-type-name dataset type)}])
                   dimensions))))
 
+(defn get-measure-schema-type [m]
+  (if (types/is-numeric-measure? m) 'Float 'String))
+
 (defn dataset-observation-schema-model [dataset]
   (let [dimensions-model (dataset-observation-dimensions-schema-model dataset)
         measures (map (fn [measure]
-                        [(types/->field-name measure) {:type 'String}])
+                        [(types/->field-name measure) {:type (get-measure-schema-type measure)}])
                       (:measures dataset))]
     (into {:uri {:type :uri}}
           (concat dimensions-model measures))))
