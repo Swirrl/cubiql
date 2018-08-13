@@ -6,7 +6,8 @@
             [clojure.pprint :as pp]
             [graphql-qb.types :as types]
             [com.walmartlabs.lacinia.schema :as ls]
-            [graphql-qb.config :as config]))
+            [graphql-qb.config :as config])
+  (:import [graphql_qb.types RefPeriodType RefAreaType EnumType]))
 
 ;;TODO: add/use spec for graphql enum values
 (s/def ::graphql-enum keyword?)
@@ -140,17 +141,28 @@
                       by-enum-name)]
     (->EnumMapping enum-label enum-doc (vec items))))
 
+;;TODO: replace this with something better
+(defprotocol TypeDimensionMapping
+  (get-dimension-mapping [type field-name field-enum-mappings]))
+
+(extend-protocol TypeDimensionMapping
+  RefPeriodType
+  (get-dimension-mapping [_type _field-name _field-enum-mappings]
+    idtrans)
+
+  RefAreaType
+  (get-dimension-mapping [_type _field-name _field-enum-mappings]
+    idtrans)
+
+  EnumType
+  (get-dimension-mapping [_type field-name field-enum-mappings]
+    (get field-enum-mappings field-name)))
+
 (defn get-dataset-dimensions-mapping [dataset field-enum-mappings]
   (let [dim-mapping (map (fn [{:keys [type] :as dim}]
                            (let [field-name (types/->field-name dim)]
-                             (cond
-                               (types/is-enum-type? type)
-                               [field-name (get field-enum-mappings field-name)]
-                               (types/is-ref-area-type? type)
-                               [field-name idtrans]
-                               (types/is-ref-period-type? type)
-                               [field-name idtrans])))
-                         (:dimensions dataset))]
+                             [field-name (get-dimension-mapping type field-name field-enum-mappings)]))
+                         (types/dataset-dimensions dataset))]
     (into {} dim-mapping)))
 
 (defn get-dataset-observations-argument-mapping [dataset field-enum-mappings]
@@ -203,7 +215,6 @@
 
 ;;schema mappings
 
-;;TODO: remove schema/enum-type-name
 (defn enum-type-name [dataset field-name]
   (types/field-name->type-name field-name (types/dataset-schema dataset)))
 
@@ -237,11 +248,16 @@
                          datasets)]
     (into {} ds-measures)))
 
+;;TODO: add protocol instead of using type switch
+(defn- is-enum-type? [type]
+  (instance? EnumType type))
+
 (defn format-dataset-dimension-values [dataset enum-dimension-mappings dimension-uri->codelist]
   (mapv (fn [{:keys [uri type] :as dim}]
           (let [dim-codelist (get dimension-uri->codelist uri)
                 field-name (types/->field-name dim)]
-            (if (types/is-enum-type? type)
+            ;;TODO: remove type switch
+            (if (is-enum-type? type)
               (let [{:keys [label items] :as enum-mapping} (get enum-dimension-mappings field-name)
                     codelist-item->label (into {} (map (juxt :member :label) dim-codelist))]
                 {:uri       uri

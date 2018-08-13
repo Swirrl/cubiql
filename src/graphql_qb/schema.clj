@@ -4,22 +4,39 @@
             [graphql-qb.schema-model :as sm]
             [clojure.pprint :as pp]
             [graphql-qb.schema.mapping.labels :as mapping]
-            [graphql-qb.context :as context]))
+            [graphql-qb.context :as context])
+  (:import [graphql_qb.types EnumType RefPeriodType RefAreaType]))
 
 (defn enum-type-name [dataset {:keys [enum-name] :as enum-type}]
   (types/field-name->type-name enum-name (types/dataset-schema dataset)))
 
-(defn type-schema-type-name [dataset type]
-  (cond
-    (types/is-ref-area-type? type) :ref_area
-    (types/is-ref-period-type? type) :ref_period
-    (types/is-enum-type? type) (enum-type-name dataset type)))
+(defprotocol ToGraphQLInputType
+  (->input-type-name [this dataset]
+    "Returns the name of the type to use for the argument representation of this type"))
 
-(defn type-schema-input-type-name [dataset type]
-  (cond
-    (types/is-ref-area-type? type) :uri
-    (types/is-ref-period-type? type) :ref_period_filter
-    (types/is-enum-type? type) (enum-type-name dataset type)))
+(defprotocol ToGraphQLOutputType
+  (->output-type-name [this dataset]
+    "Return the name of the type to use for the output representation of this type"))
+
+(extend-protocol ToGraphQLInputType
+  RefAreaType
+  (->input-type-name [_ref-area-type _dataset] :uri)
+
+  RefPeriodType
+  (->input-type-name [_ref-period-type _dataset] :ref_period_filter)
+
+  EnumType
+  (->input-type-name [enum-type dataset] (enum-type-name dataset enum-type)))
+
+(extend-protocol ToGraphQLOutputType
+  RefAreaType
+  (->output-type-name [_ref-area-type _dataset] :ref_area)
+
+  RefPeriodType
+  (->output-type-name [_ref-period-type _dataset] :ref_period)
+
+  EnumType
+  (->output-type-name [enum-type dataset] (enum-type-name dataset enum-type)))
 
 ;;TODO: move to resolvers namespace
 (defn argument-mapping-resolver [arg-mapping inner-resolver]
@@ -82,14 +99,14 @@
 (defn dataset-observation-dimensions-schema-model [dataset]
   (let [dimensions (types/dataset-dimensions dataset)]
     (into {} (map (fn [{:keys [type] :as dim}]
-                    [(types/->field-name dim) {:type (type-schema-type-name dataset type)}])
+                    [(types/->field-name dim) {:type (->output-type-name type dataset)}])
                   dimensions))))
 
 ;;TODO: combine with dataset-observation-dimensions-schema-model?
 (defn dataset-observation-dimensions-input-schema-model [dataset]
   (let [dimensions (types/dataset-dimensions dataset)]
     (into {} (map (fn [{:keys [type] :as dim}]
-                    [(types/->field-name dim) {:type (type-schema-input-type-name dataset type)}])
+                    [(types/->field-name dim) {:type (->input-type-name type dataset)}])
                   dimensions))))
 
 (defn get-measure-schema-type [m]
