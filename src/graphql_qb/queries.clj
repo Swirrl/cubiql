@@ -148,7 +148,8 @@
     (process-dataset-metadata-bindings bindings)))
 
 (defn get-dimension-codelist-values-query [ds-uri configuration lang]
-  (let [codelist-label (config/codelist-label configuration)]
+  (let [codelist-label (config/codelist-label configuration)
+        codelist-predicate (config/codelist-predicate configuration)]
     (str
       "PREFIX qb: <http://purl.org/linked-data/cube#>"
       "PREFIX skos: <http://www.w3.org/2004/02/skos/core#>"
@@ -159,7 +160,7 @@
       "?struct a qb:DataStructureDefinition ."
       "?struct qb:component ?comp ."
       "?comp qb:dimension ?dim ."
-      (config/codelist-source configuration) " qb:codeList ?list  ."
+      (config/codelist-source configuration) " <" codelist-predicate "> ?list ."
       "?list skos:member ?member ."
       "OPTIONAL {"
       "  ?member <" (str codelist-label) "> ?label ."
@@ -179,6 +180,7 @@
   code used to generate the enum name."
   [configuration]
   (let [codelist-label (config/codelist-label configuration)
+        codelist-predicate (config/codelist-predicate configuration)
         ignored-dimensions (config/ignored-codelist-dimensions configuration)
         dimension-filters (map (fn [dim-uri] (format "FILTER(?dim != <%s>)" dim-uri)) ignored-dimensions)]
     (str
@@ -193,7 +195,7 @@
       "  ?comp qb:dimension ?dim ."
       (string/join "\n" dimension-filters)
       "  OPTIONAL { ?dim rdfs:comment ?doc }"
-      (config/codelist-source configuration) " qb:codeList ?codelist ."
+      (config/codelist-source configuration) " <" codelist-predicate "> ?codelist ."
       "  ?codelist skos:member ?member ."
       "  ?member <" (str codelist-label) "> ?vallabel ."
       "}")))
