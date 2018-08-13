@@ -82,28 +82,26 @@
            (assoc measure :is-numeric? (contains? numeric-measures uri)))
          measures)))
 
-(defn- get-all-components-query [configuration]
+(defn get-dimension-components-query [configuration]
   (str
     "PREFIX qb: <http://purl.org/linked-data/cube#>"
-    "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>"
-    "PREFIX skos: <http://www.w3.org/2004/02/skos/core#>"
-    "PREFIX dcterms: <http://purl.org/dc/terms/>"
     "SELECT * WHERE {"
     "  ?ds qb:structure ?dsd ."
     "  ?dsd a qb:DataStructureDefinition ."
     "  ?dsd qb:component ?comp ."
-    "  OPTIONAL { ?comp qb:order ?order }"
-    "  OPTIONAL { ?comp qb:dimension ?dim }"
+    "  ?comp qb:dimension ?dim ."
     "  OPTIONAL { " (config/codelist-source configuration) " <" (config/codelist-predicate configuration) "> ?codelist }"
-    "  OPTIONAL { ?comp qb:measure ?measure }"
     "}"))
 
-(defn- get-all-components [repo configuration]
-  (let [q (get-all-components-query configuration)
+(defn get-dimension-components [repo configuration]
+  (let [q (get-dimension-components-query configuration)
         results (util/eager-query repo q)]
     (->> results
-         (map (fn [bindings] (util/rename-key bindings :dim :dimension)))
-         (util/distinct-by :comp))))
+        (map (fn [bindings] (util/rename-key bindings :dim :dimension)))
+        (util/distinct-by :comp))))
+
+(defn get-measure-components [repo]
+  (sp/query "measure-components-query.sparql" repo))
 
 (defn get-codelist-members-query [configuration]
   (let [dimension-filters (map (fn [dim] (str "FILTER(?dim != <" dim ">)")) (config/ignored-codelist-dimensions configuration))]
@@ -159,15 +157,13 @@
           enum-name (types/label->field-name label)]
       (types/->EnumType enum-name codelist))))
 
-(defn construct-dataset [{ds-uri :ds ds-name :name :as dataset} components uri->dimension uri->measure codelists configuration]
-  (let [dimension-components (filter (fn [comp] (some? (:dimension comp))) components)
-        ordered-dim-components (set-component-orders dimension-components)
+(defn construct-dataset [{ds-uri :ds ds-name :name :as dataset} dimension-components measure-components uri->dimension uri->measure codelists configuration]
+  (let [ordered-dim-components (set-component-orders dimension-components)
         dimensions (map (fn [{dim-uri :dimension order :order codelist-uri :codelist :as comp}]
                           (let [dimension (util/strict-get uri->dimension dim-uri)
                                 type (get-dimension-type dimension codelist-uri codelists configuration)]
                             (types/->Dimension dim-uri (:label dimension) order type)))
                         ordered-dim-components)
-        measure-components (filter (fn [comp] (some? (:measure comp))) components)
         ordered-measure-components (set-component-orders measure-components)
         measures (map (fn [{measure-uri :measure order :order :as comp}]
                         (let [{:keys [label is-numeric?]} (util/strict-get uri->measure measure-uri)
@@ -177,13 +173,15 @@
                       ordered-measure-components)]
     (types/->Dataset ds-uri ds-name dimensions measures)))
 
-(defn construct-datasets [datasets components dimensions measures codelists configuration]
-  (let [dataset-components (group-by :ds components)
+(defn construct-datasets [datasets dimension-components measure-components dimensions measures codelists configuration]
+  (let [ds->dimension-components (group-by :ds dimension-components)
+        ds->measure-components (group-by :ds measure-components)
         uri->dimension (util/strict-map-by :uri dimensions)
         uri->measure (util/strict-map-by :uri measures)]
     (map (fn [{uri :ds :as ds}]
-           (let [components (get dataset-components uri)]
-             (construct-dataset ds components uri->dimension uri->measure codelists configuration)))
+           (let [dimension-components (get ds->dimension-components uri)
+                 measure-components (get ds->measure-components uri)]
+             (construct-dataset ds dimension-components measure-components uri->dimension uri->measure codelists configuration)))
          datasets)))
 
 (defn get-all-datasets
@@ -195,8 +193,9 @@
    6. Find which measures are numeric"
   [repo configuration]
   (let [datasets (find-all-datasets repo configuration)
-        components (get-all-components repo configuration)
+        dimension-components (get-dimension-components repo configuration)
+        measure-components (get-measure-components repo)
         dimensions (find-all-dimensions repo configuration)
         measures (find-all-measures repo configuration)
         codelists (get-all-codelists repo configuration)]
-    (construct-datasets datasets components dimensions measures codelists configuration)))
+    (construct-datasets datasets dimension-components measure-components dimensions measures codelists configuration)))

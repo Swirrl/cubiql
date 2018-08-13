@@ -1,0 +1,8 @@
+PREFIX qb: <http://purl.org/linked-data/cube#>
+
+SELECT * WHERE {
+  ?ds qb:structure ?dsd .
+  ?dsd a qb:DataStructureDefinition .
+  ?dsd qb:component ?comp .
+  ?comp qb:measure ?measure .
+}
