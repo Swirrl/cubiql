@@ -49,10 +49,16 @@
      a data structure representing this type."))
 
 (defrecord RefAreaType [])
-
 (defrecord RefPeriodType [])
-
 (defrecord EnumType [enum-name values])
+(defrecord DecimalType [])
+(defrecord StringType [])
+(defrecord UnmappedType [type-uri])
+
+(def ref-area-type (->RefAreaType))
+(def ref-period-type (->RefPeriodType))
+(def decimal-type (->DecimalType))
+(def string-type (->StringType))
 
 (defn maybe-add-period-filter [model dim-key dim-uri interval-key filter-fn dt]
   (if (some? dt)
@@ -107,7 +113,19 @@
 
   EnumType
   (project-type-result [_type dim-key bindings]
-    (get bindings dim-key)))
+    (get bindings dim-key))
+
+  DecimalType
+  (project-type-result [_type dim-key bindings]
+    (get bindings dim-key))
+
+  StringType
+  (project-type-result [_type dim-key bindings]
+    (get bindings dim-key))
+
+  UnmappedType
+  (project-type-result [_type dim-key bindings]
+    (some-> (get bindings dim-key) str)))
 
 (defprotocol TypeResultProjector
   (apply-type-projection [type dim-key uri model field-selections configuration]))
@@ -137,6 +155,18 @@
 
   EnumType
   (apply-type-projection [_type _dim-key _uri model _field-selections _configuration]
+    model)
+
+  DecimalType
+  (apply-type-projection [_type _dim-key _uri model _field-selections _configuration]
+    model)
+
+  StringType
+  (apply-type-projection [_type _dim-key _uri model _field-selections _configuration]
+    model)
+
+  UnmappedType
+  (apply-type-projection [_type _dim-key _uri model _field-selections _configuration]
     model))
 
 (defprotocol TypeOrderBy
@@ -157,6 +187,9 @@
 (extend RefAreaType TypeOrderBy {:apply-type-order-by ref-area-order-by})
 (extend RefPeriodType TypeOrderBy default-type-order-by-impl)
 (extend EnumType TypeOrderBy default-type-order-by-impl)
+(extend DecimalType TypeOrderBy default-type-order-by-impl)
+(extend StringType TypeOrderBy default-type-order-by-impl)
+(extend UnmappedType TypeOrderBy default-type-order-by-impl)
 
 (defprotocol TypeFilter
   (apply-type-filter [type dim-key dimension-uri model sparql-value]))
@@ -173,6 +206,9 @@
 (extend RefAreaType TypeFilter {:apply-type-filter ref-period-type-filter})
 (extend RefPeriodType TypeFilter default-type-filter-impl)
 (extend EnumType TypeFilter default-type-filter-impl)
+(extend DecimalType TypeFilter default-type-filter-impl)
+(extend StringType TypeFilter default-type-filter-impl)
+(extend UnmappedType TypeFilter default-type-filter-impl)
 
 (defrecord Dimension [uri label order type]
   SparqlQueryable

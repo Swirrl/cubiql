@@ -5,7 +5,7 @@
             [clojure.pprint :as pp]
             [graphql-qb.schema.mapping.labels :as mapping]
             [graphql-qb.context :as context])
-  (:import [graphql_qb.types EnumType RefPeriodType RefAreaType]))
+  (:import [graphql_qb.types EnumType RefPeriodType RefAreaType DecimalType StringType UnmappedType]))
 
 (defn enum-type-name [dataset {:keys [enum-name] :as enum-type}]
   (types/field-name->type-name enum-name (types/dataset-schema dataset)))
@@ -26,7 +26,16 @@
   (->input-type-name [_ref-period-type _dataset] :ref_period_filter)
 
   EnumType
-  (->input-type-name [enum-type dataset] (enum-type-name dataset enum-type)))
+  (->input-type-name [enum-type dataset] (enum-type-name dataset enum-type))
+
+  DecimalType
+  (->input-type-name [_decimal-type _dataset] 'Float)
+
+  StringType
+  (->input-type-name [_string-type _dataset] 'String)
+
+  UnmappedType
+  (->input-type-name [_unmapped-type _dataset] 'String))
 
 (extend-protocol ToGraphQLOutputType
   RefAreaType
@@ -36,7 +45,16 @@
   (->output-type-name [_ref-period-type _dataset] :ref_period)
 
   EnumType
-  (->output-type-name [enum-type dataset] (enum-type-name dataset enum-type)))
+  (->output-type-name [enum-type dataset] (enum-type-name dataset enum-type))
+
+  DecimalType
+  (->output-type-name [_decimal-type _dataset] 'Float)
+
+  StringType
+  (->output-type-name [_string-type _dataset] 'String)
+
+  UnmappedType
+  (->output-type-name [_unmapped-type _dataset] 'String))
 
 ;;TODO: move to resolvers namespace
 (defn argument-mapping-resolver [arg-mapping inner-resolver]

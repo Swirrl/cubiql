@@ -3,7 +3,8 @@
             [graphql-qb.util :as util]
             [grafter.rdf.sparql :as sp]
             [clojure.string :as string]
-            [graphql-qb.types :as types]))
+            [graphql-qb.types :as types]
+            [graphql-qb.vocabulary :refer :all]))
 
 (defn find-all-datasets-query [configuration]
   (str
@@ -30,16 +31,19 @@
     (str
       "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>"
       "PREFIX qb: <http://purl.org/linked-data/cube#>"
-      "SELECT ?dim ?label WHERE {"
+      "SELECT ?dim ?label ?range WHERE {"
       "  ?dim a qb:DimensionProperty ."
       "  ?dim <" (str dataset-label) "> ?label ."
+      "  OPTIONAL { ?dim rdfs:range ?range }"
       "}")))
 
 (defn dimension-bindings->dimensions [dimension-bindings configuration]
   (map (fn [[dim-uri bindings]]
-         (let [labels (map :label bindings)]
-           {:uri dim-uri
-            :label (util/find-best-language labels (config/schema-label-language configuration))}))
+         (let [labels (map :label bindings)
+               range (:range (first bindings))]
+           {:uri   dim-uri
+            :label (util/find-best-language labels (config/schema-label-language configuration))
+            :range range}))
        (group-by :dim dimension-bindings)))
 
 (defn find-all-dimensions [repo configuration]
@@ -144,33 +148,42 @@
                            (assoc comp :order (+ max-order idx 1)))
                          without-order))))
 
-(defn get-dimension-type [{:keys [uri label] :as dim} codelist-uri codelists configuration]
+(defn get-dimension-type [{:keys [uri label range] :as dim} codelist-uri codelists configuration]
   (cond
     (= (config/geo-dimension configuration) uri)
-    (types/->RefAreaType)
+    types/ref-area-type
 
     (= (config/time-dimension configuration) uri)
-    (types/->RefPeriodType)
+    types/ref-period-type
+
+    (= xsd:decimal range)
+    types/decimal-type
+
+    (= xsd:string range)
+    types/string-type
+
+    (contains? codelists codelist-uri)
+    (let [codelist (get codelists codelist-uri)
+          enum-name (types/label->field-name label)]
+      (types/->EnumType enum-name codelist))
 
     :else
-    (let [codelist (util/strict-get codelists codelist-uri)
-          enum-name (types/label->field-name label)]
-      (types/->EnumType enum-name codelist))))
+    (types/->UnmappedType range)))
 
 (defn construct-dataset [{ds-uri :ds ds-name :name :as dataset} dimension-components measure-components uri->dimension uri->measure codelists configuration]
   (let [ordered-dim-components (set-component-orders dimension-components)
-        dimensions (map (fn [{dim-uri :dimension order :order codelist-uri :codelist :as comp}]
-                          (let [dimension (util/strict-get uri->dimension dim-uri)
-                                type (get-dimension-type dimension codelist-uri codelists configuration)]
-                            (types/->Dimension dim-uri (:label dimension) order type)))
-                        ordered-dim-components)
+        dimensions (mapv (fn [{dim-uri :dimension order :order codelist-uri :codelist :as comp}]
+                           (let [dimension (util/strict-get uri->dimension dim-uri)
+                                 type (get-dimension-type dimension codelist-uri codelists configuration)]
+                             (types/->Dimension dim-uri (:label dimension) order type)))
+                         ordered-dim-components)
         ordered-measure-components (set-component-orders measure-components)
-        measures (map (fn [{measure-uri :measure order :order :as comp}]
-                        (let [{:keys [label is-numeric?]} (util/strict-get uri->measure measure-uri)
-                              field-name (types/label->field-name label)
-                              measure (types/->MeasureType measure-uri label order is-numeric?)]
-                          (assoc measure :field-name field-name)))
-                      ordered-measure-components)]
+        measures (mapv (fn [{measure-uri :measure order :order :as comp}]
+                         (let [{:keys [label is-numeric?]} (util/strict-get uri->measure measure-uri)
+                               field-name (types/label->field-name label)
+                               measure (types/->MeasureType measure-uri label order is-numeric?)]
+                           (assoc measure :field-name field-name)))
+                       ordered-measure-components)]
     (types/->Dataset ds-uri ds-name dimensions measures)))
 
 (defn construct-datasets [datasets dimension-components measure-components dimensions measures codelists configuration]

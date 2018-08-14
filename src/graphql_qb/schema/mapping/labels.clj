@@ -7,7 +7,7 @@
             [graphql-qb.types :as types]
             [com.walmartlabs.lacinia.schema :as ls]
             [graphql-qb.config :as config])
-  (:import [graphql_qb.types RefPeriodType RefAreaType EnumType]))
+  (:import [graphql_qb.types RefPeriodType RefAreaType EnumType DecimalType StringType UnmappedType]))
 
 ;;TODO: add/use spec for graphql enum values
 (s/def ::graphql-enum keyword?)
@@ -156,7 +156,19 @@
 
   EnumType
   (get-dimension-mapping [_type field-name field-enum-mappings]
-    (get field-enum-mappings field-name)))
+    (get field-enum-mappings field-name))
+
+  DecimalType
+  (get-dimension-mapping [_type _field-name _field-enum-mappings]
+    idtrans)
+
+  StringType
+  (get-dimension-mapping [_type _field-name _field-enum-mappings]
+    idtrans)
+
+  UnmappedType
+  (get-dimension-mapping [_type _field-name _field-enum-mappings]
+    idtrans))
 
 (defn get-dataset-dimensions-mapping [dataset field-enum-mappings]
   (let [dim-mapping (map (fn [{:keys [type] :as dim}]

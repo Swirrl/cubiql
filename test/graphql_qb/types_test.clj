@@ -3,11 +3,11 @@
             [graphql-qb.types :refer :all]
             [graphql-qb.types.scalars :as scalars])
   (:import [java.net URI]
-           (java.util Date)))
+           [java.util Date]))
 
 (deftest project-result-test
   (testing "Dimension with ref period type"
-    (let [dim (->Dimension (URI. "http://dim") "Dimension" 1 (->RefPeriodType))
+    (let [dim (->Dimension (URI. "http://dim") "Dimension" 1 ref-period-type)
           period-uri (URI. "http://period")
           period-label "Period label"
           period-start (Date. 112, 0 1)
