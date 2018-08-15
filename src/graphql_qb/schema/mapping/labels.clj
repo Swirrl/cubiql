@@ -3,15 +3,20 @@
   (:require [clojure.spec.alpha :as s]
             [graphql-qb.util :as util]
             [clojure.string :as string]
-            [clojure.pprint :as pp]
             [graphql-qb.types :as types]
-            [com.walmartlabs.lacinia.schema :as ls]
-            [graphql-qb.config :as config])
-  (:import [graphql_qb.types RefPeriodType RefAreaType EnumType DecimalType StringType UnmappedType]))
+            [graphql-qb.config :as config]
+            [graphql-qb.queries :as queries]
+            [graphql-qb.schema.mapping.dataset :as dsm])
+  (:import [graphql_qb.types RefPeriodType RefAreaType]
+           [graphql_qb.types FloatMeasureType StringMeasureType]))
 
 ;;TODO: add/use spec for graphql enum values
 (s/def ::graphql-enum keyword?)
 
+(defn find-item-by-name [name items]
+  (util/find-first #(= name (:name %)) items))
+
+;;TODO: move and implement for all types
 (defprotocol ArgumentTransform
   (transform-argument [this graphql-value]))
 
@@ -20,10 +25,7 @@
 
 (defrecord EnumMappingItem [name value label])
 
-(defn find-item-by-name [name items]
-  (util/find-first #(= name (:name %)) items))
-
-(defrecord EnumMapping [label doc items]
+(defrecord MappedEnumType [enum-type-name type doc items]
   ArgumentTransform
   (transform-argument [_this graphql-value]
     (:value (find-item-by-name graphql-value items)))
@@ -35,50 +37,20 @@
                             (= value result)))
          (:name))))
 
-(defrecord FloatMeasureMapping []
+(extend-protocol ResultTransform
+  RefAreaType
+  (transform-result [_ref-area-type result] result)
+
+  RefPeriodType
+  (transform-result [_ref-period-type result] result))
+
+(extend-type FloatMeasureType
   ResultTransform
   (transform-result [_this r] (some-> r double)))
 
-(defrecord StringMeasureMapping []
+(extend-type StringMeasureType
   ResultTransform
   (transform-result [_this r] (str r)))
-
-(defn map-transform [tm m trans-fn]
-  (into {} (map (fn [[k transform]]
-                  (let [v (get m k)]
-                    [k (trans-fn transform v)]))
-                tm)))
-
-(defrecord FnTransform [f]
-  ArgumentTransform
-  (transform-argument [_this v] (f v))
-
-  ResultTransform
-  (transform-result [_this r] (f r)))
-
-(defn ftrans [f] (->FnTransform f))
-(def idtrans (->FnTransform identity))
-
-(defn apply-map-argument-transform [tm m]
-  (map-transform tm m #(transform-argument %1 %2)))
-
-(defn apply-map-result-transform [rm m]
-  (map-transform rm m #(transform-result %1 %2)))
-
-(defrecord MapTransform [tm]
-  ArgumentTransform
-  (transform-argument [_this m] (apply-map-argument-transform tm m))
-  ResultTransform
-  (transform-result [_this r] (apply-map-result-transform tm r)))
-
-(defrecord SeqTransform [item-transform]
-  ArgumentTransform
-  (transform-argument [_this v]
-    (mapv #(transform-argument item-transform %) v))
-
-  ResultTransform
-  (transform-result [_this r]
-    (mapv #(transform-result item-transform %) r)))
 
 ;;TODO: move/remove types/get-identifier-segments
 (defn get-identifier-segments [label]
@@ -117,14 +89,14 @@
                      mappings)]
      (->GroupMapping name items))))
 
-(defn dataset-dimensions-measures-enum-group [dataset]
-  (let [schema (types/dataset-schema dataset)
+(defn dataset-dimensions-measures-enum-group [dataset-mapping]
+  (let [schema (dsm/schema dataset-mapping)
         mapping-name (keyword (str (name schema) "_dimension_measures"))]
-    (create-group-mapping mapping-name (types/dataset-dimension-measures dataset) :uri)))
+    (create-group-mapping mapping-name (dsm/components dataset-mapping) :uri)))
 
-(defn dataset-aggregation-measures-enum-group [dataset]
-  (if-let [aggregation-measures (seq (types/dataset-aggregate-measures dataset))]
-    (let [schema (types/dataset-schema dataset)
+(defn dataset-aggregation-measures-enum-group [dataset-mapping]
+  (if-let [aggregation-measures (dsm/numeric-measure-mappings dataset-mapping)]
+    (let [schema (dsm/schema dataset-mapping)
           mapping-name (keyword (str (name schema) "_aggregation_measures"))]
       (create-group-mapping mapping-name aggregation-measures :uri))))
 
@@ -139,63 +111,10 @@
                                          (->EnumMappingItem (label->enum-name label (inc n)) member label))
                                        item-results)))
                       by-enum-name)]
-    (->EnumMapping enum-label enum-doc (vec items))))
+    {:label enum-label :doc enum-doc :items (vec items)}))
 
-;;TODO: replace this with something better
-(defprotocol TypeDimensionMapping
-  (get-dimension-mapping [type field-name field-enum-mappings]))
-
-(extend-protocol TypeDimensionMapping
-  RefPeriodType
-  (get-dimension-mapping [_type _field-name _field-enum-mappings]
-    idtrans)
-
-  RefAreaType
-  (get-dimension-mapping [_type _field-name _field-enum-mappings]
-    idtrans)
-
-  EnumType
-  (get-dimension-mapping [_type field-name field-enum-mappings]
-    (get field-enum-mappings field-name))
-
-  DecimalType
-  (get-dimension-mapping [_type _field-name _field-enum-mappings]
-    idtrans)
-
-  StringType
-  (get-dimension-mapping [_type _field-name _field-enum-mappings]
-    idtrans)
-
-  UnmappedType
-  (get-dimension-mapping [_type _field-name _field-enum-mappings]
-    idtrans))
-
-(defn get-dataset-dimensions-mapping [dataset field-enum-mappings]
-  (let [dim-mapping (map (fn [{:keys [type] :as dim}]
-                           (let [field-name (types/->field-name dim)]
-                             [field-name (get-dimension-mapping type field-name field-enum-mappings)]))
-                         (types/dataset-dimensions dataset))]
-    (into {} dim-mapping)))
-
-(defn get-dataset-observations-argument-mapping [dataset field-enum-mappings]
-  (let [dimensions-mapping (get-dataset-dimensions-mapping dataset field-enum-mappings)
-        dim-measures-enum (dataset-dimensions-measures-enum-group dataset)]
-    (->MapTransform {:dimensions (->MapTransform dimensions-mapping)
-                     :order      (->SeqTransform dim-measures-enum)
-                     :order_spec idtrans})))
-
-
-(defn- get-measure-mapping [m]
-  (types/is-numeric-measure? m) (->FloatMeasureMapping) (->StringMeasureMapping))
-
-(defn get-dataset-observations-result-mapping [dataset field-enum-mappings]
-  (let [dim-mapping (get-dataset-dimensions-mapping dataset field-enum-mappings)
-        measure-mapping (map (fn [measure]
-                               [(types/->field-name measure) (get-measure-mapping measure)])
-                             (types/dataset-measures dataset))
-        obs-mapping (merge (into {:uri idtrans} measure-mapping)
-                           dim-mapping)]
-    (->MapTransform obs-mapping)))
+(defn- get-measure-type [m]
+  (types/is-numeric-measure? m) (types/->FloatMeasureType) (types/->StringMeasureType))
 
 (defn get-dimension-codelist [dimension-member-bindings configuration]
   (map (fn [[member-uri member-bindings]]
@@ -215,7 +134,6 @@
                             dimension-member-bindings)]
     (into {} field-mappings)))
 
-;;TODO: move to core namespace? parameterise by available mapping handlers?
 (defn get-datasets-enum-mappings [datasets codelist-member-bindings configuration]
   (let [ds-members (group-by :ds codelist-member-bindings)
         dataset-mappings (map (fn [dataset]
@@ -227,55 +145,72 @@
 
 ;;schema mappings
 
-(defn enum-type-name [dataset field-name]
-  (types/field-name->type-name field-name (types/dataset-schema dataset)))
+(defn dimension->enum-schema [{:keys [type] :as dim}]
+  (when (instance? MappedEnumType type)
+    (let [{:keys [enum-type-name doc items]} type]
+      (if (some? doc)
+        {enum-type-name {:values (mapv :name items) :description doc}}
+        {enum-type-name {:values (mapv :name items)}}))))
 
-(defn enum-mapping->schema [dataset field-name {:keys [doc items] :as enum-mapping}]
-  (let [type-name (enum-type-name dataset field-name)]
-    (if (some? doc)
-      {type-name {:values (mapv :name items) :description doc}}
-      {type-name {:values (mapv :name items)}})))
+(defn dataset-enum-types-schema [dataset-mapping]
+  (apply merge (map (fn [dim]
+                      (dimension->enum-schema dim))
+                    (dsm/dimensions dataset-mapping))))
 
-(defn enum-mapping-item->dimension-value [codelist-item->label {:keys [name value]}]
-  (ls/tag-with-type
-    {:uri value :label (get codelist-item->label value) :enum_name (clojure.core/name name)}
-    :enum_dim_value))
+(defn get-all-enum-mappings [repo datasets config]
+  (let [enum-dimension-values-query (queries/get-all-enum-dimension-values config)
+        results (util/eager-query repo enum-dimension-values-query)
+        dataset-enum-values (map (util/convert-binding-labels [:vallabel]) results)]
+    (get-datasets-enum-mappings datasets dataset-enum-values config)))
 
-(defn non-enum-item->dimension-value [{:keys [member label]}]
-  (ls/tag-with-type
-    {:uri member :label label}
-    :unmapped_dim_value))
+(defn field-name->type-name [field-name ds-schema]
+  (keyword (str (name ds-schema) "_" (name field-name) "_type")))
 
-(defn dataset-enum-types-schema [dataset enum-mappings]
-  (apply merge (map (fn [[field-name enum-mapping]]
-                      (enum-mapping->schema dataset field-name enum-mapping))
-                    enum-mappings)))
+(defn- get-dimension-thingy [schema {:keys [uri label] :as dimension} ds-enum-mappings]
+  ;;TODO: change ds-enum-mappings keys to URIs instead of field names
+  (let [dimension-type (:type dimension)
+        field-name (types/->field-name dimension)
+        mapped-type (if (contains? ds-enum-mappings field-name)
+                      (let [enum-mapping (get ds-enum-mappings field-name)
+                            enum-name (field-name->type-name field-name schema)]
+                        (->MappedEnumType enum-name dimension-type (:doc enum-mapping) (:items enum-mapping)))
+                      dimension-type)]
+    {:uri        uri
+     :label      label
+     :doc        nil                                        ;;TODO: fetch dimension comment
+     :field-name field-name
+     :enum-name (label->enum-name label)
+     :type       mapped-type
+     :dimension  dimension}))
 
-(defn get-measure-mappings [datasets]
-  (let [ds-measures (map (fn [dataset]
-                           (let [measures (mapv (fn [{:keys [uri label] :as m}]
-                                                  {:uri uri :label label :enum_name (name (label->enum-name (str label)))})
-                                                (types/dataset-measures dataset))]
-                             [(:uri dataset) measures]))
-                         datasets)]
-    (into {} ds-measures)))
+(defn- get-measure-mapping [{:keys [uri label is-numeric?] :as measure}]
+  ;;TODO: remove label from MeasureType
+  {:uri uri
+   :label label
+   :field-name (types/->field-name measure)
+   :enum-name (label->enum-name label)
+   :type (get-measure-type measure)
+   :is-numeric? is-numeric?
+   :measure measure})
 
-;;TODO: add protocol instead of using type switch
-(defn- is-enum-type? [type]
-  (instance? EnumType type))
+(defn dataset-name->schema-name [label]
+  (types/segments->schema-key (cons "dataset" (get-identifier-segments label))))
 
-(defn format-dataset-dimension-values [dataset enum-dimension-mappings dimension-uri->codelist]
-  (mapv (fn [{:keys [uri type] :as dim}]
-          (let [dim-codelist (get dimension-uri->codelist uri)
-                field-name (types/->field-name dim)]
-            ;;TODO: remove type switch
-            (if (is-enum-type? type)
-              (let [{:keys [label items] :as enum-mapping} (get enum-dimension-mappings field-name)
-                    codelist-item->label (into {} (map (juxt :member :label) dim-codelist))]
-                {:uri       uri
-                 :enum_name (name (label->enum-name label))
-                 :values    (mapv #(enum-mapping-item->dimension-value codelist-item->label %) items)})
-              {:uri uri
-               :enum_name (name (label->enum-name (:label dim)))
-               :values (mapv non-enum-item->dimension-value dim-codelist)})))
-        (types/dataset-dimensions dataset)))
+(defn dataset-schema [ds]
+  (keyword (dataset-name->schema-name (:name ds))))
+
+(defn build-dataset-mapping-model [{:keys [uri label] :as dataset} ds-enum-mappings]
+  (let [schema (dataset-schema dataset)
+        dimensions (mapv #(get-dimension-thingy schema % ds-enum-mappings) (types/dataset-dimensions dataset))
+        measures (mapv get-measure-mapping (types/dataset-measures dataset))]
+    {:uri uri
+     :schema schema
+     :dimensions dimensions
+     :measures measures}))
+
+(defn get-dataset-mapping-models [repo datasets configuration]
+  (let [enum-mappings (get-all-enum-mappings repo datasets configuration)]
+    (mapv (fn [{:keys [uri] :as ds}]
+            (let [ds-enum-mappings (get enum-mappings uri {})]
+              (build-dataset-mapping-model ds ds-enum-mappings)))
+          datasets)))

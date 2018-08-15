@@ -7,13 +7,8 @@
             [clojure.walk :as walk]
             [com.walmartlabs.lacinia.executor :as executor]
             [clojure.spec.alpha :as s]
-            [clojure.pprint :as pp]
-            [graphql-qb.schema.mapping.labels :as mapping])
+            [graphql-qb.schema.mapping.dataset :as dsm])
   (:import [graphql_qb.types Dimension MeasureType]))
-
-(defn wrap-post-resolver [inner-resolver f]
-  (fn [context args field]
-    (f (inner-resolver context args field))))
 
 (s/def ::order-direction #{:ASC :DESC})
 (s/def ::dimension #(instance? Dimension %))
@@ -132,8 +127,9 @@
     (map (fn [ds]
            (let [{:keys [uri] :as dataset} (util/rename-key ds :ds :uri :strict? true)
                  metadata (queries/get-dataset-metadata repo uri config lang)
-                 with-metadata (merge dataset metadata)]
-             (assoc with-metadata :schema (name (types/dataset-name->schema-name (:name dataset))))))
+                 with-metadata (merge dataset metadata)
+                 dataset-mapping (context/get-dataset context uri)]
+             (assoc with-metadata :schema (name (:schema dataset-mapping)))))
          results)))
 
 (defn exec-observation-aggregation [repo dataset measure filter-model aggregation-fn]
@@ -150,58 +146,59 @@
         filter-model (::filter-model aggregation-field)]
     (exec-observation-aggregation repo dataset measure filter-model aggregation-fn)))
 
-(defn- resolve-dataset-measures [repo dataset-uri uri->measure-mapping lang configuration]
+(defn- resolve-dataset-measures [repo dataset-uri lang configuration]
   (let [q (queries/get-measures-by-lang-query dataset-uri lang configuration)
         results (util/eager-query repo q)]
     (mapv (fn [{:keys [mt label]}]
             {:uri   mt
-             :label (util/label->string label)
-             :enum_name (:enum_name (get uri->measure-mapping mt))})
+             :label (util/label->string label)})
           results)))
 
-(defn dataset-measures-resolver [all-measure-mappings]
-  (fn [context _args {:keys [uri] :as dataset}]
-    (let [lang (get-lang dataset)
-          repo (context/get-repository context)
-          configuration (context/get-configuration context)
-          dataset-measures-mapping (get all-measure-mappings uri)
-          uri->measure-mapping (into {} (map (fn [m] [(:uri m) m]) dataset-measures-mapping))]
-      (resolve-dataset-measures repo uri uri->measure-mapping lang configuration))))
-
-(defn dataset-resolver [{:keys [uri] :as dataset}]
+(defn dataset-resolver [{:keys [uri] :as dataset-mapping}]
   (fn [context _args field]
     (let [repo (context/get-repository context)
           config (context/get-configuration context)
           lang (get-lang field)
-          metadata (queries/get-dataset-metadata repo uri config lang)
-          with-metadata (merge dataset metadata)]
-      {::dataset (assoc with-metadata :schema (name (types/dataset-name->schema-name (:name dataset))))})))
-
-(defn dataset-dimensions-resolver [all-enum-mappings]
-  (fn [context _args {:keys [uri] :as ds-field}]
-    (let [lang (get-lang ds-field)
-          repo (context/get-repository context)
           dataset (context/get-dataset context uri)
-          config (context/get-configuration context)
-          ds-enum-mappings (get all-enum-mappings uri)
-          dimension-codelists (queries/get-dimension-codelist-values repo dataset config lang)]
-      (mapping/format-dataset-dimension-values dataset ds-enum-mappings dimension-codelists))))
+          metadata (queries/get-dataset-metadata repo uri config lang)
+          dataset-result (merge dataset-mapping metadata)]
+      (assoc dataset-result ::dataset dataset))))
+
+(defn combine-dimension-results [dimension-results dimension-codelist-results]
+  (let [dimension-uri->codelist (group-by :dim dimension-codelist-results)]
+    (mapv (fn [{:keys [uri] :as dim}]
+            (if-let [codelist-members (get dimension-uri->codelist uri)]
+              (let [values (map (fn [{:keys [member label]}] {:uri member :label label}) codelist-members)]
+                (assoc dim :values values))
+              dim))
+          dimension-results)))
+
+(defn dataset-dimensions-resolver [context _args {:keys [uri] :as ds-field}]
+  (let [lang (get-lang ds-field)
+        repo (context/get-repository context)
+        dataset (context/get-dataset context uri)
+        config (context/get-configuration context)
+        ;;TODO: query to get dimension and label
+        dimension-results (map (fn [dim] (select-keys dim [:uri])) (types/dataset-dimensions dataset))
+        dimension-codelists (queries/get-dimension-codelist-values repo dataset config lang)]
+    (combine-dimension-results dimension-results dimension-codelists)))
 
 (defn resolve-cubiql [_context {lang :lang_preference :as args} _field]
   {::options {::lang lang}})
 
-(defn create-dataset-dimensions-resolver [dataset dataset-enum-mappings]
+(defn create-dataset-dimensions-resolver [dataset-mapping]
   (fn [context _args field]
     (let [lang (get-lang field)
           repo (context/get-repository context)
           config (context/get-configuration context)
-          dimension-codelists (queries/get-dimension-codelist-values repo dataset config lang)]
-      (mapping/format-dataset-dimension-values dataset dataset-enum-mappings dimension-codelists))))
+          ;;TODO: query to get dimension and label
+          dimension-results (map (fn [dim] (select-keys dim [:uri])) (dsm/dimensions dataset-mapping))
+          dimension-codelists (queries/get-dimension-codelist-values repo dataset-mapping config lang)]
+      (combine-dimension-results dimension-results dimension-codelists))))
 
-(defn create-dataset-measures-resolver [dataset dataset-measures-mapping]
-  (let [uri->measure-mapping (into {} (map (fn [m] [(:uri m) m]) dataset-measures-mapping))]
-    (fn [context _args field]
-      (let [lang (get-lang field)
-            repo (context/get-repository context)
-            configuration (context/get-configuration context)]
-        (resolve-dataset-measures repo (:uri dataset) uri->measure-mapping lang configuration)))))
+(defn create-dataset-measures-resolver [dataset-mapping]
+  (fn [context _args field]
+    (let [lang (get-lang field)
+          repo (context/get-repository context)
+          configuration (context/get-configuration context)]
+      (resolve-dataset-measures repo (:uri dataset-mapping) lang configuration))))

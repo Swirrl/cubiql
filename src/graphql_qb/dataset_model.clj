@@ -148,7 +148,7 @@
                            (assoc comp :order (+ max-order idx 1)))
                          without-order))))
 
-(defn get-dimension-type [{:keys [uri label range] :as dim} codelist-uri codelists configuration]
+(defn get-dimension-type [{:keys [uri range] :as dim} codelist-uri codelists configuration]
   (cond
     (= (config/geo-dimension configuration) uri)
     types/ref-area-type
@@ -163,9 +163,7 @@
     types/string-type
 
     (contains? codelists codelist-uri)
-    (let [codelist (get codelists codelist-uri)
-          enum-name (types/label->field-name label)]
-      (types/->EnumType enum-name codelist))
+    types/enum-type
 
     :else
     (types/->UnmappedType range)))

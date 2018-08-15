@@ -1,7 +1,8 @@
 (ns graphql-qb.types-test
   (:require [clojure.test :refer :all]
             [graphql-qb.types :refer :all]
-            [graphql-qb.types.scalars :as scalars])
+            [graphql-qb.types.scalars :as scalars]
+            [graphql-qb.types :as types])
   (:import [java.net URI]
            [java.util Date]))
 
@@ -27,7 +28,7 @@
       (is (= {:uri area-uri :label area-label} (project-result dim bindings)))))
 
   (testing "Dimension with codelist type"
-    (let [type (->EnumType :dim #{(URI. "http://val1") (URI. "http://val2")})
+    (let [type types/enum-type
           dim (->Dimension (URI. "http://dim") "Dimension" 1 type)
           value (URI. "http://val1")
           bindings {:dim1 value}]

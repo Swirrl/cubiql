@@ -17,23 +17,17 @@
           (cons "a" segments)
           segments)))))
 
-(defn- segments->schema-key [segments]
+(defn segments->schema-key [segments]
   (->> segments
        (map string/lower-case)
        (string/join "_")
        (keyword)))
-
-(defn dataset-name->schema-name [label]
-  (segments->schema-key (cons "dataset" (get-identifier-segments label))))
 
 (defn label->field-name [label]
   (segments->schema-key (get-identifier-segments label)))
 
 (defn ->field-name [{:keys [label]}]
   (label->field-name label))
-
-(defn field-name->type-name [field-name ds-schema]
-  (keyword (str (name ds-schema) "_" (name field-name) "_type")))
 
 (defprotocol SparqlFilterable
   (apply-filter [this model graphql-value]))
@@ -50,7 +44,7 @@
 
 (defrecord RefAreaType [])
 (defrecord RefPeriodType [])
-(defrecord EnumType [enum-name values])
+(defrecord EnumType [])
 (defrecord DecimalType [])
 (defrecord StringType [])
 (defrecord UnmappedType [type-uri])
@@ -59,6 +53,7 @@
 (def ref-period-type (->RefPeriodType))
 (def decimal-type (->DecimalType))
 (def string-type (->StringType))
+(def enum-type (->EnumType))
 
 (defn maybe-add-period-filter [model dim-key dim-uri interval-key filter-fn dt]
   (if (some? dt)
@@ -210,6 +205,11 @@
 (extend StringType TypeFilter default-type-filter-impl)
 (extend UnmappedType TypeFilter default-type-filter-impl)
 
+;;measure types
+;;TODO: combine with dimension types?
+(defrecord FloatMeasureType [])
+(defrecord StringMeasureType [])
+
 (defrecord Dimension [uri label order type]
   SparqlQueryable
   (apply-order-by [_this model direction configuration]
@@ -224,6 +224,7 @@
   SparqlResultProjector
   (apply-projection [this model observation-selections configuration]
     (let [dim-key (keyword (str "dim" order))
+          ;;TODO: move field selection calculation into schema
           field-name (->field-name this)
           field-selections (get observation-selections field-name)]
       (apply-type-projection type dim-key uri model field-selections configuration)))
@@ -246,9 +247,6 @@
       (get binding :mv))))
 
 (defrecord Dataset [uri name dimensions measures])
-
-(defn dataset-schema [ds]
-  (keyword (dataset-name->schema-name (:name ds))))
 
 (defn dataset-aggregate-measures [{:keys [measures] :as ds}]
   (filter :is-numeric? measures))
@@ -274,8 +272,3 @@
 (defn get-dataset-measure-by-uri [{:keys [measures] :as dataset} uri]
   (util/find-first #(= uri (:uri %)) measures))
 
-(defn get-observation-result [dataset bindings config]
-  (let [field-results (map (fn [component]
-                             [(->field-name component) (project-result component bindings)])
-                           (dataset-dimension-measures dataset))]
-    (into {:uri (:obs bindings)} field-results)))

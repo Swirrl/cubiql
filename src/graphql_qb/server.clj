@@ -11,8 +11,8 @@
 
 (defn create-server
   ([port repo config]
-   (let [{:keys [schema datasets]} (core/build-schema-context repo config)
-         context (context/create repo datasets config)
+   (let [{:keys [schema datasets dataset-mappings]} (core/build-schema-context repo config)
+         context (context/create repo datasets dataset-mappings config)
          opts {:app-context context
                :port        port
                :graphiql    true}

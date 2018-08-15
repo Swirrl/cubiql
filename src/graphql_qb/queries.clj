@@ -172,7 +172,7 @@
 (defn get-dimension-codelist-values [repo {:keys [uri] :as dataset} config lang]
   (let [dimvalues-query (get-dimension-codelist-values-query uri config lang)
         results (util/eager-query repo dimvalues-query)]
-    (group-by :dim results)))
+    (map (util/convert-binding-labels [:label]) results)))
 
 (defn get-all-enum-dimension-values
   "Gets all codelist members for all dimensions across all datasets. Each dimension is expected to have a
