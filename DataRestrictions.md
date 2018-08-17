@@ -6,9 +6,11 @@ CubiQL requires data to be modeled using the [RDF Data Cube Vocabulary](https://
 
 - Multiple measures should be modeled using the measure dimension approach (i.e. use qb:measureType)
 - Always use the qb:measureType even if there is only one measure.
-- The codes used for each of the cube dimensions (except the geo and time dimensions) should be defined at a separate skos:ConceptScheme. The skos:ConceptScheme should contain **only** the codes used.
-- This skos:ConceptScheme can be associated to either a qb:ComponentSpecification or a qb:DimensionProperty. 
-- The predicate to associate this skos:ConceptScheme to the qb:ComponentSpecification or a qb:DimensionProperty can be defined at the configuration (it can be qb:codeList or any other property)
+- The codes used for each of the cube dimensions (except the geo and time dimensions) should be defined at a separate code list (e.g. skos:ConceptScheme). The code list should contain **only** the codes used.
+- A code list should be defined also for the qb:measureType dimension
+- This code list can be associated to either a qb:ComponentSpecification or a qb:DimensionProperty. 
+- The predicate to associate this code list to the qb:ComponentSpecification or a qb:DimensionProperty can be defined at the configuration (it can be qb:codeList or any other property)
+- Only URIs (NOT String or xsd:date) should be used for the values of the dimension (code lists cannot be defined based on strings)
 - The geo dimension defined at the cofiguration should take values that have a label 
 - The time dimension defined at the configuration should take values URIs defined by reference.data.gov.uk e.g. http://reference.data.gov.uk/id/year/2016
 - If geo and/or time dimensions do not match the 2 above criteria then they should **not** be defined at the configuration and they will be handled like all the other dimensions 
