@@ -111,7 +111,7 @@
                                          (->EnumMappingItem (label->enum-name label (inc n)) member label))
                                        item-results)))
                       by-enum-name)]
-    {:label enum-label :doc enum-doc :items (vec items)}))
+    {:label enum-label :doc (or enum-doc "") :items (vec items)}))
 
 (defn- get-measure-type [m]
   (types/is-numeric-measure? m) (types/->FloatMeasureType) (types/->StringMeasureType))
@@ -122,23 +122,21 @@
            {:member member-uri :label (util/find-best-language labels (config/schema-label-language configuration))}))
        (group-by :member dimension-member-bindings)))
 
-(defn- get-dataset-enum-mappings [dataset dataset-member-bindings configuration]
+(defn- get-dataset-enum-mappings [dataset dataset-member-bindings dimension-labels configuration]
   (let [dimension-member-bindings (group-by :dim dataset-member-bindings)
         field-mappings (map (fn [[dim-uri dim-members]]
-                              (let [dimension (types/get-dataset-dimension-by-uri dataset dim-uri)
-                                    dim-label (:label dimension)
-                                    enum-doc ""                                ;;TODO: get optional comment for dimension
+                              (let [{dim-label :label enum-doc :doc} (get dimension-labels dim-uri)
                                     codelist (get-dimension-codelist dim-members configuration)]
                                 [dim-uri (create-enum-mapping dim-label enum-doc codelist)]))
                             dimension-member-bindings)]
     (into {} field-mappings)))
 
-(defn get-datasets-enum-mappings [datasets codelist-member-bindings configuration]
+(defn get-datasets-enum-mappings [datasets codelist-member-bindings dimension-labels configuration]
   (let [ds-members (group-by :ds codelist-member-bindings)
         dataset-mappings (map (fn [dataset]
                                 (let [ds-uri (:uri dataset)
                                       ds-codelist-member-bindings (get ds-members ds-uri)]
-                                  [ds-uri (get-dataset-enum-mappings dataset ds-codelist-member-bindings configuration)]))
+                                  [ds-uri (get-dataset-enum-mappings dataset ds-codelist-member-bindings dimension-labels configuration)]))
                               datasets)]
     (into {} dataset-mappings)))
 
@@ -156,19 +154,30 @@
                       (dimension->enum-schema dim))
                     (dsm/dimensions dataset-mapping))))
 
-(defn get-all-enum-mappings [repo datasets config]
+(defn get-all-enum-mappings [repo datasets dimension-labels config]
   (let [enum-dimension-values-query (queries/get-all-enum-dimension-values config)
         results (util/eager-query repo enum-dimension-values-query)
         dataset-enum-values (map (util/convert-binding-labels [:vallabel]) results)]
-    (get-datasets-enum-mappings datasets dataset-enum-values config)))
+    (get-datasets-enum-mappings datasets dataset-enum-values dimension-labels config)))
 
 (defn field-name->type-name [field-name ds-schema]
   (keyword (str (name ds-schema) "_" (name field-name) "_type")))
 
-(defn- get-dimension-thingy [schema {:keys [uri label] :as dimension} ds-enum-mappings]
-  ;;TODO: change ds-enum-mappings keys to URIs instead of field names
+(defn identify-dimension-labels [dimension-bindings configuration]
+  (util/map-values (fn [bindings]
+                     (let [{:keys [label doc]} (util/to-multimap bindings)]
+                       {:label (util/find-best-language label configuration)
+                        :doc   (util/find-best-language doc configuration)}))
+                   (group-by :dim dimension-bindings)))
+
+(defn find-dimension-labels [repo configuration]
+  (let [q (queries/get-dimension-labels-query configuration)
+        results (util/eager-query repo q)]
+    (identify-dimension-labels results configuration)))
+
+(defn- get-dimension-mapping [schema {:keys [uri] :as dimension} ds-enum-mappings {:keys [label doc]}]
   (let [dimension-type (:type dimension)
-        field-name (types/->field-name dimension)
+        field-name (types/label->field-name label)
         mapped-type (if (contains? ds-enum-mappings uri)
                       (let [enum-mapping (get ds-enum-mappings uri)
                             enum-name (field-name->type-name field-name schema)]
@@ -176,7 +185,7 @@
                       dimension-type)]
     {:uri        uri
      :label      label
-     :doc        nil                                        ;;TODO: fetch dimension comment
+     :doc        doc
      :field-name field-name
      :enum-name (label->enum-name label)
      :type       mapped-type
@@ -186,7 +195,7 @@
   ;;TODO: remove label from MeasureType
   {:uri uri
    :label label
-   :field-name (types/->field-name measure)
+   :field-name (types/label->field-name label)
    :enum-name (label->enum-name label)
    :type (get-measure-type measure)
    :is-numeric? is-numeric?
@@ -198,9 +207,12 @@
 (defn dataset-schema [ds]
   (keyword (dataset-name->schema-name (:name ds))))
 
-(defn build-dataset-mapping-model [{:keys [uri label] :as dataset} ds-enum-mappings]
+(defn build-dataset-mapping-model [{:keys [uri] :as dataset} ds-enum-mappings dimension-labels]
   (let [schema (dataset-schema dataset)
-        dimensions (mapv #(get-dimension-thingy schema % ds-enum-mappings) (types/dataset-dimensions dataset))
+        dimensions (mapv (fn [dim]
+                           (let [labels (util/strict-get dimension-labels (:uri dim))]
+                             (get-dimension-mapping schema dim ds-enum-mappings labels)))
+                         (types/dataset-dimensions dataset))
         measures (mapv get-measure-mapping (types/dataset-measures dataset))]
     {:uri uri
      :schema schema
@@ -208,8 +220,9 @@
      :measures measures}))
 
 (defn get-dataset-mapping-models [repo datasets configuration]
-  (let [enum-mappings (get-all-enum-mappings repo datasets configuration)]
+  (let [dimension-labels (find-dimension-labels repo configuration)
+        enum-mappings (get-all-enum-mappings repo datasets dimension-labels configuration)]
     (mapv (fn [{:keys [uri] :as ds}]
             (let [ds-enum-mappings (get enum-mappings uri {})]
-              (build-dataset-mapping-model ds ds-enum-mappings)))
+              (build-dataset-mapping-model ds ds-enum-mappings dimension-labels)))
           datasets)))

@@ -1,6 +1,8 @@
 (ns graphql-qb.context
   "Functions for managing the graphql execution context passed into resolver functions"
-  (:require [graphql-qb.util :as util]))
+  (:require [graphql-qb.util :as util]
+            [clojure.walk :as walk]
+            [com.walmartlabs.lacinia.executor :as executor]))
 
 (defn create
   "Creates a context map from a repository and collection of datasets"
@@ -24,3 +26,18 @@
 
 (defn get-configuration [context]
   (:config context))
+
+(defn un-namespace-keys [m]
+  (walk/postwalk (fn [x]
+                   (if (map? x)
+                     (util/map-keys (fn [k] (keyword (name k))) x)
+                     x)) m))
+
+(defn flatten-selections [m]
+  (walk/postwalk (fn [x]
+                   (if (and (map? x) (contains? x :selections))
+                     (:selections x)
+                     x)) m))
+
+(defn get-selections [context]
+  (-> context (executor/selections-tree) (un-namespace-keys) (flatten-selections)))

@@ -1,7 +1,8 @@
 (ns graphql-qb.schema.mapping.labels-test
   (:require [clojure.test :refer :all]
             [graphql-qb.schema.mapping.labels :refer :all]
-            [graphql-qb.types :as types])
+            [graphql-qb.types :as types]
+            [grafter.rdf :as rdf])
   (:import [java.net URI]))
 
 (defn enum-name-value-map [enum-group]
@@ -81,6 +82,8 @@
         dim2-label "Dimension 2"
         dim3-label "Dimension 3"
 
+        dim1-doc "Description for dimension 1"
+
         dim1-val1-uri (URI. "http://dim1val1")
         dim1-val2-uri (URI. "http://dim1val2")
 
@@ -100,15 +103,37 @@
                   {:ds ds2-uri :dim dim3-uri :member dim3-val1-uri :vallabel "Label"}]
 
         config {}
-        datasets [(types/->Dataset ds1-uri :dataset1 [(types/->Dimension dim1-uri dim1-label 1 types/enum-type)] [])
-                  (types/->Dataset ds2-uri :dataset2 [(types/->Dimension dim2-uri dim2-label 1 types/enum-type)
-                                                      (types/->Dimension dim3-uri dim3-label 2 types/enum-type)] [])]
-        result (get-datasets-enum-mappings datasets bindings config)]
-    (is (= {ds1-uri {dim1-uri {:label dim1-label :doc "" :items [(->EnumMappingItem :FIRST dim1-val1-uri "First")
-                                                                 (->EnumMappingItem :SECOND dim1-val2-uri "Second")]}}
+        datasets [(types/->Dataset ds1-uri :dataset1 [(types/->Dimension dim1-uri 1 types/enum-type)] [])
+                  (types/->Dataset ds2-uri :dataset2 [(types/->Dimension dim2-uri 1 types/enum-type)
+                                                      (types/->Dimension dim3-uri 2 types/enum-type)] [])]
+        dimension-labels {dim1-uri {:label dim1-label :doc dim1-doc}
+                          dim2-uri {:label dim2-label :doc nil}
+                          dim3-uri {:label dim3-label :doc ""}}
+        result (get-datasets-enum-mappings datasets bindings dimension-labels config)]
+    (is (= {ds1-uri {dim1-uri {:label dim1-label :doc dim1-doc :items [(->EnumMappingItem :FIRST dim1-val1-uri "First")
+                                                                       (->EnumMappingItem :SECOND dim1-val2-uri "Second")]}}
             ds2-uri {dim2-uri {:label dim2-label :doc "" :items [(->EnumMappingItem :MALE dim2-val1-uri "Male")
                                                                  (->EnumMappingItem :FEMALE dim2-val2-uri "Female")
                                                                  (->EnumMappingItem :ALL_1 dim2-val3-uri "All")
                                                                  (->EnumMappingItem :ALL_2 dim2-val4-uri "All")]}
                      dim3-uri {:label dim3-label :doc "" :items [(->EnumMappingItem :LABEL dim3-val1-uri "Label")]}}}
            result))))
+
+(deftest identify-dimension-labels-test
+  (let [dim1-uri (URI. "http://dim1")
+        dim2-uri (URI. "http://dim2")
+        dim3-uri (URI. "http://dim3")
+
+        bindings [{:dim dim1-uri :label (rdf/language "First dimension" :en) :doc nil}
+                  {:dim dim1-uri :label (rdf/language "Primero dimencion" :es) :doc nil}
+                  {:dim dim1-uri :label nil :doc "Dimension 1"}
+                  {:dim dim2-uri :label (rdf/language "Dimension 2" :en) :doc nil}
+                  {:dim dim2-uri :label nil :doc (rdf/language "Dimension two" :en)}
+                  {:dim dim2-uri :label nil :doc (rdf/language "Dimencion numero dos" :es)}
+                  {:dim dim3-uri :label "Dimension 3" :doc nil}]
+
+        config {:schema-label-language "en"}]
+    (is (= {dim1-uri {:label "First dimension" :doc "Dimension 1"}
+            dim2-uri {:label "Dimension 2" :doc "Dimension two"}
+            dim3-uri {:label "Dimension 3" :doc nil}}
+           (identify-dimension-labels bindings config)))))

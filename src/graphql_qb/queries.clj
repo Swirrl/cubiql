@@ -126,15 +126,8 @@
       "}"
       "}")))
 
-(defn to-multimap [maps]
-  (let [non-nil-pairs (mapcat (fn [m] (filter (comp some? val) m)) maps)]
-    (reduce (fn [acc [k v]]
-              (update acc k (fnil conj []) v))
-            {}
-            non-nil-pairs)))
-
 (defn- process-dataset-metadata-bindings [bindings]
-  (let [{:keys [title description issued publisher licence modified]} (to-multimap bindings)]
+  (let [{:keys [title description issued publisher licence modified]} (util/to-multimap bindings)]
     {:title       (util/label->string (first title))              ;;TODO: allow multiple titles?
      :description (mapv util/label->string description)
      :issued      (mapv scalars/grafter-date->datetime issued)
@@ -213,4 +206,14 @@
     "    ?mt <" (config/dataset-label configuration) "> ?label ."
     "    FILTER(LANG(?label) = \"" lang "\")"
     "  }"
+    "}"))
+
+(defn get-dimension-labels-query [configuration]
+  (str
+    "PREFIX qb: <http://purl.org/linked-data/cube#>"
+    "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>"
+    "SELECT ?dim ?label ?doc WHERE {"
+    "  ?dim a qb:DimensionProperty ."
+    "  { ?dim <" (config/dataset-label configuration) "> ?label . }"
+    "  UNION { ?dim rdfs:comment ?doc . }"
     "}"))

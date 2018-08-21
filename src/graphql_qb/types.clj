@@ -5,8 +5,7 @@
             [graphql-qb.vocabulary :refer [time:hasBeginning time:hasEnd time:inXSDDateTime rdfs:label]]
             [graphql-qb.types.scalars :refer [grafter-date->datetime]]
             [graphql-qb.util :as util]
-            [graphql-qb.config :as config])
-  (:import [clojure.lang Keyword IPersistentMap]))
+            [graphql-qb.config :as config]))
 
 (defn get-identifier-segments [label]
   (let [segments (re-seq #"[a-zA-Z0-9]+" (str label))]
@@ -25,9 +24,6 @@
 
 (defn label->field-name [label]
   (segments->schema-key (get-identifier-segments label)))
-
-(defn ->field-name [{:keys [label]}]
-  (label->field-name label))
 
 (defprotocol SparqlFilterable
   (apply-filter [this model graphql-value]))
@@ -79,19 +75,6 @@
 (defprotocol SparqlResultProjector
   (apply-projection [this model selections config])
   (project-result [this sparql-binding]))
-
-(extend-protocol SparqlResultProjector
-  Keyword
-  (apply-projection [kw model selections config]
-    model)
-
-  IPersistentMap
-  (apply-projection [m model selections config]
-    (reduce (fn [acc [k inner-selections]]
-              (let [proj (get m k)]
-                (apply-projection proj acc inner-selections config)))
-            model
-            selections)))
 
 (extend-protocol SparqlTypeProjection
   RefPeriodType
@@ -210,7 +193,7 @@
 (defrecord FloatMeasureType [])
 (defrecord StringMeasureType [])
 
-(defrecord Dimension [uri label order type]
+(defrecord Dimension [uri order type]
   SparqlQueryable
   (apply-order-by [_this model direction configuration]
     (let [dim-key (keyword (str "dim" order))]
@@ -224,9 +207,8 @@
   SparqlResultProjector
   (apply-projection [this model observation-selections configuration]
     (let [dim-key (keyword (str "dim" order))
-          ;;TODO: move field selection calculation into schema
-          field-name (->field-name this)
-          field-selections (get observation-selections field-name)]
+          ;;TODO: move field selections into caller?
+          field-selections (get observation-selections uri)]
       (apply-type-projection type dim-key uri model field-selections configuration)))
 
   (project-result [_this bindings]

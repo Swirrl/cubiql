@@ -26,30 +26,16 @@
               :name (util/find-best-language names (config/schema-label-language configuration))}))
          by-uri)))
 
-(defn find-all-dimensions-query [configuration]
-  (let [dataset-label (config/dataset-label configuration)]
-    (str
-      "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>"
-      "PREFIX qb: <http://purl.org/linked-data/cube#>"
-      "SELECT ?dim ?label ?range WHERE {"
-      "  ?dim a qb:DimensionProperty ."
-      "  ?dim <" (str dataset-label) "> ?label ."
-      "  OPTIONAL { ?dim rdfs:range ?range }"
-      "}")))
-
-(defn dimension-bindings->dimensions [dimension-bindings configuration]
+(defn dimension-bindings->dimensions [dimension-bindings]
   (map (fn [[dim-uri bindings]]
-         (let [labels (map :label bindings)
-               range (:range (first bindings))]
+         (let [range (:range (first bindings))]
            {:uri   dim-uri
-            :label (util/find-best-language labels (config/schema-label-language configuration))
             :range range}))
        (group-by :dim dimension-bindings)))
 
-(defn find-all-dimensions [repo configuration]
-  (let [q (find-all-dimensions-query configuration)
-        results (util/eager-query repo q)]
-    (dimension-bindings->dimensions results configuration)))
+(defn find-all-dimensions [repo]
+  (let [results (sp/query "find-all-dimensions.sparql" repo)]
+    (dimension-bindings->dimensions results)))
 
 (defn measure-bindings->measures [measure-bindings configuration]
   (map (fn [[measure-uri bindings]]
@@ -173,7 +159,7 @@
         dimensions (mapv (fn [{dim-uri :dimension order :order codelist-uri :codelist :as comp}]
                            (let [dimension (util/strict-get uri->dimension dim-uri)
                                  type (get-dimension-type dimension codelist-uri codelists configuration)]
-                             (types/->Dimension dim-uri (:label dimension) order type)))
+                             (types/->Dimension dim-uri order type)))
                          ordered-dim-components)
         ordered-measure-components (set-component-orders measure-components)
         measures (mapv (fn [{measure-uri :measure order :order :as comp}]
@@ -206,7 +192,7 @@
   (let [datasets (find-all-datasets repo configuration)
         dimension-components (get-dimension-components repo configuration)
         measure-components (get-measure-components repo)
-        dimensions (find-all-dimensions repo configuration)
+        dimensions (find-all-dimensions repo)
         measures (find-all-measures repo configuration)
         codelists (get-all-codelists repo configuration)]
     (construct-datasets datasets dimension-components measure-components dimensions measures codelists configuration)))

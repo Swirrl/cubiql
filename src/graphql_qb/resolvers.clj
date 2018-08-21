@@ -4,10 +4,9 @@
             [graphql-qb.util :as util]
             [graphql-qb.context :as context]
             [graphql-qb.query-model :as qm]
-            [clojure.walk :as walk]
-            [com.walmartlabs.lacinia.executor :as executor]
             [clojure.spec.alpha :as s]
-            [graphql-qb.schema.mapping.dataset :as dsm])
+            [graphql-qb.schema.mapping.dataset :as dsm]
+            [clojure.pprint :as pprint])
   (:import [graphql_qb.types Dimension MeasureType]))
 
 (s/def ::order-direction #{:ASC :DESC})
@@ -18,24 +17,6 @@
 (s/def ::order-by (s/coll-of ::order-item))
 (s/def ::dimension-filter (constantly true))                ;TODO: specify properly
 (s/def ::dimensions-filter (s/map-of ::dimension ::dimension-filter))
-
-(defn un-namespace-keys [m]
-  (walk/postwalk (fn [x]
-                   (if (map? x)
-                     (util/map-keys (fn [k] (keyword (name k))) x)
-                     x)) m))
-
-(defn flatten-selections [m]
-  (walk/postwalk (fn [x]
-                   (if (and (map? x) (contains? x :selections))
-                     (:selections x)
-                     x)) m))
-
-(defn get-selections [context]
-  (-> context (executor/selections-tree) (un-namespace-keys) (flatten-selections)))
-
-(defn get-observation-selections [context]
-  (get-in (get-selections context) [:page :observations]))
 
 (defn get-observation-count [repo ds-uri filter-model]
   (let [query (qm/get-observation-count-query filter-model "obs" ds-uri)
@@ -52,7 +33,6 @@
       (select-keys args [::dimensions-filter ::order-by])
       {::dataset                     dataset
        ::filter-model                filter-model
-       ::observation-selections      (get-observation-selections context)
        :total_matches                total-matches
        :aggregations                 {::dimensions-filter dimension-filter ::filter-model filter-model :ds-uri uri}})))
 

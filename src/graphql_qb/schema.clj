@@ -118,12 +118,23 @@
      :order      mapped-order
      :order_spec mapped-order-spec}))
 
+(defn get-observation-selections [context]
+  (get-in (context/get-selections context) [:page :observations]))
+
+(defn map-observation-selections [dataset-mapping selections]
+  (into {} (keep (fn [{:keys [field-name uri] :as comp}]
+                   (when (contains? selections field-name)
+                     [uri (get selections field-name)]))
+                 (ds-mapping/components dataset-mapping))))
+
 (defn create-observation-resolver [dataset-mapping]
   (fn [context args field]
     (let [{:keys [dimensions] :as mapped-args} (map-dataset-observation-args args dataset-mapping)
           updated-args {::resolvers/dimensions-filter (map-dimension-filter dimensions dataset-mapping)
-                        ::resolvers/order-by (get-order-by mapped-args dataset-mapping)}]
-      (resolvers/resolve-observations context updated-args field))))
+                        ::resolvers/order-by (get-order-by mapped-args dataset-mapping)}
+          selected-observation-fields (get-observation-selections context)
+          result (resolvers/resolve-observations context updated-args field)]
+      (assoc result ::resolvers/observation-selections (map-observation-selections dataset-mapping selected-observation-fields)))))
 
 (defn get-observation-result [dataset-model bindings configuration]
   (let [field-results (map (fn [{:keys [field-name type] :as component-mapping}]
@@ -165,19 +176,14 @@
                   [field-name {:type :sort_direction}]))
         (dsm/components dataset-mapping)))
 
-(defn wrap-observations-mapping [inner-resolver dataset-mapping]
+(defn create-dataset-observations-page-resolver [dataset-mapping]
   (fn [context args observations-field]
-    (let [result (inner-resolver context args observations-field)
+    (let [result (resolvers/resolve-observations-page context args observations-field)
           config (context/get-configuration context)
           mapped-result (mapv (fn [obs-bindings]
                                 (get-observation-result dataset-mapping obs-bindings config))
                               (::resolvers/observation-results result))]
       (assoc result :observations mapped-result))))
-
-(defn create-dataset-observations-page-resolver [dataset-mapping]
-  (wrap-observations-mapping
-    resolvers/resolve-observations-page
-    dataset-mapping))
 
 (defn get-observation-schema-model [dataset-mapping]
   (let [dimensions-measures-enum-mapping (mapping/dataset-dimensions-measures-enum-group dataset-mapping)

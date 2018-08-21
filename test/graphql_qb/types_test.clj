@@ -8,7 +8,7 @@
 
 (deftest project-result-test
   (testing "Dimension with ref period type"
-    (let [dim (->Dimension (URI. "http://dim") "Dimension" 1 ref-period-type)
+    (let [dim (->Dimension (URI. "http://dim") 1 ref-period-type)
           period-uri (URI. "http://period")
           period-label "Period label"
           period-start (Date. 112, 0 1)
@@ -21,7 +21,7 @@
       (is (= expected (project-result dim bindings)))))
 
   (testing "Dimensions with ref area type"
-    (let [dim (->Dimension (URI. "http://dim") "Dimension" 1 (->RefAreaType))
+    (let [dim (->Dimension (URI. "http://dim") 1 (->RefAreaType))
           area-uri (URI. "http://refarea")
           area-label "Area label"
           bindings {:dim1 area-uri :dim1label area-label}]
@@ -29,7 +29,7 @@
 
   (testing "Dimension with codelist type"
     (let [type types/enum-type
-          dim (->Dimension (URI. "http://dim") "Dimension" 1 type)
+          dim (->Dimension (URI. "http://dim") 1 type)
           value (URI. "http://val1")
           bindings {:dim1 value}]
       (is (= value (project-result dim bindings)))))

@@ -46,9 +46,9 @@
         dim2-uri (URI. "http://dim2")
         dim3-uri (URI. "http://dim3")
         measure1-uri (URI. "http://measure1")
-        dim1 (types/->Dimension dim1-uri "Dimension 1" 1 (types/->DecimalType))
-        dim2 (types/->Dimension dim2-uri "Dimension 2" 2 (types/->StringType))
-        dim3 (types/->Dimension dim3-uri "Dimension 3" 3 types/enum-type)
+        dim1 (types/->Dimension dim1-uri 1 (types/->DecimalType))
+        dim2 (types/->Dimension dim2-uri 2 (types/->StringType))
+        dim3 (types/->Dimension dim3-uri 3 types/enum-type)
         measure1 (types/->MeasureType measure1-uri "Measure 1" 1 true)
 
         dim1-mapping {:uri dim1-uri :field-name :dim1 :dimension dim1}
@@ -73,10 +73,10 @@
 
         dim2-value (URI. "http://value2")
 
-        dim1 (types/->Dimension dim1-uri "Dimension 1" 1 types/decimal-type)
-        dim2 (types/->Dimension dim2-uri "Dimension 2" 2 types/enum-type)
-        dim3 (types/->Dimension dim3-uri "Dimension 3" 3 types/string-type)
-        dim4 (types/->Dimension dim4-uri "Dimension 4" 4 types/decimal-type)
+        dim1 (types/->Dimension dim1-uri 1 types/decimal-type)
+        dim2 (types/->Dimension dim2-uri 2 types/enum-type)
+        dim3 (types/->Dimension dim3-uri 3 types/string-type)
+        dim4 (types/->Dimension dim4-uri 4 types/decimal-type)
 
         dsm {:uri (URI. "http://test")
              :schema :dataset_test
@@ -191,3 +191,33 @@
             :median {:type :sort_direction}
             :count {:type :sort_direction}})
         (dataset-order-spec-schema-model dsm))))
+
+(deftest map-observation-selections-test
+  (let [dim1-uri (URI. "http://dim1")
+        dim2-uri (URI. "http://dim2")
+        dim3-uri (URI. "http://dim3")
+        dim4-uri (URI. "http://dim4")
+        measure1-uri (URI. "http://measure1")
+        measure2-uri (URI. "http://measure2")
+
+        dsm {:uri (URI. "http://test-dataset")
+             :schema :dataset_test
+             :dimensions [{:uri dim1-uri :type types/ref-area-type :field-name :dim1}
+                          {:uri dim2-uri :type types/ref-period-type :field-name :dim2}
+                          {:uri dim3-uri :type types/enum-type :field-name :dim3}
+                          {:uri dim4-uri :type types/decimal-type :field-name :dim4}]
+             :measures [{:uri measure1-uri :type (types/->FloatMeasureType) :field-name :measure1}
+                        {:uri measure2-uri :type (types/->StringMeasureType) :field-name :measure2}]}
+
+        dim1-selections {:label nil :uri nil}
+        dim2-selections {:uri nil :start nil}
+        selections {:uri nil
+                    :dim1 dim1-selections
+                    :dim2 dim2-selections
+                    :dim3 nil
+                    :measure2 nil}]
+    (is (= {dim1-uri dim1-selections
+            dim2-uri dim2-selections
+            dim3-uri nil
+            measure2-uri nil}
+           (map-observation-selections dsm selections)))))
