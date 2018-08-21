@@ -69,3 +69,46 @@
     (is (= {:enum1 {:values [:VALUE1 :VALUE2] :description "description"}
             :enum2 {:values [:VALUE3]}}
            enums-schema))))
+
+(deftest get-datasets-enum-mappings-test
+  (let [ds1-uri (URI. "http://ds1")
+        ds2-uri (URI. "http://ds2")
+        dim1-uri (URI. "http://dim1")
+        dim2-uri (URI. "http://dim2")
+        dim3-uri (URI. "http://dim3")
+
+        dim1-label "Dimension 1"
+        dim2-label "Dimension 2"
+        dim3-label "Dimension 3"
+
+        dim1-val1-uri (URI. "http://dim1val1")
+        dim1-val2-uri (URI. "http://dim1val2")
+
+        dim2-val1-uri (URI. "http://dim2val1")
+        dim2-val2-uri (URI. "http://dim2val2")
+        dim2-val3-uri (URI. "http://dim2val3")
+        dim2-val4-uri (URI. "http://dim2val4")
+
+        dim3-val1-uri (URI. "http://dim3val1")
+
+        bindings [{:ds ds1-uri :dim dim1-uri :member dim1-val1-uri :vallabel "First"}
+                  {:ds ds1-uri :dim dim1-uri :member dim1-val2-uri :vallabel "Second"}
+                  {:ds ds2-uri :dim dim2-uri :member dim2-val1-uri :vallabel "Male"}
+                  {:ds ds2-uri :dim dim2-uri :member dim2-val2-uri :vallabel "Female"}
+                  {:ds ds2-uri :dim dim2-uri :member dim2-val3-uri :vallabel "All"}
+                  {:ds ds2-uri :dim dim2-uri :member dim2-val4-uri :vallabel "All"}
+                  {:ds ds2-uri :dim dim3-uri :member dim3-val1-uri :vallabel "Label"}]
+
+        config {}
+        datasets [(types/->Dataset ds1-uri :dataset1 [(types/->Dimension dim1-uri dim1-label 1 types/enum-type)] [])
+                  (types/->Dataset ds2-uri :dataset2 [(types/->Dimension dim2-uri dim2-label 1 types/enum-type)
+                                                      (types/->Dimension dim3-uri dim3-label 2 types/enum-type)] [])]
+        result (get-datasets-enum-mappings datasets bindings config)]
+    (is (= {ds1-uri {dim1-uri {:label dim1-label :doc "" :items [(->EnumMappingItem :FIRST dim1-val1-uri "First")
+                                                                 (->EnumMappingItem :SECOND dim1-val2-uri "Second")]}}
+            ds2-uri {dim2-uri {:label dim2-label :doc "" :items [(->EnumMappingItem :MALE dim2-val1-uri "Male")
+                                                                 (->EnumMappingItem :FEMALE dim2-val2-uri "Female")
+                                                                 (->EnumMappingItem :ALL_1 dim2-val3-uri "All")
+                                                                 (->EnumMappingItem :ALL_2 dim2-val4-uri "All")]}
+                     dim3-uri {:label dim3-label :doc "" :items [(->EnumMappingItem :LABEL dim3-val1-uri "Label")]}}}
+           result))))

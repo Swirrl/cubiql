@@ -128,9 +128,8 @@
                               (let [dimension (types/get-dataset-dimension-by-uri dataset dim-uri)
                                     dim-label (:label dimension)
                                     enum-doc ""                                ;;TODO: get optional comment for dimension
-                                    codelist (get-dimension-codelist dim-members configuration)
-                                    field-name (types/->field-name dimension)]
-                                [field-name (create-enum-mapping dim-label enum-doc codelist)]))
+                                    codelist (get-dimension-codelist dim-members configuration)]
+                                [dim-uri (create-enum-mapping dim-label enum-doc codelist)]))
                             dimension-member-bindings)]
     (into {} field-mappings)))
 
@@ -170,8 +169,8 @@
   ;;TODO: change ds-enum-mappings keys to URIs instead of field names
   (let [dimension-type (:type dimension)
         field-name (types/->field-name dimension)
-        mapped-type (if (contains? ds-enum-mappings field-name)
-                      (let [enum-mapping (get ds-enum-mappings field-name)
+        mapped-type (if (contains? ds-enum-mappings uri)
+                      (let [enum-mapping (get ds-enum-mappings uri)
                             enum-name (field-name->type-name field-name schema)]
                         (->MappedEnumType enum-name dimension-type (:doc enum-mapping) (:items enum-mapping)))
                       dimension-type)]
