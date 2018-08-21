@@ -1,29 +1,10 @@
 (ns graphql-qb.types
   "Functions for mapping DSD elements to/from GraphQL types"
-  (:require [clojure.string :as string]
-            [graphql-qb.query-model :as qm]
+  (:require [graphql-qb.query-model :as qm]
             [graphql-qb.vocabulary :refer [time:hasBeginning time:hasEnd time:inXSDDateTime rdfs:label]]
             [graphql-qb.types.scalars :refer [grafter-date->datetime]]
             [graphql-qb.util :as util]
             [graphql-qb.config :as config]))
-
-(defn get-identifier-segments [label]
-  (let [segments (re-seq #"[a-zA-Z0-9]+" (str label))]
-    (if (empty? segments)
-      (throw (IllegalArgumentException. (format "Cannot construct identifier from label '%s'" label)))
-      (let [first-char (ffirst segments)]
-        (if (Character/isDigit first-char)
-          (cons "a" segments)
-          segments)))))
-
-(defn segments->schema-key [segments]
-  (->> segments
-       (map string/lower-case)
-       (string/join "_")
-       (keyword)))
-
-(defn label->field-name [label]
-  (segments->schema-key (get-identifier-segments label)))
 
 (defprotocol SparqlFilterable
   (apply-filter [this model graphql-value]))
@@ -215,7 +196,7 @@
     (let [dim-key (keyword (str "dim" order))]
       (project-type-result type dim-key bindings))))
 
-(defrecord MeasureType [uri label order is-numeric?]
+(defrecord MeasureType [uri order is-numeric?]
   SparqlQueryable
   (apply-order-by [_this model direction _configuration]
     (qm/add-order-by model {direction [(keyword (str "mv"))]}))

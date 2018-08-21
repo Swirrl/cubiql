@@ -217,3 +217,13 @@
     "  { ?dim <" (config/dataset-label configuration) "> ?label . }"
     "  UNION { ?dim rdfs:comment ?doc . }"
     "}"))
+
+(defn get-measure-labels-query [configuration]
+  (let [dataset-label (config/dataset-label configuration)]
+    (str
+      "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>"
+      "PREFIX qb: <http://purl.org/linked-data/cube#>"
+      "SELECT ?measure ?label WHERE {"
+      "  ?measure a qb:MeasureProperty ."
+      "  ?measure <" (str dataset-label) "> ?label ."
+      "}")))

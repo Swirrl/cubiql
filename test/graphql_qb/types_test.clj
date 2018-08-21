@@ -36,14 +36,14 @@
 
   (testing "Measure matching measure type"
     (let [uri (URI. "http://measure")
-          measure (->MeasureType uri "Measure" 1 true)
+          measure (->MeasureType uri 1 true)
           value 4
           bindings {:mp uri :mv 4}]
       (is (= value (project-result measure bindings)))))
 
   (testing "Measure not matching measure type"
     (let [uri (URI. "http://measure1")
-          measure (->MeasureType uri "Measure 1" 1 true)
+          measure (->MeasureType uri 1 true)
           bindings {:mp (URI. "http://measure2") :mv 5}]
       (is (nil? (project-result measure bindings))))))
 

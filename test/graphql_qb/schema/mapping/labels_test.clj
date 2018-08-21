@@ -137,3 +137,17 @@
             dim2-uri {:label "Dimension 2" :doc "Dimension two"}
             dim3-uri {:label "Dimension 3" :doc nil}}
            (identify-dimension-labels bindings config)))))
+
+(deftest identify-measure-labels-test
+  (let [measure1-uri (URI. "http://measure1")
+        measure2-uri (URI. "http://measure2")
+
+        bindings [{:measure measure1-uri :label (rdf/language "First measure" :en)}
+                  {:measure measure1-uri :label "Second label"}
+                  {:measure measure2-uri :label "Second measure"}
+                  {:measure measure2-uri :label (rdf/language "Segundo measure" :es)}]
+
+        config {:schema-label-language "en"}]
+    (is (= {measure1-uri "First measure"
+            measure2-uri "Second measure"}
+           (identify-measure-labels bindings config)))))

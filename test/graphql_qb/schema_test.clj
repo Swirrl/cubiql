@@ -4,11 +4,8 @@
             [graphql-qb.types :as types]
             [graphql-qb.schema.mapping.dataset :as dsm]
             [graphql-qb.schema.mapping.labels :as labels]
-            [com.walmartlabs.lacinia.schema :as ls]
-            [clojure.pprint :as pprint]
-            [graphql-qb.schema.mapping.labels :as mapping])
-  (:import [java.net URI]
-           (java.util Date)))
+            [com.walmartlabs.lacinia.schema :as ls])
+  (:import [java.net URI]))
 
 (deftest dataset-observation-schema-model-test
   (let [dim1 {:field-name :dim1 :type types/string-type}
@@ -49,7 +46,7 @@
         dim1 (types/->Dimension dim1-uri 1 (types/->DecimalType))
         dim2 (types/->Dimension dim2-uri 2 (types/->StringType))
         dim3 (types/->Dimension dim3-uri 3 types/enum-type)
-        measure1 (types/->MeasureType measure1-uri "Measure 1" 1 true)
+        measure1 (types/->MeasureType measure1-uri 1 true)
 
         dim1-mapping {:uri dim1-uri :field-name :dim1 :dimension dim1}
         dim2-mapping {:uri dim2-uri :field-name :dim2 :dimension dim2}

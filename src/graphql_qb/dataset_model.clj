@@ -37,22 +37,8 @@
   (let [results (sp/query "find-all-dimensions.sparql" repo)]
     (dimension-bindings->dimensions results)))
 
-(defn measure-bindings->measures [measure-bindings configuration]
-  (map (fn [[measure-uri bindings]]
-         (let [labels (map :label bindings)]
-           {:uri measure-uri
-            :label (util/find-best-language labels (config/schema-label-language configuration))}))
-       (group-by :measure measure-bindings)))
-
-(defn find-all-measures-query [configuration]
-  (let [dataset-label (config/dataset-label configuration)]
-    (str
-      "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>"
-      "PREFIX qb: <http://purl.org/linked-data/cube#>"
-      "SELECT ?measure ?label WHERE {"
-      "  ?measure a qb:MeasureProperty ."
-      "  ?measure <" (str dataset-label) "> ?label ."
-      "}")))
+(defn measure-bindings->measures [measure-bindings]
+  (map #(util/rename-key % :measure :uri) measure-bindings))
 
 (defn- is-measure-numeric? [repo measure-uri]
   (sp/query "is-measure-numeric.sparql" {:measure measure-uri} repo))
@@ -63,10 +49,9 @@
                       uri))
                   all-measures)))
 
-(defn find-all-measures [repo configuration]
-  (let [q (find-all-measures-query configuration)
-        results (util/eager-query repo q)
-        measures (measure-bindings->measures results configuration)
+(defn find-all-measures [repo]
+  (let [results (sp/query "find-all-measures.sparql" repo)
+        measures (measure-bindings->measures results)
         numeric-measures (find-numeric-measures repo measures)]
     (map (fn [{:keys [uri] :as measure}]
            (assoc measure :is-numeric? (contains? numeric-measures uri)))
@@ -163,10 +148,8 @@
                          ordered-dim-components)
         ordered-measure-components (set-component-orders measure-components)
         measures (mapv (fn [{measure-uri :measure order :order :as comp}]
-                         (let [{:keys [label is-numeric?]} (util/strict-get uri->measure measure-uri)
-                               field-name (types/label->field-name label)
-                               measure (types/->MeasureType measure-uri label order is-numeric?)]
-                           (assoc measure :field-name field-name)))
+                         (let [{:keys [is-numeric?]} (util/strict-get uri->measure measure-uri)]
+                           (types/->MeasureType measure-uri order is-numeric?)))
                        ordered-measure-components)]
     (types/->Dataset ds-uri ds-name dimensions measures)))
 
@@ -193,6 +176,6 @@
         dimension-components (get-dimension-components repo configuration)
         measure-components (get-measure-components repo)
         dimensions (find-all-dimensions repo)
-        measures (find-all-measures repo configuration)
+        measures (find-all-measures repo)
         codelists (get-all-codelists repo configuration)]
     (construct-datasets datasets dimension-components measure-components dimensions measures codelists configuration)))
