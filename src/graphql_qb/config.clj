@@ -10,15 +10,13 @@
    (aero/read-config source)))
 
 (defn geo-dimension [{config-geo :geo-dimension-uri :as config}]
-  ;;Return the default sdmx:refArea if :geo-dimension is not defined at configuration
-  (if (nil? config-geo)
-    sdmx:refArea
+   (if (nil? config-geo)
+    nil
     (URI. config-geo)))
 
 (defn time-dimension [{config-time :time-dimension-uri :as config}]
-  ;;Return the default sdmx:refPeriod if :time-dimension is not defined at configuration
   (if (nil? config-time)
-    sdmx:refPeriod
+    nil
     (URI. config-time)))
 
 ;;accepted values: [dimension component]
