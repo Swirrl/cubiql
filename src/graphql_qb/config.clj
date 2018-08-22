@@ -9,14 +9,12 @@
   ([source]
    (aero/read-config source)))
 
-(defn geo-dimension [{config-geo :geo-dimension-uri :as config}]
-   (if (nil? config-geo)
-    nil
+(defn geo-dimension [config]
+  (if-let [config-geo (:geo-dimension-uri config)]
     (URI. config-geo)))
 
-(defn time-dimension [{config-time :time-dimension-uri :as config}]
-  (if (nil? config-time)
-    nil
+(defn time-dimension [config]
+  (if-let [config-time (:time-dimension-uri config)]
     (URI. config-time)))
 
 ;;accepted values: [dimension component]
