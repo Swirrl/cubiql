@@ -126,15 +126,8 @@
       "}"
       "}")))
 
-(defn to-multimap [maps]
-  (let [non-nil-pairs (mapcat (fn [m] (filter (comp some? val) m)) maps)]
-    (reduce (fn [acc [k v]]
-              (update acc k (fnil conj []) v))
-            {}
-            non-nil-pairs)))
-
 (defn- process-dataset-metadata-bindings [bindings]
-  (let [{:keys [title description issued publisher licence modified]} (to-multimap bindings)]
+  (let [{:keys [title description issued publisher licence modified]} (util/to-multimap bindings)]
     {:title       (util/label->string (first title))              ;;TODO: allow multiple titles?
      :description (mapv util/label->string description)
      :issued      (mapv scalars/grafter-date->datetime issued)
@@ -172,7 +165,7 @@
 (defn get-dimension-codelist-values [repo {:keys [uri] :as dataset} config lang]
   (let [dimvalues-query (get-dimension-codelist-values-query uri config lang)
         results (util/eager-query repo dimvalues-query)]
-    (group-by :dim results)))
+    (map (util/convert-binding-labels [:label]) results)))
 
 (defn get-all-enum-dimension-values
   "Gets all codelist members for all dimensions across all datasets. Each dimension is expected to have a
@@ -214,3 +207,23 @@
     "    FILTER(LANG(?label) = \"" lang "\")"
     "  }"
     "}"))
+
+(defn get-dimension-labels-query [configuration]
+  (str
+    "PREFIX qb: <http://purl.org/linked-data/cube#>"
+    "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>"
+    "SELECT ?dim ?label ?doc WHERE {"
+    "  ?dim a qb:DimensionProperty ."
+    "  { ?dim <" (config/dataset-label configuration) "> ?label . }"
+    "  UNION { ?dim rdfs:comment ?doc . }"
+    "}"))
+
+(defn get-measure-labels-query [configuration]
+  (let [dataset-label (config/dataset-label configuration)]
+    (str
+      "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>"
+      "PREFIX qb: <http://purl.org/linked-data/cube#>"
+      "SELECT ?measure ?label WHERE {"
+      "  ?measure a qb:MeasureProperty ."
+      "  ?measure <" (str dataset-label) "> ?label ."
+      "}")))

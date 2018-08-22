@@ -1,39 +1,10 @@
 (ns graphql-qb.types
   "Functions for mapping DSD elements to/from GraphQL types"
-  (:require [clojure.string :as string]
-            [graphql-qb.query-model :as qm]
+  (:require [graphql-qb.query-model :as qm]
             [graphql-qb.vocabulary :refer [time:hasBeginning time:hasEnd time:inXSDDateTime rdfs:label]]
             [graphql-qb.types.scalars :refer [grafter-date->datetime]]
             [graphql-qb.util :as util]
-            [graphql-qb.config :as config])
-  (:import [clojure.lang Keyword IPersistentMap]))
-
-(defn get-identifier-segments [label]
-  (let [segments (re-seq #"[a-zA-Z0-9]+" (str label))]
-    (if (empty? segments)
-      (throw (IllegalArgumentException. (format "Cannot construct identifier from label '%s'" label)))
-      (let [first-char (ffirst segments)]
-        (if (Character/isDigit first-char)
-          (cons "a" segments)
-          segments)))))
-
-(defn- segments->schema-key [segments]
-  (->> segments
-       (map string/lower-case)
-       (string/join "_")
-       (keyword)))
-
-(defn dataset-name->schema-name [label]
-  (segments->schema-key (cons "dataset" (get-identifier-segments label))))
-
-(defn label->field-name [label]
-  (segments->schema-key (get-identifier-segments label)))
-
-(defn ->field-name [{:keys [label]}]
-  (label->field-name label))
-
-(defn field-name->type-name [field-name ds-schema]
-  (keyword (str (name ds-schema) "_" (name field-name) "_type")))
+            [graphql-qb.config :as config]))
 
 (defprotocol SparqlFilterable
   (apply-filter [this model graphql-value]))
@@ -50,7 +21,7 @@
 
 (defrecord RefAreaType [])
 (defrecord RefPeriodType [])
-(defrecord EnumType [enum-name values])
+(defrecord EnumType [])
 (defrecord DecimalType [])
 (defrecord StringType [])
 (defrecord UnmappedType [type-uri])
@@ -59,6 +30,7 @@
 (def ref-period-type (->RefPeriodType))
 (def decimal-type (->DecimalType))
 (def string-type (->StringType))
+(def enum-type (->EnumType))
 
 (defn maybe-add-period-filter [model dim-key dim-uri interval-key filter-fn dt]
   (if (some? dt)
@@ -84,19 +56,6 @@
 (defprotocol SparqlResultProjector
   (apply-projection [this model selections config])
   (project-result [this sparql-binding]))
-
-(extend-protocol SparqlResultProjector
-  Keyword
-  (apply-projection [kw model selections config]
-    model)
-
-  IPersistentMap
-  (apply-projection [m model selections config]
-    (reduce (fn [acc [k inner-selections]]
-              (let [proj (get m k)]
-                (apply-projection proj acc inner-selections config)))
-            model
-            selections)))
 
 (extend-protocol SparqlTypeProjection
   RefPeriodType
@@ -210,7 +169,12 @@
 (extend StringType TypeFilter default-type-filter-impl)
 (extend UnmappedType TypeFilter default-type-filter-impl)
 
-(defrecord Dimension [uri label order type]
+;;measure types
+;;TODO: combine with dimension types?
+(defrecord FloatMeasureType [])
+(defrecord StringMeasureType [])
+
+(defrecord Dimension [uri order type]
   SparqlQueryable
   (apply-order-by [_this model direction configuration]
     (let [dim-key (keyword (str "dim" order))]
@@ -224,15 +188,15 @@
   SparqlResultProjector
   (apply-projection [this model observation-selections configuration]
     (let [dim-key (keyword (str "dim" order))
-          field-name (->field-name this)
-          field-selections (get observation-selections field-name)]
+          ;;TODO: move field selections into caller?
+          field-selections (get observation-selections uri)]
       (apply-type-projection type dim-key uri model field-selections configuration)))
 
   (project-result [_this bindings]
     (let [dim-key (keyword (str "dim" order))]
       (project-type-result type dim-key bindings))))
 
-(defrecord MeasureType [uri label order is-numeric?]
+(defrecord MeasureType [uri order is-numeric?]
   SparqlQueryable
   (apply-order-by [_this model direction _configuration]
     (qm/add-order-by model {direction [(keyword (str "mv"))]}))
@@ -246,9 +210,6 @@
       (get binding :mv))))
 
 (defrecord Dataset [uri name dimensions measures])
-
-(defn dataset-schema [ds]
-  (keyword (dataset-name->schema-name (:name ds))))
 
 (defn dataset-aggregate-measures [{:keys [measures] :as ds}]
   (filter :is-numeric? measures))
@@ -274,8 +235,3 @@
 (defn get-dataset-measure-by-uri [{:keys [measures] :as dataset} uri]
   (util/find-first #(= uri (:uri %)) measures))
 
-(defn get-observation-result [dataset bindings config]
-  (let [field-results (map (fn [component]
-                             [(->field-name component) (project-result component bindings)])
-                           (dataset-dimension-measures dataset))]
-    (into {:uri (:obs bindings)} field-results)))

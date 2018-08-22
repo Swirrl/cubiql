@@ -130,3 +130,10 @@
                 (assoc acc k i))))
           {}
           items))
+
+(defn to-multimap [maps]
+  (let [non-nil-pairs (mapcat (fn [m] (filter (comp some? val) m)) maps)]
+    (reduce (fn [acc [k v]]
+              (update acc k (fnil conj []) v))
+            {}
+            non-nil-pairs)))
