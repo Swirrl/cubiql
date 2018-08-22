@@ -208,6 +208,21 @@
     "  }"
     "}"))
 
+(defn get-dimensions-by-lang-query [ds-uri lang configuration]
+  (str
+    "PREFIX qb: <http://purl.org/linked-data/cube#>"
+    "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>"
+    "SELECT ?dim ?label WHERE {"
+    "  <" ds-uri "> qb:structure ?struct ."
+    "  ?struct qb:component ?comp ."
+    "  ?comp qb:dimension ?dim ."
+    "  ?dim a qb:DimensionProperty ."
+    "  OPTIONAL {"
+    "    ?dim <" (config/dataset-label configuration) "> ?label ."
+    "    FILTER(LANG(?label) = \"" lang "\")"
+    "  }"
+    "}"))
+
 (defn get-dimension-labels-query [configuration]
   (str
     "PREFIX qb: <http://purl.org/linked-data/cube#>"

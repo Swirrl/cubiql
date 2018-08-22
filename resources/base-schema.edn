@@ -27,6 +27,7 @@
   :dim
   {:fields
    {:uri    {:type :uri :description "URI of the dimension"}
+    :label {:type String :description "Label for the dimension"}
     :values {:type (list :dim_value) :description "Code list of values for the dimension"}
     :enum_name {:type String :description "Name of the corresponding enum value"}}}
 

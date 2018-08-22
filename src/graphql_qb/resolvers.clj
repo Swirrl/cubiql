@@ -153,13 +153,20 @@
               dim))
           dimension-results)))
 
-(defn dataset-dimensions-resolver [context _args {:keys [uri] :as ds-field}]
+(defn get-dataset-dimensions [repo dataset-uri lang configuration]
+  (let [q (queries/get-dimensions-by-lang-query dataset-uri lang configuration)
+        results (util/eager-query repo q)]
+    (map (fn [{:keys [dim label] :as bindings}]
+           {:uri dim
+            :label (util/label->string label)})
+         results)))
+
+(defn dataset-dimensions-resolver [context _args {dataset-uri :uri :as ds-field}]
   (let [lang (get-lang ds-field)
         repo (context/get-repository context)
-        dataset (context/get-dataset context uri)
+        dataset (context/get-dataset context dataset-uri)
         config (context/get-configuration context)
-        ;;TODO: query to get dimension and label
-        dimension-results (map (fn [dim] (select-keys dim [:uri])) (types/dataset-dimensions dataset))
+        dimension-results (get-dataset-dimensions repo dataset-uri lang config)
         dimension-codelists (queries/get-dimension-codelist-values repo dataset config lang)]
     (combine-dimension-results dimension-results dimension-codelists)))
 
@@ -167,12 +174,11 @@
   {::options {::lang lang}})
 
 (defn create-dataset-dimensions-resolver [dataset-mapping]
-  (fn [context _args field]
+  (fn [context _args {dataset-uri :uri :as field}]
     (let [lang (get-lang field)
           repo (context/get-repository context)
           config (context/get-configuration context)
-          ;;TODO: query to get dimension and label
-          dimension-results (map (fn [dim] (select-keys dim [:uri])) (dsm/dimensions dataset-mapping))
+          dimension-results (get-dataset-dimensions repo dataset-uri lang config)
           dimension-codelists (queries/get-dimension-codelist-values repo dataset-mapping config lang)]
       (combine-dimension-results dimension-results dimension-codelists))))
 

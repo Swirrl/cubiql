@@ -14,13 +14,16 @@
 
         codelist-members [{:dim dim1-uri :member dim1-member1-uri :label "Male"}
                           {:dim dim3-uri :member dim3-member1-uri :label "Member"}
-                          {:dim dim1-uri :member dim1-member2-uri :label "Female"}]]
+                          {:dim dim1-uri :member dim1-member2-uri :label "Female"}]
+        dimension-results [{:uri dim1-uri :label "Gender"}
+                           {:uri dim2-uri}
+                           {:uri dim3-uri :label "Dimension 3"}]]
 
-    (is (= [{:uri dim1-uri :values [{:uri dim1-member1-uri :label "Male"}
-                                    {:uri dim1-member2-uri :label "Female"}]}
+    (is (= [{:uri dim1-uri :label "Gender" :values [{:uri dim1-member1-uri :label "Male"}
+                                                    {:uri dim1-member2-uri :label "Female"}]}
             {:uri dim2-uri}
-            {:uri dim3-uri :values [{:uri dim3-member1-uri :label "Member"}]}]
-           (combine-dimension-results [{:uri dim1-uri} {:uri dim2-uri} {:uri dim3-uri}]
+            {:uri dim3-uri :label "Dimension 3" :values [{:uri dim3-member1-uri :label "Member"}]}]
+           (combine-dimension-results dimension-results
                                       codelist-members)))))
 
 
