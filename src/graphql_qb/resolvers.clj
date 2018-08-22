@@ -90,11 +90,11 @@
     (let [opts (::options field)
           result (inner-resolver context args field)]
       (cond
-        (seq? result)
-        (map (fn [r] (assoc r ::options opts)) result)
-
         (map? result)
         (assoc result ::options opts)
+
+        (seqable? result)
+        (map (fn [r] (assoc r ::options opts)) result)
 
         :else
         (throw (ex-info "Unexpected result type when associating options" {:result result}))))))
@@ -104,13 +104,13 @@
         config (context/get-configuration context)
         lang (get-lang parent-field)
         results (queries/get-datasets repo dimensions measures uri config)]
-    (map (fn [ds]
-           (let [{:keys [uri] :as dataset} (util/rename-key ds :ds :uri :strict? true)
-                 metadata (queries/get-dataset-metadata repo uri config lang)
-                 with-metadata (merge dataset metadata)
-                 dataset-mapping (context/get-dataset context uri)]
-             (assoc with-metadata :schema (name (:schema dataset-mapping)))))
-         results)))
+    (mapv (fn [ds]
+            (let [{:keys [uri] :as dataset} (util/rename-key ds :ds :uri :strict? true)
+                  metadata (queries/get-dataset-metadata repo uri config lang)
+                  with-metadata (merge dataset metadata)
+                  {:keys [schema] :as dataset-mapping} (context/get-dataset-mapping context uri)]
+              (assoc with-metadata :schema (name schema))))
+          results)))
 
 (defn exec-observation-aggregation [repo dataset measure filter-model aggregation-fn]
   (let [q (qm/get-observation-aggregation-query filter-model aggregation-fn (:uri dataset) (:uri measure))
