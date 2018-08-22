@@ -50,3 +50,6 @@
   [config]
   (remove nil? [(geo-dimension config)
                 (time-dimension config)]))
+
+(defn max-observations-page-size [config]
+  (:max-observations-page-size config))

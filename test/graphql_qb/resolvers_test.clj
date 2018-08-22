@@ -26,4 +26,29 @@
            (combine-dimension-results dimension-results
                                       codelist-members)))))
 
+(deftest get-limit-test
+  (are [expected requested configured-max] (= expected (get-limit {:first requested} {:max-observations-page-size configured-max}))
+       ;no configured limit, no requested page size
+       default-limit nil nil
 
+       ;no requested page size, configured limit greater than default
+       default-limit nil (* 2 default-limit)
+
+       ;no requested page size, configured limit less than default
+       (- default-limit 10) nil (- default-limit 10)
+
+       ;no configured limit, requested exceeds default max
+       default-max-observations-page-size (+ default-max-observations-page-size 10) nil
+
+       ;no configured limit, requested less than default max
+       (- default-max-observations-page-size 10) (- default-max-observations-page-size 10) nil
+
+       ;less than configured limit
+       9000 9000 10000
+
+       ;more than configured limit
+       10000 20000 10000
+
+       ;requested negative
+       0 -1 nil
+       ))

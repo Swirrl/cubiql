@@ -6,7 +6,8 @@
             [graphql-qb.query-model :as qm]
             [clojure.spec.alpha :as s]
             [graphql-qb.schema.mapping.dataset :as dsm]
-            [clojure.pprint :as pprint])
+            [clojure.pprint :as pprint]
+            [graphql-qb.config :as config])
   (:import [graphql_qb.types Dimension MeasureType]))
 
 (s/def ::order-direction #{:ASC :DESC})
@@ -43,10 +44,11 @@
     (qm/get-query model "obs" (:uri dataset))))
 
 (def default-limit 10)
-(def max-limit 1000)
+(def default-max-observations-page-size 1000)
 
-(defn get-limit [args]
-  (min (max 0 (or (:first args) default-limit)) max-limit))
+(defn get-limit [args configuration]
+  (let [max-limit (or (config/max-observations-page-size configuration) default-max-observations-page-size)]
+    (min (max 0 (or (:first args) default-limit)) max-limit)))
 
 (defn get-offset [args]
   (max 0 (or (:after args) 0)))
@@ -58,7 +60,8 @@
 
 (defn wrap-pagination-resolver [inner-resolver]
   (fn [context args observations-field]
-    (let [limit (get-limit args)
+    (let [configuration (context/get-configuration context)
+          limit (get-limit args configuration)
           offset (get-offset args)
           total-matches (:total_matches observations-field)
           page {::page-offset offset ::page-size limit}
