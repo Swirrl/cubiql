@@ -142,13 +142,13 @@
 (defn construct-dataset [{ds-uri :ds ds-name :name :as dataset} dimension-components measure-components uri->dimension uri->measure codelists configuration]
   (let [ordered-dim-components (set-component-orders dimension-components)
         dimensions (mapv (fn [{dim-uri :dimension order :order codelist-uri :codelist :as comp}]
-                           (let [dimension (util/strict-get uri->dimension dim-uri)
+                           (let [dimension (util/strict-get uri->dimension dim-uri :key-desc "Dimension")
                                  type (get-dimension-type dimension codelist-uri codelists configuration)]
                              (types/->Dimension dim-uri order type)))
                          ordered-dim-components)
         ordered-measure-components (set-component-orders measure-components)
         measures (mapv (fn [{measure-uri :measure order :order :as comp}]
-                         (let [{:keys [is-numeric?]} (util/strict-get uri->measure measure-uri)]
+                         (let [{:keys [is-numeric?]} (util/strict-get uri->measure measure-uri :key-desc "Measure")]
                            (types/->MeasureType measure-uri order is-numeric?)))
                        ordered-measure-components)]
     (types/->Dataset ds-uri ds-name dimensions measures)))

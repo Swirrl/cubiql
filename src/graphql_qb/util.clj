@@ -122,10 +122,14 @@
       (if (pos? score)
         (label->string label)))))
 
-(defn strict-get [m k]
+(defn strict-get
+  "Retrieves the value associated with the key k from the map m. Throws an exception if the key
+   does not exist. The optional :key-desc keyword argument can be used to describe the keys in the
+   map and will be included in the error message for the exception thrown if the key is not found."
+  [m k & {:keys [key-desc] :or {key-desc "Key"}}]
   (let [v (get m k ::missing)]
     (if (= ::missing v)
-      (throw (ex-info (format "Key %s not found" (str k)) {}))
+      (throw (ex-info (format "%s %s not found" key-desc (str k)) {}))
       v)))
 
 (defn strict-map-by [f items]

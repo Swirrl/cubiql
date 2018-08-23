@@ -36,3 +36,13 @@
 
   (testing "Empty collection"
     (is (nil? (find-best-language [] "en")))))
+
+(deftest strict-get-test
+  (testing "Key exists"
+    (is (= 1 (strict-get {:a 1 :b 2} :a))))
+
+  (testing "Key does not exist"
+    (is (thrown? Exception (strict-get {:a 1 :b 2} :missing))))
+
+  (testing "Key does not exist with description"
+    (is (thrown-with-msg? Exception #"Widget :missing not found" (strict-get {:a 1 :b 2} :missing :key-desc "Widget")))))
