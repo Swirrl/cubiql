@@ -17,22 +17,28 @@
 (deftest find-best-language-test
   (testing "Exact language match"
     (let [strings [(rdf/language "English" :en)
-                   (rdf/language "Deutsch" :de)
+                   (rdf/language "Deutsche" :de)
                    (rdf/language "Francais" :fr)
                    "No langauge"]]
       (is (= "English" (find-best-language strings "en")))))
 
-  (testing "String literal matches"
+  (testing "English match"
     (let [strings [(rdf/language "English" :en)
+                   (rdf/language "Deutsche" :de)
+                   (rdf/language "Espanol" :es)]]
+      (is (= "English" (find-best-language strings "fr")))))
+
+  (testing "String literal matches"
+    (let [strings [(rdf/language "Francais" :fr)
                    (rdf/language "Espanol" :es)
                    "No language"]]
       (is (= "No language" (find-best-language strings "de")))))
 
   (testing "No matches"
-    (let [strings [(rdf/language "English" :en)
+    (let [strings [(rdf/language "Espanol" :es)
                    (rdf/language "Francais" :fr)
-                   (rdf/language "Deutsch" :de)]]
-      (is (nil? (find-best-language strings "es")))))
+                   (rdf/language "Deutsche" :de)]]
+      (is (nil? (find-best-language strings "jp")))))
 
   (testing "Empty collection"
     (is (nil? (find-best-language [] "en")))))

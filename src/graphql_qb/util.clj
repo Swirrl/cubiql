@@ -132,14 +132,15 @@
   [s lang]
   (let [lang-tag (get-language-tag s)]
     (cond
-      (= lang lang-tag) 2
-      (and (some? lang) (nil? lang-tag)) 1
+      (= lang lang-tag) 3
+      (and (some? lang) (nil? lang-tag)) 2
+      (= lang-tag "en") 1
       :else 0)))
 
 (defn find-best-language
   "Searches for the Grafter string with the closest matching language label. Strings which match the requested
-   language tag exactly are preferred, if none match then string literals without a language are chosen. If neither
-   a matching language or string literal can be found then nil is returned."
+   language tag exactly are preferred, followed by string literals without a language, then english labels. If neither
+   a matching language, string literal or english label can be found then nil is returned."
   [labels lang]
   (when (seq labels)
     (let [with-scores (map (fn [l] [l (score-language-match l lang)]) labels)
