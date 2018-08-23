@@ -2,10 +2,9 @@
   (:require [com.walmartlabs.lacinia.schema :as lschema]
             [com.walmartlabs.lacinia.util :refer [attach-resolvers]]
             [com.walmartlabs.lacinia :refer [execute]]
-            [graphql-qb.util :refer [read-edn-resource] :as util]
+            [graphql-qb.util :refer [read-edn-resource]]
             [graphql-qb.types :refer :all :as types]
             [graphql-qb.types.scalars :as scalars]
-            [clojure.pprint :as pprint]
             [graphql-qb.schema :as schema]
             [graphql-qb.resolvers :as resolvers]
             [graphql-qb.schema-model :as sm]
@@ -18,7 +17,7 @@
   [dataset]
   (not (empty? (types/dataset-dimension-measures dataset))))
 
-(defn get-schema [datasets dataset-mappings]
+(defn build-schema [dataset-mappings]
   (let [base-schema (read-edn-resource "base-schema.edn")
         base-schema (assoc base-schema :scalars scalars/custom-scalars)
         {:keys [qb-fields schema]} (schema/get-qb-fields-schema dataset-mappings)
@@ -32,21 +31,17 @@
                                resolvers)]
     (attach-resolvers (dissoc combined-schema :resolvers) query-resolvers)))
 
-(defn generate-schema [repo]
-  (let [config (config/read-config)
-        datasets (ds-model/get-all-datasets repo config)
-        datasets (filter can-generate-schema? datasets)
-        dataset-mappings (mapping/get-dataset-mapping-models repo datasets config)]
-    (get-schema datasets dataset-mappings)))
-
-(defn dump-schema [repo]
-  (pprint/pprint (generate-schema repo)))
-
-(defn build-schema-context [repo config]
+(defn- get-schema-components [repo config]
   (let [datasets (ds-model/get-all-datasets repo config)
         datasets (filter can-generate-schema? datasets)
-        dataset-mappings (mapping/get-dataset-mapping-models repo datasets config)
-        schema (get-schema datasets dataset-mappings)]
-    {:schema (lschema/compile schema)
+        dataset-mappings (mapping/get-dataset-mapping-models repo datasets config)]
+    {:schema (build-schema dataset-mappings)
      :datasets datasets
      :dataset-mappings dataset-mappings}))
+
+(defn get-schema [repo]
+  (:schema (get-schema-components repo (config/read-config))))
+
+(defn build-schema-context [repo config]
+  (let [result (get-schema-components repo config)]
+    (update result :schema lschema/compile)))
