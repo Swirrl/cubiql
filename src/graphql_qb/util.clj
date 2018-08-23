@@ -132,7 +132,10 @@
       (throw (ex-info (format "%s %s not found" key-desc (str k)) {}))
       v)))
 
-(defn strict-map-by [f items]
+(defn strict-map-by
+  "Returns a map {key item} for the given sequence items and key function f. Throws an exception
+   if any of the items in the input sequence map to the same key."
+  [f items]
   (reduce (fn [acc i]
             (let [k (f i)]
               (if (contains? acc k)

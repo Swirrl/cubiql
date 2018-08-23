@@ -46,3 +46,16 @@
 
   (testing "Key does not exist with description"
     (is (thrown-with-msg? Exception #"Widget :missing not found" (strict-get {:a 1 :b 2} :missing :key-desc "Widget")))))
+
+(deftest strict-map-by-test
+  (testing "Unique keys"
+    (let [index->item (fn [i] {:key i :value (str "value" i)})
+          items (map index->item (range 1 11))
+          expected (into {} (map (fn [v] [(:key v) v]) items))]
+      (is (= expected (strict-map-by :key items)))))
+
+  (testing "Duplicate keys"
+    (let [items [{:key 1 :value "value1"}
+                 {:key 2 :value "value2"}
+                 {:key 1 :value "value3"}]]
+      (is (thrown? Exception (strict-map-by :key items))))))
