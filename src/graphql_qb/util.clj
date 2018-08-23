@@ -146,7 +146,10 @@
           {}
           items))
 
-(defn to-multimap [maps]
+(defn to-multimap
+  "Takes a sequence of maps and returns a map of the form {:key [values]} for each key encountered in all
+   of the input maps. Any entries where a key is mapped to a nil value is ignored."
+  [maps]
   (let [non-nil-pairs (mapcat (fn [m] (filter (comp some? val) m)) maps)]
     (reduce (fn [acc [k v]]
               (update acc k (fnil conj []) v))

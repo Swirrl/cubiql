@@ -59,3 +59,16 @@
                  {:key 2 :value "value2"}
                  {:key 1 :value "value3"}]]
       (is (thrown? Exception (strict-map-by :key items))))))
+
+(deftest to-multimap-test
+  (let [maps [{:a 1 :b 2}
+              {:a 3 :b nil :c 4}
+              {:a 5 :d 6}
+              {:a nil :b 7 :c 8 :d 9}
+              {}
+              {:c 10}]]
+    (is (= {:a [1 3 5]
+            :b [2 7]
+            :c [4 8 10]
+            :d [6 9]}
+           (to-multimap maps)))))
