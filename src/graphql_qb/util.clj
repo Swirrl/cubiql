@@ -101,18 +101,26 @@
   LangString
   (get-language-tag [ls] (name (pr/lang ls))))
 
-(defn lang-distance [lang]
-  (fn [s]
-    (let [lang-tag (get-language-tag s)]
-      (cond
-        (= lang lang-tag) 0
-        (and (some? lang) (nil? lang-tag)) 1
-        :else 2))))
+(defn- score-language-match
+  "Scores how closely the given string matches the specified language. A higher score indicates a better match,
+   a score of 0 indicates no match."
+  [s lang]
+  (let [lang-tag (get-language-tag s)]
+    (cond
+      (= lang lang-tag) 2
+      (and (some? lang) (nil? lang-tag)) 1
+      :else 0)))
 
-(defn find-best-language [labels lang]
-  (let [dist-fn (lang-distance lang)
-        sorted (sort-by dist-fn labels)]
-    (label->string (first sorted))))
+(defn find-best-language
+  "Searches for the Grafter string with the closest matching language label. Strings which match the requested
+   language tag exactly are preferred, if none match then string literals without a language are chosen. If neither
+   a matching language or string literal can be found then nil is returned."
+  [labels lang]
+  (when (seq labels)
+    (let [with-scores (map (fn [l] [l (score-language-match l lang)]) labels)
+          [label score] (apply max-key second with-scores)]
+      (if (pos? score)
+        (label->string label)))))
 
 (defn strict-get [m k]
   (let [v (get m k ::missing)]
