@@ -45,3 +45,9 @@
 
 (defn component-mapping->component [comp]
   (or (:dimension comp) (:measure comp)))
+
+(defn components-enum-group [dataset-mapping]
+  (:components-enum dataset-mapping))
+
+(defn aggregation-measures-enum-group [dataset-mapping]
+  (:aggregation-measures-enum dataset-mapping))

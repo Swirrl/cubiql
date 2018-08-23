@@ -5,58 +5,16 @@
             [clojure.string :as string]
             [graphql-qb.types :as types]
             [graphql-qb.config :as config]
-            [graphql-qb.queries :as queries]
-            [graphql-qb.schema.mapping.dataset :as dsm])
-  (:import [graphql_qb.types RefPeriodType RefAreaType]
-           [graphql_qb.types FloatMeasureType StringMeasureType]))
+            [graphql-qb.queries :as queries]))
 
 ;;TODO: add/use spec for graphql enum values
 (s/def ::graphql-enum keyword?)
-
-(defn find-item-by-name [name items]
-  (util/find-first #(= name (:name %)) items))
-
-;;TODO: move and implement for all types
-(defprotocol ArgumentTransform
-  (transform-argument [this graphql-value]))
-
-(defprotocol ResultTransform
-  (transform-result [this inner-value]))
-
-(defrecord EnumMappingItem [name value label])
-
-(defrecord MappedEnumType [enum-type-name type doc items]
-  ArgumentTransform
-  (transform-argument [_this graphql-value]
-    (:value (find-item-by-name graphql-value items)))
-
-  ResultTransform
-  (transform-result [_this result]
-    (->> items
-         (util/find-first (fn [{:keys [value]}]
-                            (= value result)))
-         (:name))))
-
-(extend-protocol ResultTransform
-  RefAreaType
-  (transform-result [_ref-area-type result] result)
-
-  RefPeriodType
-  (transform-result [_ref-period-type result] result))
-
-(extend-type FloatMeasureType
-  ResultTransform
-  (transform-result [_this r] (some-> r double)))
-
-(extend-type StringMeasureType
-  ResultTransform
-  (transform-result [_this r] (str r)))
 
 (defn get-identifier-segments [label]
   (let [segments (re-seq #"[a-zA-Z0-9]+" (str label))]
     (if (empty? segments)
       (throw (IllegalArgumentException. (format "Cannot construct identifier from label '%s'" label)))
-      (let [first-char (ffirst segments)]
+      (let [^Character first-char (ffirst segments)]
         (if (Character/isDigit first-char)
           (cons "a" segments)
           segments)))))
@@ -83,29 +41,22 @@
    (let [label-segments (get-identifier-segments label)]
      (segments->enum-value (concat label-segments [(str n)])))))
 
-(defrecord GroupMapping [name items]
-  ArgumentTransform
-  (transform-argument [_this graphql-value]
-    (:value (find-item-by-name graphql-value items))))
-
 (defn create-group-mapping
   ([name mappings] (create-group-mapping name mappings identity))
   ([name mappings val-f]
     ;;TODO: handle multiple mappings to the same label
    (let [items (mapv (fn [{:keys [label] :as mapping}]
-                       (->EnumMappingItem (label->enum-name label) (val-f mapping) label))
+                       (types/->EnumMappingItem (label->enum-name label) (val-f mapping) label))
                      mappings)]
-     (->GroupMapping name items))))
+     (types/->GroupMapping name items))))
 
-(defn dataset-dimensions-measures-enum-group [dataset-mapping]
-  (let [schema (dsm/schema dataset-mapping)
-        mapping-name (keyword (str (name schema) "_dimension_measures"))]
-    (create-group-mapping mapping-name (dsm/components dataset-mapping) :uri)))
+(defn components-enum-group [schema components]
+  (let [mapping-name (keyword (str (name schema) "_dimension_measures"))]
+    (create-group-mapping mapping-name components :uri)))
 
-(defn dataset-aggregation-measures-enum-group [dataset-mapping]
-  (if-let [aggregation-measures (dsm/numeric-measure-mappings dataset-mapping)]
-    (let [schema (dsm/schema dataset-mapping)
-          mapping-name (keyword (str (name schema) "_aggregation_measures"))]
+(defn aggregation-measures-enum-group [schema measures]
+  (if-let [aggregation-measures (seq (filter :is-numeric? measures))]
+    (let [mapping-name (keyword (str (name schema) "_aggregation_measures"))]
       (create-group-mapping mapping-name aggregation-measures :uri))))
 
 (defn create-enum-mapping [enum-label enum-doc code-list]
@@ -113,10 +64,10 @@
         items (mapcat (fn [[enum-name item-results]]
                         (if (= 1 (count item-results))
                           (map (fn [{:keys [member label]}]
-                                 (->EnumMappingItem enum-name member label))
+                                 (types/->EnumMappingItem enum-name member label))
                                item-results)
                           (map-indexed (fn [n {:keys [member label]}]
-                                         (->EnumMappingItem (label->enum-name label (inc n)) member label))
+                                         (types/->EnumMappingItem (label->enum-name label (inc n)) member label))
                                        item-results)))
                       by-enum-name)]
     {:label enum-label :doc (or enum-doc "") :items (vec items)}))
@@ -130,7 +81,7 @@
            {:member member-uri :label (util/find-best-language labels (config/schema-label-language configuration))}))
        (group-by :member dimension-member-bindings)))
 
-(defn- get-dataset-enum-mappings [dataset dataset-member-bindings dimension-labels configuration]
+(defn- get-dataset-enum-mappings [dataset-member-bindings dimension-labels configuration]
   (let [dimension-member-bindings (group-by :dim dataset-member-bindings)
         field-mappings (map (fn [[dim-uri dim-members]]
                               (let [{dim-label :label enum-doc :doc} (get dimension-labels dim-uri)
@@ -144,23 +95,11 @@
         dataset-mappings (map (fn [dataset]
                                 (let [ds-uri (:uri dataset)
                                       ds-codelist-member-bindings (get ds-members ds-uri)]
-                                  [ds-uri (get-dataset-enum-mappings dataset ds-codelist-member-bindings dimension-labels configuration)]))
+                                  [ds-uri (get-dataset-enum-mappings ds-codelist-member-bindings dimension-labels configuration)]))
                               datasets)]
     (into {} dataset-mappings)))
 
 ;;schema mappings
-
-(defn dimension->enum-schema [{:keys [type] :as dim}]
-  (when (instance? MappedEnumType type)
-    (let [{:keys [enum-type-name doc items]} type]
-      (if (some? doc)
-        {enum-type-name {:values (mapv :name items) :description doc}}
-        {enum-type-name {:values (mapv :name items)}}))))
-
-(defn dataset-enum-types-schema [dataset-mapping]
-  (apply merge (map (fn [dim]
-                      (dimension->enum-schema dim))
-                    (dsm/dimensions dataset-mapping))))
 
 (defn get-all-enum-mappings [repo datasets dimension-labels config]
   (let [enum-dimension-values-query (queries/get-all-enum-dimension-values config)
@@ -200,7 +139,7 @@
         mapped-type (if (contains? ds-enum-mappings uri)
                       (let [enum-mapping (get ds-enum-mappings uri)
                             enum-name (field-name->type-name field-name schema)]
-                        (->MappedEnumType enum-name dimension-type (:doc enum-mapping) (:items enum-mapping)))
+                        (types/->MappedEnumType enum-name dimension-type (:doc enum-mapping) (:items enum-mapping)))
                       dimension-type)]
     {:uri        uri
      :label      label
@@ -238,7 +177,9 @@
     {:uri uri
      :schema schema
      :dimensions dimensions
-     :measures measures}))
+     :measures measures
+     :components-enum (components-enum-group schema (concat dimensions measures))
+     :aggregation-measures-enum (aggregation-measures-enum-group schema measures)}))
 
 (defn get-dataset-mapping-models [repo datasets configuration]
   (let [dimension-labels (find-dimension-labels repo configuration)

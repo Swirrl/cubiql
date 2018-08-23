@@ -2,8 +2,6 @@
   (:require [clojure.test :refer :all]
             [graphql-qb.schema :refer :all]
             [graphql-qb.types :as types]
-            [graphql-qb.schema.mapping.dataset :as dsm]
-            [graphql-qb.schema.mapping.labels :as labels]
             [com.walmartlabs.lacinia.schema :as ls])
   (:import [java.net URI]))
 
@@ -27,7 +25,7 @@
 (deftest dataset-observation-dimensions-input-schema-model-test
   (let [dim1 {:field-name :dim1 :type types/string-type}
         dim2 {:field-name :dim2 :type types/decimal-type}
-        dim3 {:field-name :dim3 :type (labels/->MappedEnumType :enum-name types/enum-type nil [])}
+        dim3 {:field-name :dim3 :type (types/->MappedEnumType :enum-name types/enum-type nil [])}
         dsm {:uri (URI. "http://test")
              :schema :dataset_test
              :dimensions [dim1 dim2 dim3]
@@ -99,8 +97,8 @@
 
         dim2-value1 (URI. "http://value1")
         dim2-value2 (URI. "http://value2")
-        dim2-mapped-type (labels/->MappedEnumType :enum2 types/enum-type "" [(labels/->EnumMappingItem :VALUE1 dim2-value1 "Value 1")
-                                                                             (labels/->EnumMappingItem :VALUE2 dim2-value2 "Value 2")])
+        dim2-mapped-type (types/->MappedEnumType :enum2 types/enum-type "" [(types/->EnumMappingItem :VALUE1 dim2-value1 "Value 1")
+                                                                            (types/->EnumMappingItem :VALUE2 dim2-value2 "Value 2")])
         dsm {:uri        (URI. "http://test")
              :schema     :dataset_test
              :dimensions [{:uri dim1-uri :field-name :dim1 :type types/decimal-type :enum-name :DIM1}
@@ -159,9 +157,9 @@
              :dimensions [{:uri dim1-uri :type types/ref-area-type :enum-name :DIM1}
                           {:uri dim2-uri :type types/decimal-type :enum-name :DIM2}
                           {:uri dim3-uri
-                           :type (labels/->MappedEnumType :dim3 types/enum-type "" [(labels/->EnumMappingItem :VALUE1 dim3-val1-uri "Value 1")
-                                                                                    (labels/->EnumMappingItem :VALUE3 dim3-val3-uri "Value 3")
-                                                                                    (labels/->EnumMappingItem :VALUE2 dim3-val2-uri "Value 2")])
+                           :type (types/->MappedEnumType :dim3 types/enum-type "" [(types/->EnumMappingItem :VALUE1 dim3-val1-uri "Value 1")
+                                                                                    (types/->EnumMappingItem :VALUE3 dim3-val3-uri "Value 3")
+                                                                                    (types/->EnumMappingItem :VALUE2 dim3-val2-uri "Value 2")])
                            :enum-name :DIM3}]}
 
         result (annotate-dataset-dimensions dsm [dim1-result dim2-result dim3-result])]
@@ -218,3 +216,22 @@
             dim3-uri nil
             measure2-uri nil}
            (map-observation-selections dsm selections)))))
+
+(deftest dataset-enum-types-schema-test
+  (let [dim1 {:uri  (URI. "http://dim1")
+              :type types/string-type}
+        dim2 {:uri (URI. "http://dim2")
+              :type (types/->MappedEnumType :enum1 types/enum-type "description" [(types/->EnumMappingItem :VALUE1 (URI. "http://val1") "value1")
+                                                                                  (types/->EnumMappingItem :VALUE2 (URI. "http://val2") "value2")])}
+        dim3 {:uri  (URI. "http://dim3")
+              :type types/decimal-type}
+        dim4 {:uri (URI. "http://dim4")
+              :type (types/->MappedEnumType :enum2 types/enum-type nil [(types/->EnumMappingItem :VALUE3 (URI. "http://val3") "value3")])}
+        dsm {:uri (URI. "http://test")
+             :schema :dataset_test
+             :dimensions [dim1 dim2 dim3 dim4]
+             :measures []}
+        enums-schema (dataset-enum-types-schema dsm)]
+    (is (= {:enum1 {:values [:VALUE1 :VALUE2] :description "description"}
+            :enum2 {:values [:VALUE3]}}
+           enums-schema))))

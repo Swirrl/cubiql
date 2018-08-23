@@ -2,14 +2,20 @@
   (:require [graphql-qb.types :as types]
             [graphql-qb.resolvers :as resolvers]
             [graphql-qb.schema-model :as sm]
-            [graphql-qb.schema.mapping.labels :as mapping]
             [graphql-qb.context :as context]
             [graphql-qb.schema.mapping.dataset :as dsm]
             [com.walmartlabs.lacinia.schema :as ls]
             [graphql-qb.util :as util]
             [graphql-qb.schema.mapping.dataset :as ds-mapping])
-  (:import [graphql_qb.types EnumType RefPeriodType RefAreaType DecimalType StringType UnmappedType StringMeasureType FloatMeasureType]
-           [graphql_qb.schema.mapping.labels MappedEnumType]))
+  (:import [graphql_qb.types EnumType RefPeriodType RefAreaType DecimalType StringType UnmappedType StringMeasureType FloatMeasureType MappedEnumType GroupMapping]))
+
+(defprotocol ArgumentTransform
+  (transform-argument [this graphql-value]
+    "Converts a GraphQL argument value from the incoming query into the corresponding RDF value"))
+
+(defprotocol ResultTransform
+  (transform-result [this inner-value]
+    "Transforms an RDF result from a query result into the corresponding GraphQL schema value"))
 
 (defprotocol ToGraphQLInputType
   (->input-type-name [this]
@@ -69,23 +75,52 @@
   FloatMeasureType
   (->output-type-name [_float-type] 'Float))
 
+(extend-protocol ResultTransform
+  RefAreaType
+  (transform-result [_ref-area-type result] result)
+
+  RefPeriodType
+  (transform-result [_ref-period-type result] result)
+
+  FloatMeasureType
+  (transform-result [_this r] (some-> r double))
+
+  StringMeasureType
+  (transform-result [_this r] (str r))
+
+  MappedEnumType
+  (transform-result [{:keys [items] :as _this} result]
+    (->> items
+         (util/find-first (fn [{:keys [value]}]
+                            (= value result)))
+         (:name))))
+
 (def default-argument-transform-impl
   {:transform-argument (fn [_type value] value)})
 
 ;;TODO: check implementations!
-(extend RefAreaType mapping/ArgumentTransform default-argument-transform-impl)
-(extend RefPeriodType mapping/ArgumentTransform default-argument-transform-impl)
-(extend EnumType mapping/ArgumentTransform default-argument-transform-impl)
-(extend DecimalType mapping/ArgumentTransform default-argument-transform-impl)
-(extend StringType mapping/ArgumentTransform default-argument-transform-impl)
-(extend UnmappedType mapping/ArgumentTransform default-argument-transform-impl)
+(extend RefAreaType ArgumentTransform default-argument-transform-impl)
+(extend RefPeriodType ArgumentTransform default-argument-transform-impl)
+(extend EnumType ArgumentTransform default-argument-transform-impl)
+(extend DecimalType ArgumentTransform default-argument-transform-impl)
+(extend StringType ArgumentTransform default-argument-transform-impl)
+(extend UnmappedType ArgumentTransform default-argument-transform-impl)
+
+(extend-protocol ArgumentTransform
+  MappedEnumType
+  (transform-argument [{:keys [items] :as _this} graphql-value]
+    (:value (types/find-item-by-name graphql-value items)))
+
+  GroupMapping
+  (transform-argument [{:keys [items] :as _this} graphql-value]
+    (:value (types/find-item-by-name graphql-value items))))
 
 (defn create-aggregation-resolver [dataset-mapping aggregation-fn aggregation-measures-enum]
   (fn [context {:keys [measure] :as args} field]
-    (let [measure-uri (mapping/transform-argument aggregation-measures-enum measure)
+    (let [measure-uri (transform-argument aggregation-measures-enum measure)
           {:keys [type] :as measure-mapping} (ds-mapping/get-measure-by-uri dataset-mapping measure-uri)
           result (resolvers/resolve-observations-aggregation aggregation-fn context {:measure measure-mapping} field)]
-      (mapping/transform-result type result))))
+      (transform-result type result))))
 
 (defn get-order-by
   "Returns an ordered list of [component-uri sort-direction] given a sequence of component URIs and an associated
@@ -106,7 +141,7 @@
 (defn map-dataset-observation-args [{:keys [dimensions order order_spec]} dataset-mapping]
   (let [mapped-dimensions (into {} (map (fn [[field-name value]]
                                           (let [{:keys [uri type]} (ds-mapping/get-dimension-by-field-name dataset-mapping field-name)]
-                                            [uri (mapping/transform-argument type value)]))
+                                            [uri (transform-argument type value)]))
                                         dimensions))
         mapped-order (mapv (fn [component-enum]
                              (:uri (ds-mapping/get-component-by-enum-name dataset-mapping component-enum)))
@@ -140,7 +175,7 @@
   (let [field-results (map (fn [{:keys [field-name type] :as component-mapping}]
                              (let [comp (ds-mapping/component-mapping->component component-mapping)
                                    result (types/project-result comp bindings)]
-                               [field-name (mapping/transform-result type result)]))
+                               [field-name (transform-result type result)]))
                            (dsm/components dataset-model))]
     (into {:uri (:obs bindings)} field-results)))
 
@@ -186,7 +221,7 @@
       (assoc result :observations mapped-result))))
 
 (defn get-observation-schema-model [dataset-mapping]
-  (let [dimensions-measures-enum-mapping (mapping/dataset-dimensions-measures-enum-group dataset-mapping)
+  (let [dimensions-measures-enum-mapping (dsm/components-enum-group dataset-mapping)
         obs-model {:type
                    {:fields
                     {:sparql
@@ -209,7 +244,7 @@
                     :order      {:type [dimensions-measures-enum-mapping]}
                     :order_spec {:type {:fields (dataset-order-spec-schema-model dataset-mapping)}}}
                    :resolve (resolvers/wrap-options (create-observation-resolver dataset-mapping))}
-        aggregation-measures-enum-mapping (mapping/dataset-aggregation-measures-enum-group dataset-mapping)]
+        aggregation-measures-enum-mapping (dsm/aggregation-measures-enum-group dataset-mapping)]
     (if (nil? aggregation-measures-enum-mapping)
       obs-model
       (let [aggregation-fields (get-aggregations-schema-model dataset-mapping aggregation-measures-enum-mapping)]
@@ -299,12 +334,24 @@
                 :description (dsm/description dataset-mapping)}
       :resolve (create-dataset-resolver dataset-mapping)}}))
 
+(defn dimension->enum-schema [{:keys [type] :as dim}]
+  (when (instance? MappedEnumType type)
+    (let [{:keys [enum-type-name doc items]} type]
+      (if (some? doc)
+        {enum-type-name {:values (mapv :name items) :description doc}}
+        {enum-type-name {:values (mapv :name items)}}))))
+
+(defn dataset-enum-types-schema [dataset-mapping]
+  (apply merge (map (fn [dim]
+                      (dimension->enum-schema dim))
+                    (dsm/dimensions dataset-mapping))))
+
 (defn get-qb-fields-schema [dataset-mappings]
   (reduce (fn [{:keys [qb-fields] :as acc} dsm]
             (let [m (get-query-schema-model dsm)
                   [field-name field] (first m)
                   field-schema (sm/visit-field [field-name] field-name field :objects)
-                  ds-enums-schema {:enums (mapping/dataset-enum-types-schema dsm)}
+                  ds-enums-schema {:enums (dataset-enum-types-schema dsm)}
                   field (::sm/field field-schema)
                   schema (::sm/schema field-schema)
                   schema (sm/merge-schemas schema ds-enums-schema)]

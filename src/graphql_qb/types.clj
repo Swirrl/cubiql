@@ -26,6 +26,18 @@
 (defrecord StringType [])
 (defrecord UnmappedType [type-uri])
 
+(defn find-item-by-name [name items]
+  (util/find-first #(= name (:name %)) items))
+
+(defn find-item-by-value [value items]
+  )
+
+(defrecord EnumMappingItem [name value label])
+
+(defrecord MappedEnumType [enum-type-name type doc items])
+
+(defrecord GroupMapping [name items])
+
 (def ref-area-type (->RefAreaType))
 (def ref-period-type (->RefPeriodType))
 (def decimal-type (->DecimalType))
