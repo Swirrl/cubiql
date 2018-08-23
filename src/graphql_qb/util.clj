@@ -37,13 +37,35 @@
     :else
     m))
 
-(defn keyed-by [f s]
-  (into {} (map (fn [v] [(f v) v]) s)))
+(defn keyed-by
+  "Returns a map {key item} for each element in the source sequence items according to the key function.
+   If multiple items map to the same key, the last matching item will be the one included in the result map."
+  [key-fn items]
+  (into {} (map (fn [i] [(key-fn i) i]) items)))
 
-(defn map-values [f m]
+(defn strict-map-by
+  "Returns a map {key item} for the given sequence items and key function f. Throws an exception
+   if any of the items in the input sequence map to the same key."
+  [f items]
+  (reduce (fn [acc i]
+            (let [k (f i)]
+              (if (contains? acc k)
+                (throw (ex-info (str "Duplicate entries for k " k)
+                                {:existing (get acc k)
+                                 :duplicate i}))
+                (assoc acc k i))))
+          {}
+          items))
+
+(defn map-values
+  "Maps each value in the map m according to the mapping function f."
+  [f m]
   (into {} (map (fn [[k v]] [k (f v)]) m)))
 
-(defn map-keys [f m]
+(defn map-keys
+  "Maps each key in the map m according to the mapping function f. If multiple keys in m are
+  mapped to the same value by f, no guarantees are made about which key will be chosen."
+  [f m]
   (into {} (map (fn [[k v]] [(f k) v]) m)))
 
 (defn distinct-by
@@ -79,7 +101,9 @@
   [p s]
   (first (filter p s)))
 
-(defn label->string [l]
+(defn label->string
+  "Converts a grafter string type into a java string."
+  [l]
   (some-> l str))
 
 (defn convert-binding-labels
@@ -92,7 +116,8 @@
             keys)))
 
 (defprotocol HasLang
-  (get-language-tag [this]))
+  (get-language-tag [this]
+    "Returns the language tag associated with this item, or nil if there is no language."))
 
 (extend-protocol HasLang
   String
@@ -131,20 +156,6 @@
     (if (= ::missing v)
       (throw (ex-info (format "%s %s not found" key-desc (str k)) {}))
       v)))
-
-(defn strict-map-by
-  "Returns a map {key item} for the given sequence items and key function f. Throws an exception
-   if any of the items in the input sequence map to the same key."
-  [f items]
-  (reduce (fn [acc i]
-            (let [k (f i)]
-              (if (contains? acc k)
-                (throw (ex-info (str "Duplicate entries for k " k)
-                                {:existing (get acc k)
-                                 :duplicate i}))
-                (assoc acc k i))))
-          {}
-          items))
 
 (defn to-multimap
   "Takes a sequence of maps and returns a map of the form {:key [values]} for each key encountered in all
