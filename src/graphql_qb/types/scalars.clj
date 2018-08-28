@@ -5,9 +5,10 @@
            [java.util Base64 Date]
            [java.time.format DateTimeFormatter]
            [java.time ZonedDateTime ZoneOffset]
-           [org.openrdf.model Literal]))
+           [org.openrdf.model Literal]
+           [javax.xml.datatype XMLGregorianCalendar]))
 
-(defn parse-sparql-cursor [base64-str]
+(defn parse-sparql-cursor [^String base64-str]
   (let [bytes (.decode (Base64/getDecoder) base64-str)
         offset (util/bytes->long bytes)]
     (if (neg? offset)
@@ -40,7 +41,7 @@
 
 (defn date->datetime
   "Converts a java.util.Date to a java.time.ZonedDateTime."
-  [date]
+  [^Date date]
   (ZonedDateTime/ofInstant (.toInstant date) ZoneOffset/UTC))
 
 (defn grafter-date->datetime
@@ -52,7 +53,10 @@
     (date->datetime dt)
 
     (instance? Literal dt)
-    (let [date (.. dt (calendarValue) (toGregorianCalendar) (getTime))]
+    (let [^Literal dt dt
+          ^XMLGregorianCalendar xml-cal (.calendarValue dt)
+          cal (.toGregorianCalendar xml-cal)
+          date (.getTime cal)]
       (date->datetime date))
 
     :else

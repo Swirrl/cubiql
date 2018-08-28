@@ -11,7 +11,7 @@
   (:import [java.io File FileFilter]
            [java.net URI URISyntaxException]))
 
-(defn- create-file-filter [p]
+(defn- ^FileFilter create-file-filter [p]
   (reify FileFilter
     (accept [_this file]
       (p file))))
@@ -33,7 +33,7 @@
       (repo/fixture-repo f))
     (throw (IllegalArgumentException. (format "%s does not exist" f)))))
 
-(defmulti uri->endpoint (fn [uri] (keyword (.getScheme uri))))
+(defmulti uri->endpoint (fn [^URI uri] (keyword (.getScheme uri))))
 
 (defmethod uri->endpoint :http [^URI uri]
   (repo/sparql-repo uri))

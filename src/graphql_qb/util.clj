@@ -5,7 +5,8 @@
             [grafter.rdf.protocols :as pr])
   (:import [java.io PushbackReader]
            [java.nio ByteBuffer]
-           [grafter.rdf.protocols LangString]))
+           [grafter.rdf.protocols LangString]
+           [org.openrdf.repository RepositoryConnection]))
 
 (defn read-edn
   "Reads EDN from the given source."
@@ -83,17 +84,20 @@
 
 (defn long->bytes [i]
   {:post [(= 8 (alength %))]}
-  (.. (ByteBuffer/allocate 8) (putLong i) (array)))
+  (let [buf (ByteBuffer/allocate 8)]
+    (.putLong buf i)
+    (.array buf)))
 
-(defn bytes->long [bytes]
+(defn bytes->long [^bytes bytes]
   {:pre [(= 8 (alength bytes))]}
-  (.. (ByteBuffer/wrap bytes) (getLong)))
+  (let [buf (ByteBuffer/wrap bytes)]
+    (.getLong buf)))
 
 (defn eager-query
   "Executes a SPARQL query against the given repository and eagerly evaluates the results. This prevents
    connections being left open by lazy sequence operators."
   [repo sparql-string]
-  (with-open [conn (repo/->connection repo)]
+  (with-open [^RepositoryConnection conn (repo/->connection repo)]
     (doall (repo/query conn sparql-string))))
 
 (defn find-first
