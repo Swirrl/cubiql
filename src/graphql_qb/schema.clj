@@ -218,7 +218,7 @@
           mapped-result (mapv (fn [obs-bindings]
                                 (get-observation-result dataset-mapping obs-bindings config))
                               (::resolvers/observation-results result))]
-      (assoc result :observations mapped-result))))
+      (assoc result :observation mapped-result))))
 
 (defn get-observation-schema-model [dataset-mapping]
   (let [dimensions-measures-enum-mapping (dsm/components-enum-group dataset-mapping)
@@ -233,7 +233,7 @@
                       {:fields
                        {:next_page    {:type :SparqlCursor :description "Cursor to the next page of results"}
                         :count        {:type 'Int}
-                        :observations {:type [{:fields (dataset-observation-schema-model dataset-mapping)}] :description "List of observations on this page"}}}
+                        :observation {:type [{:fields (dataset-observation-schema-model dataset-mapping)}] :description "List of observations on this page"}}}
                       :args        {:after {:type :SparqlCursor}
                                     :first {:type 'Int}}
                       :description "Page of results to retrieve."
