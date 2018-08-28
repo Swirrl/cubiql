@@ -12,3 +12,4 @@
 
 (def xsd:decimal (URI. "http://www.w3.org/2001/XMLSchema#decimal"))
 (def xsd:string (URI. "http://www.w3.org/2001/XMLSchema#string"))
+(def time:DateTime (URI. "http://www.w3.org/2006/time#inXSDDateTime"))
