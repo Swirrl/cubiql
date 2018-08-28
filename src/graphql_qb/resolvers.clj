@@ -1,12 +1,9 @@
 (ns graphql-qb.resolvers
   (:require [graphql-qb.queries :as queries]
-            [graphql-qb.types :as types]
             [graphql-qb.util :as util]
             [graphql-qb.context :as context]
             [graphql-qb.query-model :as qm]
             [clojure.spec.alpha :as s]
-            [graphql-qb.schema.mapping.dataset :as dsm]
-            [clojure.pprint :as pprint]
             [graphql-qb.config :as config])
   (:import [graphql_qb.types Dimension MeasureType]))
 

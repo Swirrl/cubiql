@@ -1,12 +1,11 @@
 (ns graphql-qb.query-model
   (:require [clojure.string :as string]
-            [clojure.pprint :as pp]
             [graphql-qb.vocabulary :refer :all])
   (:import [java.net URI]
-           (java.util Date)
-           (java.text SimpleDateFormat)
-           (java.time.temporal TemporalAccessor)
-           (java.time.format DateTimeFormatter)))
+           [java.util Date]
+           [java.text SimpleDateFormat]
+           [java.time.temporal TemporalAccessor]
+           [java.time.format DateTimeFormatter]))
 
 (defprotocol QueryItem
   (query-format [this]))

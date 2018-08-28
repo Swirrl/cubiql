@@ -1,7 +1,6 @@
 (ns graphql-qb.queries
   (:require [clojure.string :as string]
             [graphql-qb.types :as types]
-            [grafter.rdf.sparql :as sp]
             [graphql-qb.vocabulary :refer :all]
             [graphql-qb.query-model :as qm]
             [graphql-qb.config :as config]

@@ -2,7 +2,6 @@
   (:require [graphql-qb.server :as server]
             [clojure.tools.cli :as cli]
             [graphql-qb.data :as data]
-            [grafter.rdf.repository :as repo]
             [graphql-qb.config :as config]
             [clojure.java.io :as io])
   (:gen-class)
