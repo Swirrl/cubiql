@@ -103,7 +103,7 @@
       "PREFIX qb: <http://purl.org/linked-data/cube#>"
       "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>"
       "PREFIX dcterms: <http://purl.org/dc/terms/>"
-      "SELECT * WHERE {"
+      "SELECT distinct * WHERE {"
       "  <" dataset-uri "> a qb:DataSet ."
       "{"
       "    <" dataset-uri "> <" label-predicate "> ?title ."
