@@ -40,8 +40,14 @@
 (defn measure-bindings->measures [measure-bindings]
   (map #(util/rename-key % :measure :uri) measure-bindings))
 
-(defn- is-measure-numeric? [repo measure-uri]
-  (sp/query "is-measure-numeric.sparql" {:measure measure-uri} repo))
+(defn- is-measure-numeric?
+  "Queries for an observation for the specified measure. Returns true if the value of the observation is numeric, false
+   if there are no matching observations or the value is non-numeric."
+  [repo measure-uri]
+  (let [results (sp/query "is-measure-numeric.sparql" {:measure measure-uri} repo)]
+    (if-let [solution (first results)]
+      (:numeric solution)
+      false)))
 
 (defn find-numeric-measures [repo all-measures]
   (into #{} (keep (fn [{:keys [uri] :as measure}]
