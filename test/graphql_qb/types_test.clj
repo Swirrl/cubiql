@@ -2,7 +2,8 @@
   (:require [clojure.test :refer :all]
             [graphql-qb.types :refer :all]
             [graphql-qb.types.scalars :as scalars]
-            [graphql-qb.types :as types])
+            [graphql-qb.types :as types]
+            [graphql-qb.query-model :as qm])
   (:import [java.net URI]
            [java.util Date]))
 
@@ -46,4 +47,16 @@
           measure (->MeasureType uri 1 true)
           bindings {:mp (URI. "http://measure2") :mv 5}]
       (is (nil? (project-result measure bindings))))))
+
+(deftest apply-filter-test
+  (testing "Ref period dimension"
+    (let [dim-uri (URI. "http://dim")
+          dim (->Dimension dim-uri 1 ref-period-type)
+          starts-after (scalars/parse-datetime "2000-01-01T00:00:00Z")
+          ends-after (scalars/parse-datetime "2000-08-01T00:00:00Z")
+          filter {:starts_after starts-after
+                  :ends_after ends-after}
+          model (apply-filter dim qm/empty-model filter)]
+      (is (= ::qm/var (qm/get-path-binding-value model [:dim1 :begin :time])))
+      (is (= ::qm/var (qm/get-path-binding-value model [:dim1 :end :time]) )))))
 

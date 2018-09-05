@@ -174,8 +174,8 @@
 
 (def default-type-filter-impl {:apply-type-filter default-type-filter})
 
-(extend RefAreaType TypeFilter {:apply-type-filter ref-period-type-filter})
-(extend RefPeriodType TypeFilter default-type-filter-impl)
+(extend RefAreaType TypeFilter default-type-filter-impl)
+(extend RefPeriodType TypeFilter {:apply-type-filter ref-period-type-filter})
 (extend EnumType TypeFilter default-type-filter-impl)
 (extend DecimalType TypeFilter default-type-filter-impl)
 (extend StringType TypeFilter default-type-filter-impl)

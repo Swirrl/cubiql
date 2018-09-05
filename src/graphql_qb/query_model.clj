@@ -85,11 +85,16 @@
     model
     (update model :bindings (fn [b] (update-binding b [] path {::match value ::optional? optional?})))))
 
+(defn- key-path->spec-path [key-path]
+  (mapcat (fn [k] [k 1]) key-path))
+
+(defn- get-spec-by-key-path [{:keys [bindings] :as qm} key-path]
+  (get-in bindings (key-path->spec-path key-path)))
+
 (defn- key-path-valid? [{:keys [bindings] :as model} key-path]
   (and (seq key-path)
-       (let [[prefix [last-key]] (split-at (dec (count key-path)) key-path)
-             spec (get-in bindings prefix)]
-         (and (map? spec) (contains? spec last-key)))))
+       (let [spec (get-spec-by-key-path model key-path)]
+         (and (map? spec) (contains? spec ::match)))))
 
 (defn add-filter
   "Adds a filter to a path in the given query. A binding for the key path should already exist."
@@ -229,13 +234,13 @@
 
 (defn get-path-binding-value
   "Returns the value bound at the given key path."
-  [{:keys [bindings] :as qm} key-path]
-  (get-in bindings (concat key-path [1 ::match])))
+  [model key-path]
+  (::match (get-spec-by-key-path model key-path)))
 
 (defn is-path-binding-optional?
   "Returns whether the binding at the given key paths is OPTIONAL."
-  [{:keys [bindings] :as qm} key-path]
-  (get-in bindings (concat key-path [1 ::optional?])))
+  [model key-path]
+  (::optional? (get-spec-by-key-path model key-path)))
 
 (defn get-path-filters
   "Returns all the filters associated with the binding at the given key path."
