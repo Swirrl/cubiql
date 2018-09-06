@@ -1,7 +1,7 @@
 PREFIX qb: <http://purl.org/linked-data/cube#>
 
-ASK WHERE {
+SELECT ?numeric WHERE {
   ?obs a qb:Observation .
   ?obs ?measure ?val .
-  FILTER(isNumeric(?val))
-}
+  BIND(isNumeric(?val) AS ?numeric)
+} LIMIT 1

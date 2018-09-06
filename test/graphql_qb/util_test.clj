@@ -78,3 +78,13 @@
             :c [4 8 10]
             :d [6 9]}
            (to-multimap maps)))))
+
+(deftest xmls-boolean->boolean-test
+  (are [b expected] (= expected (xmls-boolean->boolean b))
+    false false
+    true true
+    0 false
+    0N false
+    1 true
+    1N true
+    nil false))

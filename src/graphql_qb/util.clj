@@ -171,3 +171,12 @@
               (update acc k (fnil conj []) v))
             {}
             non-nil-pairs)))
+
+(defn xmls-boolean->boolean
+  "XML Schema allows boolean values to be represented as the literals true, false 0 or 1.
+   This function converts the clojure representation of those values into the corresponding
+   boolean value."
+  [xb]
+  (if (number? xb)
+    (= 1 xb)
+    (boolean xb)))
