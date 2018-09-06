@@ -46,7 +46,7 @@
   [repo measure-uri]
   (let [results (sp/query "is-measure-numeric.sparql" {:measure measure-uri} repo)]
     (if-let [solution (first results)]
-      (:numeric solution)
+      (util/xmls-boolean->boolean (:numeric solution))
       false)))
 
 (defn find-numeric-measures [repo all-measures]
