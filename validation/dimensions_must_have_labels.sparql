@@ -1,0 +1,11 @@
+# All dimension properties must have an associated label
+
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX qb: <http://purl.org/linked-data/cube#>
+
+SELECT ?this WHERE {
+  ?this a qb:DimensionProperty .
+  FILTER NOT EXISTS {
+    ?this <{{dataset-label-uri}}> ?label .
+  }
+}

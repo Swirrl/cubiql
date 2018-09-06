@@ -1,0 +1,16 @@
+PREFIX qb: <http://purl.org/linked-data/cube#>
+
+SELECT ?this WHERE {
+  { SELECT DISTINCT ?this WHERE {
+      ?obs a qb:Observation .
+      ?obs <{{geo-dimension-uri}}> ?this .
+    }
+  }
+
+  FILTER NOT EXISTS {
+    ?this <{{dataset-label-uri}}> ?label .
+  }
+}
+
+# Finds all geographic dimension values which do not have a corresponding label
+

@@ -1,0 +1,11 @@
+PREFIX qb: <http://purl.org/linked-data/cube#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+
+SELECT ?this WHERE {
+  { ?codelist skos:member ?this }
+  UNION { ?this skos:inScheme ?codelist }
+  FILTER NOT EXISTS {
+    ?this <{{codelist-label-uri}}> ?label .
+  }
+}
