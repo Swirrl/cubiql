@@ -154,7 +154,7 @@
      :order_spec mapped-order-spec}))
 
 (defn get-observation-selections [context]
-  (get-in (context/get-selections context) [:page :observations]))
+  (get-in (context/get-selections context) [:page :observation]))
 
 (defn map-observation-selections [dataset-mapping selections]
   (into {} (keep (fn [{:keys [field-name uri] :as comp}]
