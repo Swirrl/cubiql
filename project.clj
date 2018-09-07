@@ -1,4 +1,4 @@
-(defproject graphql-qb "0.2.1-SNAPSHOT"
+(defproject graphql-qb "0.3.0"
   :description "Query RDF Datacubes with graphQL"
   :url "http://swirrl.com/"
   :license {:name "Eclipse Public License"
