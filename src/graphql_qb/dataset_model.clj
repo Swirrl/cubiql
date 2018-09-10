@@ -84,12 +84,12 @@
 (defn get-measure-components [repo]
   (sp/query "measure-components-query.sparql" repo))
 
-(defn get-codelist-members-query [configuration]
+(defn get-codelists-query [configuration]
   (let [dimension-filters (map (fn [dim] (str "FILTER(?dim != <" dim ">)")) (config/ignored-codelist-dimensions configuration))]
     (str
       "PREFIX qb: <http://purl.org/linked-data/cube#>"
       "PREFIX skos: <http://www.w3.org/2004/02/skos/core#>"
-      "SELECT * WHERE {"
+      "SELECT DISTINCT ?codelist WHERE {"
       "  ?ds a qb:DataSet ."
       "  ?ds qb:structure ?dsd ."
       "  ?dsd a qb:DataStructureDefinition ."
@@ -97,21 +97,12 @@
       "  ?comp qb:dimension ?dim ."
       (string/join "\n" dimension-filters)
       (config/codelist-source configuration) " <" (config/codelist-predicate configuration) "> ?codelist ."
-      "  ?codelist skos:member ?member ."
       "}")))
 
-(defn get-codelist-members [repo configuration]
-  (let [q (get-codelist-members-query configuration)]
-    (util/eager-query repo q)))
-
-(defn members->codelist [members]
-  (util/map-values (fn [bindings]
-                     (into #{} (map :member bindings)))
-                   (group-by :codelist members)))
-
 (defn get-all-codelists [repo configuration]
-  (let [members (get-codelist-members repo configuration)]
-    (members->codelist members)))
+  (let [q (get-codelists-query configuration)
+        results (util/eager-query repo q)]
+    (into #{} (map :codelist results))))
 
 (defn set-component-orders [components]
   (let [has-order? (comp some? :order)

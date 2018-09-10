@@ -153,11 +153,20 @@
       "?struct qb:component ?comp ."
       "?comp qb:dimension ?dim ."
       (config/codelist-source configuration) " <" codelist-predicate "> ?list ."
-      "?list skos:member ?member ."
-      "OPTIONAL {"
-      "  ?member <" (str codelist-label) "> ?label ."
+      "{"
+      "  ?list skos:member ?member ."
+      "  OPTIONAL {"
+      "    ?member <" (str codelist-label) "> ?label ."
       (when lang
         (str "FILTER(LANG(?label) = \"" lang "\") ."))
+      "  }"
+      "} UNION {"
+      "  ?member skos:inScheme ?list ."
+      "  OPTIONAL {"
+      "    ?member <" (str codelist-label) "> ?label ."
+      (when lang
+        (str "FILTER(LANG(?label) = \"" lang "\") ."))
+      "  }"
       "}"
       "}")))
 
@@ -183,13 +192,19 @@
       "  ?ds qb:structure ?struct ."
       "  ?struct a qb:DataStructureDefinition ."
       "  ?struct qb:component ?comp ."
-      "  ?comp a qb:ComponentSpecification ."
       "  ?comp qb:dimension ?dim ."
       (string/join "\n" dimension-filters)
       "  OPTIONAL { ?dim rdfs:comment ?doc }"
       (config/codelist-source configuration) " <" codelist-predicate "> ?codelist ."
+      "{"
       "  ?codelist skos:member ?member ."
       "  ?member <" (str codelist-label) "> ?vallabel ."
+      "}"
+      "UNION {"
+      "  ?member skos:inScheme ?codelist ."
+      "  ?member rdfs:label ?vallabel ."
+      "}"
+
       "}")))
 
 (defn get-measures-by-lang-query [ds-uri lang configuration]
