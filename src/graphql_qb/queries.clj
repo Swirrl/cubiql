@@ -97,35 +97,36 @@
         results (util/eager-query repo q)]
     (map (util/convert-binding-labels [:name]) results)))
 
-(defn- get-dataset-metadata-query [dataset-uri configuration lang]
+(defn- get-datasets-metadata-query [dataset-uris configuration lang]
   (let [label-predicate (str (config/dataset-label configuration))]
     (str
       "PREFIX qb: <http://purl.org/linked-data/cube#>"
       "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>"
       "PREFIX dcterms: <http://purl.org/dc/terms/>"
       "SELECT distinct * WHERE {"
-      "  <" dataset-uri "> a qb:DataSet ."
+      "  VALUES ?ds { " (string/join " " (map #(str "<" % ">") dataset-uris)) " }"
+      "  ?ds a qb:DataSet ."
       "{"
-      "    <" dataset-uri "> <" label-predicate "> ?title ."
+      "  ?ds <" label-predicate "> ?title ."
       (when lang
         (str "FILTER(LANG(?title) = \"" lang "\")"))
       "}"
       "UNION {"
-      "  <" dataset-uri "> rdfs:comment ?description ."
+      "  ?ds rdfs:comment ?description ."
       (when lang
         (str "FILTER(LANG(?description) = \"" lang "\")"))
       "}"
-      "UNION { <" dataset-uri "> dcterms:issued ?issued . }"
-      "UNION { <" dataset-uri "> dcterms:publisher ?publisher . }"
-      "UNION { <" dataset-uri "> dcterms:license ?licence . }"
+      "UNION { ?ds dcterms:issued ?issued . }"
+      "UNION { ?ds dcterms:publisher ?publisher . }"
+      "UNION { ?ds dcterms:license ?licence . }"
       "UNION {"
       "  SELECT ?modified WHERE {"
-      "    <" dataset-uri "> dcterms:modified ?modified ."
+      "    ?ds dcterms:modified ?modified ."
       "  } ORDER BY DESC(?modified) LIMIT 1"
       "}"
       "}")))
 
-(defn- process-dataset-metadata-bindings [bindings]
+(defn process-dataset-metadata-bindings [bindings]
   (let [{:keys [title description issued publisher licence modified]} (util/to-multimap bindings)]
     {:title       (util/label->string (first title))              ;;TODO: allow multiple titles?
      :description (mapv util/label->string description)
@@ -135,9 +136,14 @@
      :modified    (some-> (first modified) (scalars/grafter-date->datetime))}))
 
 (defn get-dataset-metadata [repo dataset-uri configuration lang]
-  (let [q (get-dataset-metadata-query dataset-uri configuration lang)
+  (let [q (get-datasets-metadata-query [dataset-uri] configuration lang)
         bindings (util/eager-query repo q)]
     (process-dataset-metadata-bindings bindings)))
+
+(defn get-datasets-metadata [repo dataset-uris configuration lang]
+  (let [q (get-datasets-metadata-query dataset-uris configuration lang)
+        results (util/eager-query repo q)]
+    (group-by :ds results)))
 
 (defn get-dimension-codelist-values-query [ds-uri configuration lang]
   (let [codelist-label (config/codelist-label configuration)

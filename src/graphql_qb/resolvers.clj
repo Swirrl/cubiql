@@ -103,10 +103,13 @@
   (let [repo (context/get-repository context)
         config (context/get-configuration context)
         lang (get-lang parent-field)
-        results (queries/get-datasets repo dimensions measures uri config)]
+        results (queries/get-datasets repo dimensions measures uri config)
+        ds-uris (map :ds results)
+        ds->metadata-bindings (queries/get-datasets-metadata repo ds-uris config lang)]
     (mapv (fn [ds]
             (let [{:keys [uri] :as dataset} (util/rename-key ds :ds :uri :strict? true)
-                  metadata (queries/get-dataset-metadata repo uri config lang)
+                  metadata-bindings (get ds->metadata-bindings uri)
+                  metadata (queries/process-dataset-metadata-bindings metadata-bindings)
                   with-metadata (merge dataset metadata)
                   {:keys [schema] :as dataset-mapping} (context/get-dataset-mapping context uri)]
               (assoc with-metadata :schema (name schema))))
