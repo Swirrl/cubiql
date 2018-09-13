@@ -4,7 +4,14 @@
             [grafter.rdf.sparql :as sp]
             [clojure.string :as string]
             [graphql-qb.types :as types]
-            [graphql-qb.vocabulary :refer :all]))
+            [graphql-qb.vocabulary :refer :all]
+            [grafter.rdf.io :as gio])
+  (:import [org.openrdf.model.impl BooleanLiteralImpl]))
+
+(extend-type BooleanLiteralImpl
+  gio/ISesameRDFConverter
+  (->sesame-rdf-type [b] (BooleanLiteralImpl. b))
+  (sesame-rdf-type->type [^BooleanLiteralImpl bl] (.booleanValue bl)))
 
 (defn find-all-datasets-query [configuration]
   (str
