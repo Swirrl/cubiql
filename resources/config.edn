@@ -4,5 +4,5 @@
  :codelist-predicate "http://publishmydata.com/def/qb/codesUsed"
  :codelist-label-uri "http://www.w3.org/2000/01/rdf-schema#label"
  :dataset-label-uri "http://www.w3.org/2000/01/rdf-schema#label"
- :schema-label-language nil
+ :schema-label-language en
  :max-observations-page-size 2000}
