@@ -1,0 +1,12 @@
+# All dimension properties must have an associated codelist
+# The codelist can be associated to either the qb:ComponentSpecification or the qb:DimensionProperty
+
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX qb: <http://purl.org/linked-data/cube#>
+
+SELECT ?t WHERE {
+  ?this a <{{codelist-source}}> .
+  FILTER NOT EXISTS {
+    ?this <{{codelist-predicate}}> ?codelist .
+  }
+}

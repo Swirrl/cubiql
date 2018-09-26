@@ -1,0 +1,23 @@
+# The codelist of each dimension should contain only the codes used at the cube
+# Check 1) if all codes used at the cube exist at the codelist and 
+#       2)all codes of the codelist appear at the cube
+PREFIX qb: <http://purl.org/linked-data/cube#>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+ 
+Select distinct ?v where{
+	{SELECT ?v WHERE {
+     ?q a qb:DataSet.
+     ?q qb:structure/qb:component ?comp.
+     ?comp qb:dimension|qb:attribute ?dim .
+     ?comp  <{{codelist-predicate}}> ?list .
+     ?obs ?dim ?v.
+     FILTER NOT EXISTS {  { ?list skos:member ?v } UNION { ?v skos:inScheme ?list }  }
+   }} UNION
+   {SELECT distinct ?v WHERE {
+    ?q a qb:DataSet.
+    ?q qb:structure/qb:component ?comp.
+    ?comp qb:dimension|qb:attribute ?dim .
+    ?comp  <{{codelist-predicate}}> ?list .
+    {?list skos:member ?v } UNION { ?v skos:inScheme ?list } 
+    FILTER NOT EXISTS {?obs qb:dataSet ?q. ?obs ?dim ?v}}}
+}
