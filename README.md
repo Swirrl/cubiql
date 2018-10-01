@@ -98,6 +98,11 @@ During development `lein run` can be used instead of building the uberjar:
 The server hosts a GraphQL endpoint at http://localhost:PORT/graphql which follows the
 protocol described [here](http://graphql.org/learn/serving-over-http/).
 
+### Generating RDF data cubes with table2qb
+
+[table2qb](https://github.com/Swirrl/table2qb/) is a command-line tool for generating RDF data cubes from tidy CSV data. See the [end-to-end example](https://github.com/Swirrl/graphql-qb/blob/table2qb-cubiql/doc/table2qb-cubiql.md)
+of using table2qb and CubiQL together to generate and query RDF data cubes.
+
 ## License
 
 Copyright © 2017 Swirrl IT Ltd.
