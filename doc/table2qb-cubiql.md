@@ -65,7 +65,7 @@ Example:
 
 **Advice:** 
 - Use the same base URI at all pipelines. Although it is not mandatory it will easy the transformation process.
-- **Be careful** to use URIs that match between the pipelines. E.g. the `property_template` URI at `cube-pipeline` should match with the URIs created for the components by the `components-pipeline`.
+- **Be careful to use URIs that match between the pipelines. E.g. the `property_template` URI at `cube-pipeline` should match with the URIs created for the components by the `components-pipeline`.**
 
 A complete example can be found at [Github](https://github.com/Swirrl/table2qb/tree/master/examples/employment).
 
