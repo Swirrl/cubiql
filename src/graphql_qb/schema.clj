@@ -6,7 +6,8 @@
             [graphql-qb.schema.mapping.dataset :as dsm]
             [com.walmartlabs.lacinia.schema :as ls]
             [graphql-qb.util :as util]
-            [graphql-qb.schema.mapping.dataset :as ds-mapping])
+            [graphql-qb.schema.mapping.dataset :as ds-mapping]
+            [grafter.rdf :as rdf])
   (:import [graphql_qb.types EnumType RefPeriodType RefAreaType DecimalType StringType UnmappedType StringMeasureType FloatMeasureType MappedEnumType GroupMapping]))
 
 (defprotocol ArgumentTransform
@@ -75,12 +76,20 @@
   FloatMeasureType
   (->output-type-name [_float-type] 'Float))
 
+(defn identity-transform [_type value] value)
+
 (extend-protocol ResultTransform
   RefAreaType
   (transform-result [_ref-area-type result] result)
 
   RefPeriodType
   (transform-result [_ref-period-type result] result)
+
+  StringType
+  (transform-result [_string-type result] (str result))
+
+  UnmappedType
+  (transform-result [_type result] (str result))
 
   FloatMeasureType
   (transform-result [_this r] (some-> r double))
@@ -95,10 +104,15 @@
                             (= value result)))
          (:name))))
 
-(def default-argument-transform-impl
-  {:transform-argument (fn [_type value] value)})
+(def default-result-transform-impl
+  {:transform-result identity-transform})
 
-;;TODO: check implementations!
+(extend EnumType ResultTransform default-result-transform-impl)
+(extend DecimalType ResultTransform default-result-transform-impl)
+
+(def default-argument-transform-impl
+  {:transform-argument identity-transform})
+
 (extend RefAreaType ArgumentTransform default-argument-transform-impl)
 (extend RefPeriodType ArgumentTransform default-argument-transform-impl)
 (extend EnumType ArgumentTransform default-argument-transform-impl)
@@ -113,7 +127,14 @@
 
   GroupMapping
   (transform-argument [{:keys [items] :as _this} graphql-value]
-    (:value (types/find-item-by-name graphql-value items))))
+    (:value (types/find-item-by-name graphql-value items)))
+
+  UnmappedType
+  (transform-argument [{:keys [type-uri] :as _unmapped-type} graphql-value]
+    ;;map values as string literals if no type associated with the dimension
+    (if (some? type-uri)
+      (rdf/literal graphql-value type-uri)
+      graphql-value)))
 
 (defn create-aggregation-resolver [dataset-mapping aggregation-fn aggregation-measures-enum]
   (fn [context {:keys [measure] :as args} field]
