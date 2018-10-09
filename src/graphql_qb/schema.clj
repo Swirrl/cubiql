@@ -102,7 +102,7 @@
   (transform-result [_this r] (some-> r double))
 
   StringMeasureType
-  (transform-result [_this r] (str r))
+  (transform-result [_this r] (some-> r str))
 
   MappedEnumType
   (transform-result [{:keys [items] :as _this} result]
