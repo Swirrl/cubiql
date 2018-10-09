@@ -5,7 +5,8 @@
             [clojure.string :as string]
             [graphql-qb.types :as types]
             [graphql-qb.config :as config]
-            [graphql-qb.queries :as queries]))
+            [graphql-qb.queries :as queries]
+            [graphql-qb.dataset-model :as dsm]))
 
 ;;TODO: add/use spec for graphql enum values
 (s/def ::graphql-enum keyword?)
@@ -133,13 +134,26 @@
         results (util/eager-query repo q)]
     (identify-measure-labels results configuration)))
 
-(defn- get-dimension-mapping [schema {:keys [uri] :as dimension} ds-enum-mappings {:keys [label doc]}]
+(defn- measure->enum-item [{:keys [label enum-name uri] :as measure}]
+  (types/->EnumMappingItem enum-name uri label))
+
+(defn measures-enum-type [enum-name measures doc]
+  (let [items (mapv measure->enum-item measures)]
+    (types/->MappedEnumType enum-name types/measure-dimension-type doc items)))
+
+(defn- get-dimension-mapping [schema {:keys [uri] :as dimension} ds-enum-mappings {:keys [label doc]} measures]
   (let [dimension-type (:type dimension)
         field-name (label->field-name label)
-        mapped-type (if (contains? ds-enum-mappings uri)
-                      (let [enum-mapping (get ds-enum-mappings uri)
-                            enum-name (field-name->type-name field-name schema)]
+        enum-name (field-name->type-name field-name schema)
+        mapped-type (cond
+                      (contains? ds-enum-mappings uri)
+                      (let [enum-mapping (get ds-enum-mappings uri)]
                         (types/->MappedEnumType enum-name dimension-type (:doc enum-mapping) (:items enum-mapping)))
+
+                      (dsm/is-measure-type-dimension? dimension)
+                      (measures-enum-type enum-name measures doc)
+
+                      :else
                       dimension-type)]
     {:uri        uri
      :label      label
@@ -164,16 +178,21 @@
 (defn dataset-schema [ds]
   (keyword (dataset-name->schema-name (:name ds))))
 
+(defn resolve-dimension-labels [{:keys [uri] :as dimension} dimension-uri->labels]
+  (if (dsm/is-measure-type-dimension? dimension)
+    (merge (get dimension-uri->labels uri) {:label "Measure type" :doc "Generic measure type dimension"})
+    (util/strict-get dimension-uri->labels uri)))
+
 (defn build-dataset-mapping-model [{:keys [uri] :as dataset} ds-enum-mappings dimension-labels measure-labels]
   (let [schema (dataset-schema dataset)
-        dimensions (mapv (fn [dim]
-                           (let [labels (util/strict-get dimension-labels (:uri dim))]
-                             (get-dimension-mapping schema dim ds-enum-mappings labels)))
-                         (types/dataset-dimensions dataset))
         measures (mapv (fn [{:keys [uri] :as measure}]
                          (let [label (util/strict-get measure-labels uri)]
                            (get-measure-mapping measure label)))
-                       (types/dataset-measures dataset))]
+                       (types/dataset-measures dataset))
+        dimensions (mapv (fn [dim]
+                           (let [labels (resolve-dimension-labels dim dimension-labels)]
+                             (get-dimension-mapping schema dim ds-enum-mappings labels measures)))
+                         (types/dataset-dimensions dataset))]
     {:uri uri
      :schema schema
      :dimensions dimensions

@@ -24,6 +24,7 @@
 (defrecord EnumType [])
 (defrecord DecimalType [])
 (defrecord StringType [])
+(defrecord MeasureDimensionType [])
 (defrecord UnmappedType [type-uri])
 
 (defn find-item-by-name [name items]
@@ -43,6 +44,7 @@
 (def decimal-type (->DecimalType))
 (def string-type (->StringType))
 (def enum-type (->EnumType))
+(def measure-dimension-type (->MeasureDimensionType))
 
 (defn maybe-add-period-filter [model dim-key dim-uri interval-key filter-fn dt]
   (if (some? dt)
@@ -94,6 +96,10 @@
   (project-type-result [_type dim-key bindings]
     (get bindings dim-key))
 
+  MeasureDimensionType
+  (project-type-result [_type dim-key bindings]
+    (get bindings dim-key))
+
   UnmappedType
   (project-type-result [_type dim-key bindings]
     (some-> (get bindings dim-key) str)))
@@ -136,6 +142,10 @@
   (apply-type-projection [_type _dim-key _uri model _field-selections _configuration]
     model)
 
+  MeasureDimensionType
+  (apply-type-projection [_type _dim-key _uri model _field-selections _configuration]
+    model)
+
   UnmappedType
   (apply-type-projection [_type _dim-key _uri model _field-selections _configuration]
     model))
@@ -160,6 +170,7 @@
 (extend EnumType TypeOrderBy default-type-order-by-impl)
 (extend DecimalType TypeOrderBy default-type-order-by-impl)
 (extend StringType TypeOrderBy default-type-order-by-impl)
+(extend MeasureDimensionType TypeOrderBy default-type-order-by-impl)
 (extend UnmappedType TypeOrderBy default-type-order-by-impl)
 
 (defprotocol TypeFilter
@@ -179,6 +190,7 @@
 (extend EnumType TypeFilter default-type-filter-impl)
 (extend DecimalType TypeFilter default-type-filter-impl)
 (extend StringType TypeFilter default-type-filter-impl)
+(extend MeasureDimensionType TypeFilter default-type-filter-impl)
 (extend UnmappedType TypeFilter default-type-filter-impl)
 
 ;;measure types

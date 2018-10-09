@@ -116,6 +116,9 @@
                            (assoc comp :order (+ max-order idx 1)))
                          without-order))))
 
+(defn is-measure-type-dimension? [{:keys [uri] :as dimension}]
+  (= qb:measureType uri))
+
 (defn get-dimension-type [{:keys [uri range] :as dim} codelist-uri codelists configuration]
   (cond
     (= (config/geo-dimension configuration) uri)
@@ -123,6 +126,9 @@
 
     (= (config/time-dimension configuration) uri)
     types/ref-period-type
+
+    (= qb:measureType uri)
+    types/measure-dimension-type
 
     (= xsd:decimal range)
     types/decimal-type

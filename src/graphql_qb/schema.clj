@@ -8,7 +8,8 @@
             [graphql-qb.util :as util]
             [graphql-qb.schema.mapping.dataset :as ds-mapping]
             [grafter.rdf :as rdf])
-  (:import [graphql_qb.types EnumType RefPeriodType RefAreaType DecimalType StringType UnmappedType StringMeasureType FloatMeasureType MappedEnumType GroupMapping]))
+  (:import [graphql_qb.types EnumType RefPeriodType RefAreaType DecimalType StringType UnmappedType StringMeasureType FloatMeasureType MappedEnumType GroupMapping
+                             MeasureDimensionType]))
 
 (defprotocol ArgumentTransform
   (transform-argument [this graphql-value]
@@ -42,6 +43,9 @@
   StringType
   (->input-type-name [_string-type] 'String)
 
+  MeasureDimensionType
+  (->input-type-name [_measure-dimension-type] :uri)
+
   UnmappedType
   (->input-type-name [_unmapped-type] 'String)
 
@@ -63,6 +67,9 @@
 
   StringType
   (->output-type-name [_string-type] 'String)
+
+  MeasureDimensionType
+  (->output-type-name [_measure-dimension-type] :uri)
 
   UnmappedType
   (->output-type-name [_unmapped-type] 'String)
@@ -109,6 +116,7 @@
 
 (extend EnumType ResultTransform default-result-transform-impl)
 (extend DecimalType ResultTransform default-result-transform-impl)
+(extend MeasureDimensionType default-result-transform-impl)
 
 (def default-argument-transform-impl
   {:transform-argument identity-transform})
@@ -118,6 +126,7 @@
 (extend EnumType ArgumentTransform default-argument-transform-impl)
 (extend DecimalType ArgumentTransform default-argument-transform-impl)
 (extend StringType ArgumentTransform default-argument-transform-impl)
+(extend MeasureDimensionType default-argument-transform-impl)
 (extend UnmappedType ArgumentTransform default-argument-transform-impl)
 
 (extend-protocol ArgumentTransform

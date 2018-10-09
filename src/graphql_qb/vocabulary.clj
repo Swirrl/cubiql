@@ -9,6 +9,7 @@
 (def rdfs:label (URI. "http://www.w3.org/2000/01/rdf-schema#label"))
 (def skos:prefLabel (URI. "http://www.w3.org/2004/02/skos/core#prefLabel"))
 (def qb:codeList (URI. "http://purl.org/linked-data/cube#codeList"))
+(def qb:measureType (URI. "http://purl.org/linked-data/cube#measureType"))
 
 (def xsd:decimal (URI. "http://www.w3.org/2001/XMLSchema#decimal"))
 (def xsd:string (URI. "http://www.w3.org/2001/XMLSchema#string"))
