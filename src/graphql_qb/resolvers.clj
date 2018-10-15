@@ -21,12 +21,21 @@
         results (util/eager-query repo query)]
     (:c (first results))))
 
+(defn total-count-required?
+  "Whether the total number of matching observations needs to be queried based on the selected observations
+  fields."
+  [{:keys [page] :as selections}]
+  (or (contains? selections :total_matches)
+      (contains? page :next_page)))
+
 (defn resolve-observations [context args field]
   (let [{:keys [uri] :as dataset} (::dataset field)
         repo (context/get-repository context)
         dimension-filter (::dimensions-filter args)
         filter-model (queries/get-observation-filter-model dimension-filter)
-        total-matches (get-observation-count repo uri filter-model)]
+        selections (context/get-selections context)
+        total-matches (if (total-count-required? selections)
+                        (get-observation-count repo uri filter-model))]
     (merge
       (select-keys args [::dimensions-filter ::order-by])
       {::dataset                     dataset
@@ -51,9 +60,10 @@
   (max 0 (or (:after args) 0)))
 
 (defn calculate-next-page-offset [offset limit total-matches]
-  (let [next-offset (+ offset limit)]
-    (if (> total-matches next-offset)
-      next-offset)))
+  (if (some? total-matches)
+    (let [next-offset (+ offset limit)]
+      (if (> total-matches next-offset)
+        next-offset))))
 
 (defn wrap-pagination-resolver [inner-resolver]
   (fn [context args observations-field]
@@ -137,13 +147,21 @@
              :label (util/label->string label)})
           results)))
 
+(defn- metadata-requested?
+  "Whether any items of dataset metadata have been selected in the query"
+  [selections]
+  (boolean (some (fn [k] (contains? selections k)) queries/metadata-keys)))
+
 (defn dataset-resolver [{:keys [uri] :as dataset-mapping}]
   (fn [context _args field]
     (let [repo (context/get-repository context)
           config (context/get-configuration context)
           lang (get-lang field)
+          selections (context/get-selections context)
           dataset (context/get-dataset context uri)
-          metadata (queries/get-dataset-metadata repo uri config lang)
+          metadata (if (metadata-requested? selections)
+                     (queries/get-dataset-metadata repo uri config lang)
+                     {})
           dataset-result (merge dataset-mapping metadata)]
       (assoc dataset-result ::dataset dataset))))
 

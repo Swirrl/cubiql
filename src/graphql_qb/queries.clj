@@ -103,7 +103,7 @@
       "PREFIX qb: <http://purl.org/linked-data/cube#>"
       "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>"
       "PREFIX dcterms: <http://purl.org/dc/terms/>"
-      "SELECT distinct * WHERE {"
+      "SELECT DISTINCT * WHERE {"
       "  VALUES ?ds { " (string/join " " (map #(str "<" % ">") dataset-uris)) " }"
       "  ?ds a qb:DataSet ."
       "{"
@@ -125,6 +125,8 @@
       "  } ORDER BY DESC(?modified) LIMIT 1"
       "}"
       "}")))
+
+(def metadata-keys #{:title :description :issued :publisher :licence :modified})
 
 (defn process-dataset-metadata-bindings [bindings]
   (let [{:keys [title description issued publisher licence modified]} (util/to-multimap bindings)]

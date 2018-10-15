@@ -52,3 +52,28 @@
        ;requested negative
        0 -1 nil
        ))
+
+(deftest total-count-required?-test
+  (are [selections expected] (= expected (total-count-required? selections))
+    ;;total_matches selected
+    {:total_matches nil} true
+
+    ;;next_page requested
+    {:page {:next_page nil}} true
+
+    ;;total_matches and next_page requested
+    {:total_matches nil :page {:next_page nil}} true
+
+    ;;total matches and next page not requested
+    {:sparql nil :page {:count nil :observation {:median nil}}} false))
+
+(deftest calculate-next-page-offset-test
+  (are [offset limit total-matches expected] (= expected (calculate-next-page-offset offset limit total-matches))
+       ;;unknown total-matches
+       100 10 nil nil
+
+       ;;not last page
+       100 20 200 120
+
+       ;;last page
+       100 20 110 nil))
