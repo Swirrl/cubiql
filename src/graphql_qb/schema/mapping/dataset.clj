@@ -1,5 +1,6 @@
 (ns graphql-qb.schema.mapping.dataset
-  (:require [graphql-qb.util :as util]))
+  (:require [graphql-qb.util :as util]
+            [graphql-qb.vocabulary :refer [qb:measureType]]))
 
 (def uri :uri)
 (def schema :schema)
@@ -51,3 +52,10 @@
 
 (defn aggregation-measures-enum-group [dataset-mapping]
   (:aggregation-measures-enum dataset-mapping))
+
+(defn has-measure-type-dimension?
+  "Whether the given dataset has an explicit qb:measureType dimension"
+  [dataset-mapping]
+  (let [dims (dimensions dataset-mapping)
+        measure-dim (some (fn [dim] (= qb:measureType (:uri dim))) dims)]
+    (some? measure-dim)))

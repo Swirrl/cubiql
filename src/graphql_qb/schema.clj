@@ -6,7 +6,6 @@
             [graphql-qb.schema.mapping.dataset :as dsm]
             [com.walmartlabs.lacinia.schema :as ls]
             [graphql-qb.util :as util]
-            [graphql-qb.schema.mapping.dataset :as ds-mapping]
             [grafter.rdf :as rdf])
   (:import [graphql_qb.types EnumType RefPeriodType RefAreaType DecimalType StringType UnmappedType StringMeasureType FloatMeasureType MappedEnumType GroupMapping
                              MeasureDimensionType]))
@@ -148,7 +147,7 @@
 (defn create-aggregation-resolver [dataset-mapping aggregation-fn aggregation-measures-enum]
   (fn [context {:keys [measure] :as args} field]
     (let [measure-uri (transform-argument aggregation-measures-enum measure)
-          {:keys [type] :as measure-mapping} (ds-mapping/get-measure-by-uri dataset-mapping measure-uri)
+          {:keys [type] :as measure-mapping} (dsm/get-measure-by-uri dataset-mapping measure-uri)
           result (resolvers/resolve-observations-aggregation aggregation-fn context {:measure measure-mapping} field)]
       (transform-result type result))))
 
@@ -170,14 +169,14 @@
 
 (defn map-dataset-observation-args [{:keys [dimensions order order_spec]} dataset-mapping]
   (let [mapped-dimensions (into {} (map (fn [[field-name value]]
-                                          (let [{:keys [uri type]} (ds-mapping/get-dimension-by-field-name dataset-mapping field-name)]
+                                          (let [{:keys [uri type]} (dsm/get-dimension-by-field-name dataset-mapping field-name)]
                                             [uri (transform-argument type value)]))
                                         dimensions))
         mapped-order (mapv (fn [component-enum]
-                             (:uri (ds-mapping/get-component-by-enum-name dataset-mapping component-enum)))
+                             (:uri (dsm/get-component-by-enum-name dataset-mapping component-enum)))
                            order)
         mapped-order-spec (into {} (map (fn [[field-name dir]]
-                                          [(:uri (ds-mapping/get-component-by-field-name dataset-mapping field-name)) dir])
+                                          [(:uri (dsm/get-component-by-field-name dataset-mapping field-name)) dir])
                                         order_spec))]
     {:dimensions mapped-dimensions
      :order      mapped-order
@@ -190,7 +189,7 @@
   (into {} (keep (fn [{:keys [field-name uri] :as comp}]
                    (when (contains? selections field-name)
                      [uri (get selections field-name)]))
-                 (ds-mapping/components dataset-mapping))))
+                 (dsm/components dataset-mapping))))
 
 (defn create-observation-resolver [dataset-mapping]
   (fn [context args field]
@@ -201,13 +200,40 @@
           result (resolvers/resolve-observations context updated-args field)]
       (assoc result ::resolvers/observation-selections (map-observation-selections dataset-mapping selected-observation-fields)))))
 
-(defn get-observation-result [dataset-model bindings configuration]
-  (let [field-results (map (fn [{:keys [field-name type] :as component-mapping}]
-                             (let [comp (ds-mapping/component-mapping->component component-mapping)
-                                   result (types/project-result comp bindings)]
-                               [field-name (transform-result type result)]))
-                           (dsm/components dataset-model))]
-    (into {:uri (:obs bindings)} field-results)))
+(defn get-measure-type-measure-value
+  "Gets the value for the specified measure from a map of observation query bindings for a dataset with an
+   explicit measure dimension. The observation should have a single measure defined by the qb:measureType which
+   is bound to the ?mp variable."
+  [{:keys [uri] :as measure} {:keys [mp mv] :as bindings}]
+  (if (= uri mp)
+    mv))
+
+(defn get-multi-measure-value
+  "Gets the value for the specified measure from a map of observation query bindings for a dataset with multiple
+   measure values per observation. A value for each measure should be associated with the observation."
+  [{:keys [order] :as measure} bindings]
+  (let [measure-key (keyword (str "mv" order))]
+    (get bindings measure-key)))
+
+(defn- map-measure-values
+  "Returns a sequence of [field-name value] pairs for each measure type defined for the given dataset for a single
+   bindings row of the observations query results."
+  [dataset-model bindings]
+  (let [measure-value-fn (if (dsm/has-measure-type-dimension? dataset-model)
+                           get-measure-type-measure-value
+                           get-multi-measure-value)]
+    (map (fn [{:keys [field-name type measure] :as measure-mapping}]
+           (let [value (measure-value-fn measure bindings)]
+             [field-name (transform-result type value)]))
+         (dsm/measures dataset-model))))
+
+(defn get-observation-result [dataset-model bindings]
+  (let [dimension-results (map (fn [{:keys [field-name type dimension] :as dimension-mapping}]
+                                 (let [result (types/project-result dimension bindings)]
+                                   [field-name (transform-result type result)]))
+                               (dsm/dimensions dataset-model))
+        measure-results (map-measure-values dataset-model bindings)]
+    (into {:uri (:obs bindings)} (concat dimension-results measure-results))))
 
 (defn create-aggregation-field [dataset-mapping field-name aggregation-measures-enum-mapping aggregation-fn]
   {field-name
@@ -244,9 +270,8 @@
 (defn create-dataset-observations-page-resolver [dataset-mapping]
   (fn [context args observations-field]
     (let [result (resolvers/resolve-observations-page context args observations-field)
-          config (context/get-configuration context)
           mapped-result (mapv (fn [obs-bindings]
-                                (get-observation-result dataset-mapping obs-bindings config))
+                                (get-observation-result dataset-mapping obs-bindings))
                               (::resolvers/observation-results result))]
       (assoc result :observation mapped-result))))
 

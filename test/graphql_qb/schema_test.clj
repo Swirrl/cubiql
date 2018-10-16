@@ -2,6 +2,7 @@
   (:require [clojure.test :refer :all]
             [graphql-qb.schema :refer :all]
             [graphql-qb.types :as types]
+            [graphql-qb.vocabulary :refer [qb:measureType]]
             [com.walmartlabs.lacinia.schema :as ls])
   (:import [java.net URI]))
 
@@ -235,3 +236,96 @@
     (is (= {:enum1 {:values [:VALUE1 :VALUE2] :description "description"}
             :enum2 {:values [:VALUE3]}}
            enums-schema))))
+
+(deftest get-observation-result-test
+  (testing "With qb:measureType dimension"
+    (let [dimension1-uri (URI. "http://dimension1")
+          measure1-uri (URI. "http://measure1")
+          measure2-uri (URI. "http://measure2")
+          dim1 {:uri dimension1-uri
+                :field-name :gender
+                :type (types/->StringType)
+                :dimension (types/->Dimension dimension1-uri 1 (types/->StringType))}
+          dim2 {:uri qb:measureType
+                :field-name :measure_type
+                :type (types/->MappedEnumType :dataset_test_measure_type_type (types/->MeasureDimensionType) "Measure type" [(types/->EnumMappingItem :MEASURE1 measure1-uri "Measure 1")
+                                                                                                                             (types/->EnumMappingItem :MEASURE2 measure2-uri "Measure 2")])
+                :dimension (types/->Dimension qb:measureType 2 (types/->MeasureDimensionType))}
+          measure1 {:uri measure1-uri
+                    :label "Measure 1"
+                    :field-name :measure1
+                    :type (types/->StringMeasureType)
+                    :measure (types/->MeasureType measure1-uri 1 false)}
+          measure2 {:uri measure2-uri
+                    :label "Measure 2"
+                    :field-name :measure2
+                    :type (types/->FloatMeasureType)
+                    :measure (types/->MeasureType measure2-uri 2 true)}
+          dsm {:uri (URI. "http://test-dataset")
+               :schema :dataset_test
+               :dimensions [dim1 dim2]
+               :measures [measure1 measure2]}
+          obs-uri (URI. "http://obs")
+          bindings {:obs obs-uri :dim1 "MALE" :dim2 measure1-uri :mp measure1-uri :mv "VALUE"}]
+      (is (= {:uri obs-uri :gender "MALE" :measure_type :MEASURE1 :measure1 "VALUE" :measure2 nil}
+             (get-observation-result dsm bindings)))))
+
+  (testing "Without qb:measureType dimension"
+    (let [dimension1-uri (URI. "http://dimension1")
+          dimension2-uri (URI. "http://dimension2")
+          measure1-uri (URI. "http://measure1")
+          measure2-uri (URI. "http://measure2")
+          dim1 {:uri dimension1-uri
+                :field-name :gender
+                :type (types/->MappedEnumType :dataset_test_gender_type types/enum-type "Gender" [(types/->EnumMappingItem :MALE (URI. "http://male") "Male")
+                                                                                                  (types/->EnumMappingItem :FEMALE (URI. "http://female") "Female")])
+                :dimension (types/->Dimension dimension1-uri 1 types/enum-type)}
+          dim2 {:uri dimension2-uri
+                :field-name :area
+                :type types/ref-area-type
+                :dimension (types/->Dimension dimension2-uri 2 types/ref-area-type)}
+          measure1 {:uri measure1-uri
+                    :label "Count"
+                    :field-name :count
+                    :type (types/->FloatMeasureType)
+                    :measure (types/->MeasureType measure1-uri 1 true)}
+          measure2 {:uri measure2-uri
+                    :field-name :category
+                    :type (types/->StringMeasureType)
+                    :measure (types/->MeasureType measure2-uri 2 false)}
+          dsm {:uri (URI. "http://test-dataset")
+               :schema :dataset_test
+               :dimensions [dim1 dim2]
+               :measures [measure1 measure2]}
+          obs-uri (URI. "http://obs")
+          bindings {:obs obs-uri :dim1 (URI. "http://female") :dim2 (URI. "http://area") :dim2label "Area" :mv1 34 :mv2 "LOW"}]
+      (is (= {:uri obs-uri
+              :gender :FEMALE
+              :area {:uri (URI. "http://area")
+                     :label "Area"}
+              :count 34.0
+              :category "LOW"}
+             (get-observation-result dsm bindings))))))
+
+(deftest get-measure-type-measure-value-test
+  (testing "Measure matching measure type"
+    (let [uri (URI. "http://measure")
+          measure (types/->MeasureType uri 1 true)
+          value 4
+          bindings {:mp uri :mv 4}]
+      (is (= value (get-measure-type-measure-value measure bindings)))))
+
+  (testing "Measure not matching measure type"
+    (let [uri (URI. "http://measure1")
+          measure (types/->MeasureType uri 1 true)
+          bindings {:mp (URI. "http://measure2") :mv 5}]
+      (is (nil? (get-measure-type-measure-value measure bindings))))))
+
+(deftest get-multi-measure-value-test
+  (let [measure1-uri (URI. "http://measure1")
+        measure2-uri (URI. "http://measure2")
+        measure1 (types/->MeasureType measure1-uri 1 true)
+        measure2 (types/->MeasureType measure2-uri 2 false)
+        bindings {:mv1 4 :mv2 "value"}]
+    (is (= 4 (get-multi-measure-value measure1 bindings)))
+    (is (= "value" (get-multi-measure-value measure2 bindings)))))

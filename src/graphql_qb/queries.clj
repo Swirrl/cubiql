@@ -5,12 +5,22 @@
             [graphql-qb.query-model :as qm]
             [graphql-qb.config :as config]
             [graphql-qb.util :as util]
-            [graphql-qb.types.scalars :as scalars]))
+            [graphql-qb.types.scalars :as scalars]
+            [graphql-qb.schema.mapping.dataset :as dsm]))
 
-(defn get-observation-filter-model [dim-filter]
-  (let [m (-> qm/empty-model
-              (qm/add-binding [[:mp qb:measureType]] ::qm/var)
-              (qm/add-binding [[:mv (qm/->QueryVar "mp")]] ::qm/var))]
+(defn- add-observation-filter-measure-bindings [dataset-mapping model]
+  (if (dsm/has-measure-type-dimension? dataset-mapping)
+    (-> model
+        (qm/add-binding [[:mp qb:measureType]] ::qm/var)
+        (qm/add-binding [[:mv (qm/->QueryVar "mp")]] ::qm/var))
+    (reduce (fn [m {{:keys [uri order] :as measure} :measure :as measure-mapping}]
+              (let [measure-key (keyword (str "mv" order))]
+                (qm/add-binding m [[measure-key uri]] ::qm/var)))
+            model
+            (dsm/measures dataset-mapping))))
+
+(defn get-observation-filter-model [dataset-mapping dim-filter]
+  (let [m (add-observation-filter-measure-bindings dataset-mapping qm/empty-model)]
     (reduce (fn [m [dim value]]
               (types/apply-filter dim m value))
             m
