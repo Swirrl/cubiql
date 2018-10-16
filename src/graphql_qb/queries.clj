@@ -5,12 +5,11 @@
             [graphql-qb.query-model :as qm]
             [graphql-qb.config :as config]
             [graphql-qb.util :as util]
-            [graphql-qb.types.scalars :as scalars])
-  (:import [java.net URI]))
+            [graphql-qb.types.scalars :as scalars]))
 
 (defn get-observation-filter-model [dim-filter]
   (let [m (-> qm/empty-model
-              (qm/add-binding [[:mp (URI. "http://purl.org/linked-data/cube#measureType")]] ::qm/var)
+              (qm/add-binding [[:mp qb:measureType]] ::qm/var)
               (qm/add-binding [[:mv (qm/->QueryVar "mp")]] ::qm/var))]
     (reduce (fn [m [dim value]]
               (types/apply-filter dim m value))
