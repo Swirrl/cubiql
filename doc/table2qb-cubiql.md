@@ -61,7 +61,7 @@ Example:
 - If there are numbers at the dimension values (not at the value of the observation) use `datatype` `string`. Otherwise if `datatype` `number` is used then the URIs will have the form e.g. `http://example.gr/def/condept/year/2000.0`
 - At the CSV row that has the mapping for the measure (i.e. `component_attachment` `qb:measure`), leave the `value_template` empty.
 - At the CSV row for the value (i.e. with `name` `value`). Leave the `component_attachment` and `value_template` empty.
-- At each CSV row use a `value_transformation` if required. Possible values are: `slugize`, `unitize` or blank. `slugize` converts column values into URI components, e.g. `(slugize "Some column value")` is `some-column-value`. `unitize` translates literal `£` into `GBP`, e.g. `(unitize "£ 100") is `gpb-100`. **Be careful*: the `slugize` converts all to non-capital letters. The URIs of the dimension values should match with the the concept URIs created through the `codelist-pipeline`
+- At each CSV row use a `value_transformation` if required. Possible values are: `slugize`, `unitize` or blank. `slugize` converts column values into URI components, e.g. `(slugize "Some column value")` is `some-column-value`. `unitize` translates literal `£` into `GBP`, e.g. (unitize "£ 100") is `gpb-100`. **Be careful**: the `slugize` converts all to non-capital letters. The URIs of the dimension values should match with the the concept URIs created through the `codelist-pipeline`
 
 **Advice:** 
 - Use the same base URI at all pipelines. Although it is not mandatory it will easy the transformation process.
