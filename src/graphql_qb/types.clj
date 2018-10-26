@@ -198,6 +198,9 @@
 (defrecord FloatMeasureType [])
 (defrecord StringMeasureType [])
 
+(def float-measure-type (->FloatMeasureType))
+(def string-measure-type (->StringMeasureType))
+
 (defrecord Dimension [uri order type]
   SparqlQueryable
   (apply-order-by [_this model direction configuration]

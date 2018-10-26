@@ -73,8 +73,12 @@
                       by-enum-name)]
     {:label enum-label :doc (or enum-doc "") :items (vec items)}))
 
-(defn- get-measure-type [m]
-  (types/is-numeric-measure? m) (types/->FloatMeasureType) (types/->StringMeasureType))
+(defn get-measure-type
+  "Returns the mapped datatype for the given measure"
+  [m]
+  (if (types/is-numeric-measure? m)
+    types/float-measure-type
+    types/string-measure-type))
 
 (defn get-dimension-codelist [dimension-member-bindings configuration]
   (map (fn [[member-uri member-bindings]]

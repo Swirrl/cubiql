@@ -3,7 +3,8 @@
             [graphql-qb.schema.mapping.labels :refer :all]
             [graphql-qb.types :as types]
             [grafter.rdf :as rdf])
-  (:import [java.net URI]))
+  (:import [java.net URI]
+           [graphql_qb.types StringMeasureType FloatMeasureType]))
 
 (defn enum-name-value-map [enum-group]
   (into {} (map (juxt :name :value)) (:items enum-group)))
@@ -122,3 +123,16 @@
     (is (= {measure1-uri "First measure"
             measure2-uri "Second measure"}
            (identify-measure-labels bindings config)))))
+
+(deftest get-measure-type-test
+  (let [measure-uri (URI. "http://measure")
+        order 1]
+    (testing "Numeric"
+      (let [measure (types/->MeasureType measure-uri order true)
+            mt (get-measure-type measure)]
+        (is (instance? FloatMeasureType mt))))
+
+    (testing "Non-numeric"
+      (let [measure (types/->MeasureType measure-uri 1 false)
+            t (get-measure-type measure)]
+        (is (instance? StringMeasureType t))))))
