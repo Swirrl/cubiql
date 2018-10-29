@@ -1,6 +1,6 @@
-(ns graphql-qb.util-test
+(ns cubiql.util-test
   (:require [clojure.test :refer :all]
-            [graphql-qb.util :refer :all]
+            [cubiql.util :refer :all]
             [grafter.rdf :as rdf]))
 
 (deftest rename-key-test

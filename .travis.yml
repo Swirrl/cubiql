@@ -9,7 +9,7 @@ after_success:
 deploy:
   provider: releases
   api_key: "$RELEASE_OAUTH_TOKEN"
-  file: "target/uberjar/graphql-qb-$TRAVIS_TAG-standalone.jar"
+  file: "target/uberjar/cubiql-$TRAVIS_TAG-standalone.jar"
   skip_cleanup: true
   on:
     tags: true

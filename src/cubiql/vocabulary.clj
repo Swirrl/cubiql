@@ -1,4 +1,4 @@
-(ns graphql-qb.vocabulary
+(ns cubiql.vocabulary
   (:import [java.net URI]))
 
 (def sdmx:refArea (URI. "http://purl.org/linked-data/sdmx/2009/dimension#refArea"))

@@ -1,9 +1,9 @@
-(ns graphql-qb.types-test
+(ns cubiql.types-test
   (:require [clojure.test :refer :all]
-            [graphql-qb.types :refer :all]
-            [graphql-qb.types.scalars :as scalars]
-            [graphql-qb.types :as types]
-            [graphql-qb.query-model :as qm])
+            [cubiql.types :refer :all]
+            [cubiql.types.scalars :as scalars]
+            [cubiql.types :as types]
+            [cubiql.query-model :as qm])
   (:import [java.net URI]
            [java.util Date]))
 

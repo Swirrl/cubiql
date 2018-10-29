@@ -1,6 +1,6 @@
-(ns graphql-qb.context
+(ns cubiql.context
   "Functions for managing the graphql execution context passed into resolver functions"
-  (:require [graphql-qb.util :as util]
+  (:require [cubiql.util :as util]
             [clojure.walk :as walk]
             [com.walmartlabs.lacinia.executor :as executor]))
 

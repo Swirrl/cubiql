@@ -1,16 +1,16 @@
 # CubiQL
 
-[![Build Status](https://travis-ci.org/Swirrl/graphql-qb.svg?branch=master)](https://travis-ci.org/Swirrl/graphql-qb)
+[![Build Status](https://travis-ci.org/Swirrl/cubiql.svg?branch=master)](https://travis-ci.org/Swirrl/cubiql)
 
 CubiQL (formerly called graphql-qb) is a proof of concept [GraphQL](http://graphql.org/) service for querying [Linked Data Cubes](https://www.w3.org/TR/vocab-data-cube/) that was produced as part of the [Open Gov Intelligence](http://www.opengovintelligence.eu/) project.
 
-The primary aim of graphql-qb is to facilitate the querying of
+The primary aim of CubiQL is to facilitate the querying of
 multidimensional QB datasets through GraphQL in an easier more familiar
 way than through SPARQL.
 
 ## Example
 
-We have hosted an example graphql-qb service
+We have hosted an example CubiQL service
 at
 [graphql-qb.publishmydata.com](http://graphql-qb.publishmydata.com/)
 which is currently using data from 
@@ -55,11 +55,11 @@ The graphql endpoint for this service can be found at: `http://graphql-qb.publis
   - [Parameterised query](http://graphql-qb.publishmydata.com/index.html?query=query%20datasetsQuery(%24dataset%3A%20uri)%20%7B%0A%20%20cubiql%7Bdatasets(uri%3A%20%24dataset)%20%7B%0A%20%20%20%20title%0A%20%20%20%20uri%0A%20%20%7D%0A%20%20%7D%7D&variables=%7B%0A%20%20%22dataset%22%3A%20%22http%3A%2F%2Fstatistics.gov.scot%2Fdata%2Fearnings%22%0A%7D0%20title%0A%20%20%20%20uri%0A%20%20%7D%0A%7D&variables=%7B%22dataset%22%3A%20%22http%3A%2F%2Fstatistics.gov.scot%2Fdata%2Fearnings%22%7D%0A)
 
 - Pagination
-  - See [description below](https://github.com/Swirrl/graphql-qb#pagination)
+  - See [description below](https://github.com/Swirrl/cubiql#pagination)
 
 ### Pagination
 
-As CubiQL provides access to datacubes and slices containing potentially large amounts of observations, observations are paginated following [the graphql recommendation](http://graphql.org/learn/pagination/).  Paginating through the data might not however suit all consumers, and might even timeout on larger datasets.  So we anticipate providing a `download_link` field into the `observations` schema [#43](https://github.com/Swirrl/graphql-qb/issues/43).
+As CubiQL provides access to datacubes and slices containing potentially large amounts of observations, observations are paginated following [the graphql recommendation](http://graphql.org/learn/pagination/).  Paginating through the data might not however suit all consumers, and might even timeout on larger datasets.  So we anticipate providing a `download_link` field into the `observations` schema [#43](https://github.com/Swirrl/cubiql/issues/43).
 
 You can see an example of a [pagination query here](http://graphql-qb.publishmydata.com/index.html?query=query(%24page%3ASparqlCursor)%20%0A%7Bcubiql%7B%0A%20%20dataset_earnings%20%7B%0A%20%20%20%20title%0A%20%20%20%20description%0A%20%20%20%20observations(dimensions%3A%20%7Bgender%3A%20ALL%2C%20population_group%3A%20WORKPLACE_BASED%2C%20measure_type%3A%20MEDIAN%7D)%20%7B%0A%20%20%20%20%20%20page(first%3A%2010%2C%20after%3A%20%24page)%20%7B%0A%20%20%20%20%20%20%20%20next_page%0A%20%20%20%20%20%20%20%20observation%20%7B%0A%20%20%20%20%20%20%20%20%20%20gender%0A%20%20%20%20%20%20%20%20%20%20measure_type%0A%20%20%20%20%20%20%20%20%20%20population_group%0A%20%20%20%20%20%20%20%20%20%20reference_area%20%7B%0A%20%20%20%20%20%20%20%20%20%20%20%20label%0A%20%20%20%20%20%20%20%20%20%20%20%20uri%0A%20%20%20%20%20%20%20%20%20%20%7D%0A%20%20%20%20%20%20%20%20%20%20reference_period%20%7B%0A%20%20%20%20%20%20%20%20%20%20%20%20end%0A%20%20%20%20%20%20%20%20%20%20%20%20label%0A%20%20%20%20%20%20%20%20%20%20%20%20start%0A%20%20%20%20%20%20%20%20%20%20%20%20uri%0A%20%20%20%20%20%20%20%20%20%20%7D%0A%20%20%20%20%20%20%20%20%20%20uri%0A%20%20%20%20%20%20%20%20%20%20median%0A%20%20%20%20%20%20%20%20%7D%0A%20%20%20%20%20%20%7D%0A%20%20%20%20%7D%0A%20%20%7D%0A%7D%0A%7D&variables=%7B%0A%20%20%22dataset%22%3A%20%22http%3A%2F%2Fstatistics.gov.scot%2Fdata%2Fearnings%22%0A%7D).  You'll notice that this query has been parameterised by a `$page` parameter, which is provided in the supplied variable map.  So to get the next page of results you just need to supply a new map of variables with `page` bound to the last value of the `next_page` field.
 
@@ -79,7 +79,7 @@ You'll see something like:
 
 ## Running yourself
 
-    $ java -jar graphql-qb-0.1.0-standalone.jar OPTIONS
+    $ java -jar cubiql-standalone.jar OPTIONS
 
 The available options are:
 
@@ -91,12 +91,12 @@ The available options are:
 
 For example to run the server against a remote SPARQL endpoint on port 9000:
 
-    $ java -jar graphql-qb-standalone.jar --port 9000 --endpoint http://remote-endpoint/sparql/query
+    $ java -jar cubiql-standalone.jar --port 9000 --endpoint http://remote-endpoint/sparql/query
     
 The endpoint can also refer to a local directory containing RDF data files. The repository contains test datasets in the data directory.
 When running from the root directory this repository can be specified with:
 
-    $ java -jar graphql-qb-standalone.jar --port 9000 --endpoint data
+    $ java -jar cubiql-standalone.jar --port 9000 --endpoint data
     
 During development `lein run` can be used instead of building the uberjar:
 
@@ -107,7 +107,7 @@ protocol described [here](http://graphql.org/learn/serving-over-http/).
 
 ### Generating RDF data cubes with table2qb
 
-[table2qb](https://github.com/Swirrl/table2qb/) is a command-line tool for generating RDF data cubes from tidy CSV data. See the [end-to-end example](https://github.com/Swirrl/graphql-qb/blob/master/doc/table2qb-cubiql.md)
+[table2qb](https://github.com/Swirrl/table2qb/) is a command-line tool for generating RDF data cubes from tidy CSV data. See the [end-to-end example](https://github.com/Swirrl/cubiql/blob/master/doc/table2qb-cubiql.md)
 of using table2qb and CubiQL together to generate and query RDF data cubes.
 
 ## License

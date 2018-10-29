@@ -1,10 +1,10 @@
-(ns graphql-qb.schema.mapping.labels-test
+(ns cubiql.schema.mapping.labels-test
   (:require [clojure.test :refer :all]
-            [graphql-qb.schema.mapping.labels :refer :all]
-            [graphql-qb.types :as types]
+            [cubiql.schema.mapping.labels :refer :all]
+            [cubiql.types :as types]
             [grafter.rdf :as rdf])
   (:import [java.net URI]
-           [graphql_qb.types StringMeasureType FloatMeasureType]))
+           [cubiql.types StringMeasureType FloatMeasureType]))
 
 (defn enum-name-value-map [enum-group]
   (into {} (map (juxt :name :value)) (:items enum-group)))

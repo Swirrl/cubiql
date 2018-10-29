@@ -1,6 +1,6 @@
-(ns graphql-qb.server
-  (:require [graphql-qb.core :as core]
-            [graphql-qb.context :as context]
+(ns cubiql.server
+  (:require [cubiql.core :as core]
+            [cubiql.context :as context]
             [com.walmartlabs.lacinia.pedestal :as lp]
             [io.pedestal.http :as http]))
 

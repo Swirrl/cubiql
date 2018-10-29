@@ -1,10 +1,10 @@
-(ns graphql-qb.types
+(ns cubiql.types
   "Functions for mapping DSD elements to/from GraphQL types"
-  (:require [graphql-qb.query-model :as qm]
-            [graphql-qb.vocabulary :refer [time:hasBeginning time:hasEnd time:inXSDDateTime rdfs:label]]
-            [graphql-qb.types.scalars :refer [grafter-date->datetime]]
-            [graphql-qb.util :as util]
-            [graphql-qb.config :as config]))
+  (:require [cubiql.query-model :as qm]
+            [cubiql.vocabulary :refer [time:hasBeginning time:hasEnd time:inXSDDateTime rdfs:label]]
+            [cubiql.types.scalars :refer [grafter-date->datetime]]
+            [cubiql.util :as util]
+            [cubiql.config :as config]))
 
 (defprotocol SparqlFilterable
   (apply-filter [this model graphql-value]))

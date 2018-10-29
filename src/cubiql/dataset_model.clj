@@ -1,10 +1,10 @@
-(ns graphql-qb.dataset-model
-  (:require [graphql-qb.config :as config]
-            [graphql-qb.util :as util]
+(ns cubiql.dataset-model
+  (:require [cubiql.config :as config]
+            [cubiql.util :as util]
             [grafter.rdf.sparql :as sp]
             [clojure.string :as string]
-            [graphql-qb.types :as types]
-            [graphql-qb.vocabulary :refer :all]))
+            [cubiql.types :as types]
+            [cubiql.vocabulary :refer :all]))
 
 (defn find-all-datasets-query [configuration]
   (str

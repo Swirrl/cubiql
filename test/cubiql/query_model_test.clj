@@ -1,7 +1,7 @@
-(ns graphql-qb.query-model-test
+(ns cubiql.query-model-test
   (:require [clojure.test :refer :all]
-            [graphql-qb.query-model :refer :all :as qm]
-            [graphql-qb.vocabulary :refer [rdfs:label]])
+            [cubiql.query-model :refer :all :as qm]
+            [cubiql.vocabulary :refer [rdfs:label]])
   (:import [java.net URI]))
 
 (deftest add-binding-test

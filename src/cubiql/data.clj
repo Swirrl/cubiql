@@ -1,4 +1,4 @@
-(ns graphql-qb.data
+(ns cubiql.data
   (:require
     [grafter.rdf.repository :as repo]
     [grafter.rdf.formats :as formats]

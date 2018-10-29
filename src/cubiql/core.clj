@@ -1,16 +1,16 @@
-(ns graphql-qb.core
+(ns cubiql.core
   (:require [com.walmartlabs.lacinia.schema :as lschema]
             [com.walmartlabs.lacinia.util :refer [attach-resolvers]]
             [com.walmartlabs.lacinia :refer [execute]]
-            [graphql-qb.util :refer [read-edn-resource]]
-            [graphql-qb.types :refer :all :as types]
-            [graphql-qb.types.scalars :as scalars]
-            [graphql-qb.schema :as schema]
-            [graphql-qb.resolvers :as resolvers]
-            [graphql-qb.schema-model :as sm]
-            [graphql-qb.schema.mapping.labels :as mapping]
-            [graphql-qb.config :as config]
-            [graphql-qb.dataset-model :as ds-model]))
+            [cubiql.util :refer [read-edn-resource]]
+            [cubiql.types :refer :all :as types]
+            [cubiql.types.scalars :as scalars]
+            [cubiql.schema :as schema]
+            [cubiql.resolvers :as resolvers]
+            [cubiql.schema-model :as sm]
+            [cubiql.schema.mapping.labels :as mapping]
+            [cubiql.config :as config]
+            [cubiql.dataset-model :as ds-model]))
 
 (defn can-generate-schema?
   "Indicates whether a GraphQL schema can be generated for the given dataset"

@@ -1,12 +1,12 @@
-(ns graphql-qb.schema.mapping.labels
+(ns cubiql.schema.mapping.labels
   "Creates GraphQL schema mappings from the labels associated with types and values"
   (:require [clojure.spec.alpha :as s]
-            [graphql-qb.util :as util]
+            [cubiql.util :as util]
             [clojure.string :as string]
-            [graphql-qb.types :as types]
-            [graphql-qb.config :as config]
-            [graphql-qb.queries :as queries]
-            [graphql-qb.dataset-model :as dsm]))
+            [cubiql.types :as types]
+            [cubiql.config :as config]
+            [cubiql.queries :as queries]
+            [cubiql.dataset-model :as dsm]))
 
 ;;TODO: add/use spec for graphql enum values
 (s/def ::graphql-enum keyword?)

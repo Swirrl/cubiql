@@ -1,5 +1,5 @@
-(ns graphql-qb.config
-  (:require [graphql-qb.vocabulary :refer :all]
+(ns cubiql.config
+  (:require [cubiql.vocabulary :refer :all]
             [aero.core :as aero]
             [clojure.java.io :as io])
   (:import [java.net URI]))

@@ -1,11 +1,11 @@
-(ns graphql-qb.query-model
+(ns cubiql.query-model
   "Represents a simplified model of a SPARQL query. Within the model, items at specified 'paths' are defined which
   can be constrained to a specific value or a collection of associated predicates. The path is a sequence of [key predicate]
   pairs where the key identifies the binding in the resulting SPARQL query and the predicate defines the predicate URI
   for the RDF relation."
   (:require [clojure.string :as string]
-            [graphql-qb.vocabulary :refer :all]
-            [graphql-qb.vocabulary :refer [time:DateTime]])
+            [cubiql.vocabulary :refer :all]
+            [cubiql.vocabulary :refer [time:DateTime]])
   (:import [java.net URI]
            [java.util Date]
            [java.text SimpleDateFormat]

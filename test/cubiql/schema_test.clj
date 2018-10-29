@@ -1,8 +1,8 @@
-(ns graphql-qb.schema-test
+(ns cubiql.schema-test
   (:require [clojure.test :refer :all]
-            [graphql-qb.schema :refer :all]
-            [graphql-qb.types :as types]
-            [graphql-qb.vocabulary :refer [qb:measureType]]
+            [cubiql.schema :refer :all]
+            [cubiql.types :as types]
+            [cubiql.vocabulary :refer [qb:measureType]]
             [com.walmartlabs.lacinia.schema :as ls])
   (:import [java.net URI]))
 

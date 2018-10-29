@@ -1,5 +1,5 @@
-(ns graphql-qb.types.scalars
-  (:require [graphql-qb.util :as util]
+(ns cubiql.types.scalars
+  (:require [cubiql.util :as util]
             [com.walmartlabs.lacinia.schema :as lschema])
   (:import [java.net URI]
            [java.util Base64 Date]

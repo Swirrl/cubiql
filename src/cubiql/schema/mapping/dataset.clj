@@ -1,6 +1,6 @@
-(ns graphql-qb.schema.mapping.dataset
-  (:require [graphql-qb.util :as util]
-            [graphql-qb.vocabulary :refer [qb:measureType]]))
+(ns cubiql.schema.mapping.dataset
+  (:require [cubiql.util :as util]
+            [cubiql.vocabulary :refer [qb:measureType]]))
 
 (def uri :uri)
 (def schema :schema)

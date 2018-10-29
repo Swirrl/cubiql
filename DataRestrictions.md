@@ -16,7 +16,7 @@ CubiQL requires data to be modeled using the [RDF Data Cube Vocabulary](https://
 - If geo and/or time dimensions do not match the 2 above criteria then they should **not** be defined at the configuration and they will be handled like all the other dimensions 
 
 Temporal requirements that will be fixed:
-- Datasets, dimensions, measures and codelist members should all have a single `rdfs:label` with a language tag matching the configured `:schema-label-language` in the configuration (nil can be specified to use strings without an associated language tag). This value is used to generate elements of the GraphQL schema such as field names and enum values. Additional `rdfs:label`s with language tags can be defined, although only a single label should be defined for each element for a particular language. The requirement for string literal labels will be lifted when the GraphQL schema mapping is defined explicitly, see [#10](https://github.com/Swirrl/graphql-qb/issues/10) and 
-  [#40](https://github.com/Swirrl/graphql-qb/issues/40).
+- Datasets, dimensions, measures and codelist members should all have a single `rdfs:label` with a language tag matching the configured `:schema-label-language` in the configuration (nil can be specified to use strings without an associated language tag). This value is used to generate elements of the GraphQL schema such as field names and enum values. Additional `rdfs:label`s with language tags can be defined, although only a single label should be defined for each element for a particular language. The requirement for string literal labels will be lifted when the GraphQL schema mapping is defined explicitly, see [#10](https://github.com/Swirrl/cubiql/issues/10) and 
+  [#40](https://github.com/Swirrl/cubiql/issues/40).
 
  

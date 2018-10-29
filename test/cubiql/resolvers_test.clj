@@ -1,6 +1,6 @@
-(ns graphql-qb.resolvers-test
+(ns cubiql.resolvers-test
   (:require [clojure.test :refer :all]
-            [graphql-qb.resolvers :refer :all])
+            [cubiql.resolvers :refer :all])
   (:import [java.net URI]))
 
 (deftest combine-dimension-results-test

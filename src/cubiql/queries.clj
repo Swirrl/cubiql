@@ -1,12 +1,12 @@
-(ns graphql-qb.queries
+(ns cubiql.queries
   (:require [clojure.string :as string]
-            [graphql-qb.types :as types]
-            [graphql-qb.vocabulary :refer :all]
-            [graphql-qb.query-model :as qm]
-            [graphql-qb.config :as config]
-            [graphql-qb.util :as util]
-            [graphql-qb.types.scalars :as scalars]
-            [graphql-qb.schema.mapping.dataset :as dsm]))
+            [cubiql.types :as types]
+            [cubiql.vocabulary :refer :all]
+            [cubiql.query-model :as qm]
+            [cubiql.config :as config]
+            [cubiql.util :as util]
+            [cubiql.types.scalars :as scalars]
+            [cubiql.schema.mapping.dataset :as dsm]))
 
 (defn- add-observation-filter-measure-bindings [dataset-mapping model]
   (if (dsm/has-measure-type-dimension? dataset-mapping)
@@ -165,16 +165,16 @@
                                    (if (some? vals)
                                        (let [members
                                             (map (fn[uri] (str "  ?mem=<" uri ">")) vals)]
-                                            (str "FILTER("                                      
+                                            (str "FILTER("
                                               (string/join "||" members)
                                               ")")))
                                    (if (some? levs)
                                      (str "  ?mem <http://publishmydata.com/def/ontology/foi/memberOf> ?lev.\n"
                                        (let [levelsOr
                                             (map (fn[uri] (str "  ?lev=<" uri ">")) levs)]
-                                            (str "FILTER("                                      
+                                            (str "FILTER("
                                               (string/join "||" levelsOr)
-                                              ")"))))                                                                                               
+                                              ")"))))
                                     "}\n"))
                              data-or)]
     (str

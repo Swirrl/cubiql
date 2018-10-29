@@ -1,6 +1,6 @@
-(ns graphql-qb.schema-model
+(ns cubiql.schema-model
   (:require [clojure.string :as string])
-  (:import [graphql_qb.types GroupMapping]))
+  (:import [cubiql.types GroupMapping]))
 
 (defn is-graphql-type? [x]
   (or (symbol? x)

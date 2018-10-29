@@ -1,6 +1,6 @@
-(defproject graphql-qb "0.7.0-SNAPSHOT"
-  :description "Query RDF Datacubes with graphQL"
-  :url "http://swirrl.com/"
+(defproject swirrl/cubiql "0.7.0-SNAPSHOT"
+  :description "Query RDF Datacubes with GraphQL"
+  :url "https://github.com/Swirrl/cubiql"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.9.0"]
@@ -19,7 +19,7 @@
                  
                  ;;configuration
                  [aero "1.1.3"]]
-  :main ^:skip-aot graphql-qb.main
+  :main ^:skip-aot cubiql.main
   :target-path "target/%s"
   :profiles {:uberjar {:aot :all}}
 

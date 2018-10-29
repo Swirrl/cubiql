@@ -7,7 +7,7 @@ Steps:
 
 ## Step 1: Table2qb
 
-[table2qb](https://github.com/Swirrl/table2qb/) is a command-line tool for generating RDF data cubes from tidy CSV data. See the `table2qb` repository for
+[cubiql](https://github.com/Swirrl/cubiql/) is a command-line tool for generating RDF data cubes from tidy CSV data. See the `table2qb` repository for
 installation instructions and an [example](https://github.com/Swirrl/table2qb/blob/master/examples/employment/README.md) of using it to generate data cubes. 
 
 ### Requirements
@@ -94,11 +94,11 @@ Configuration of the triple store:
 
 Run CubiQL using the default configuration:
 
-`java -jar graphql-qb-0.4.0-standalone.jar --port 8085 --endpoint http://myendpoint.com`
+`java -jar cubiql-standalone.jar --port 8085 --endpoint http://myendpoint.com`
 
 if running against a local directory containing the data the `--endpoint` parameter should specify the path to the directory:
 
-`java -jar graphql-qb-0.4.0-standalone.jar --port 8085 --endpoint ./ttl`
+`java -jar cubiql-standalone.jar --port 8085 --endpoint ./ttl`
 
 The default configuration:
 ```
@@ -114,7 +114,7 @@ The default configuration:
 
 If default configuration does not match your data, then use another configuration file:
 
-`java -jar graphql-qb-0.4.0-standalone.jar --port 8085 --endpoint http://myendpoint.com/ --configuration myconfig.edn`
+`java -jar cubiql-standalone.jar --port 8085 --endpoint http://myendpoint.com/ --configuration myconfig.edn`
 
 Configuration parameters:
 

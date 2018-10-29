@@ -1,14 +1,15 @@
-(ns graphql-qb.schema
-  (:require [graphql-qb.types :as types]
-            [graphql-qb.resolvers :as resolvers]
-            [graphql-qb.schema-model :as sm]
-            [graphql-qb.context :as context]
-            [graphql-qb.schema.mapping.dataset :as dsm]
+(ns cubiql.schema
+  (:require [cubiql.types :as types]
+            [cubiql.resolvers :as resolvers]
+            [cubiql.schema-model :as sm]
+            [cubiql.context :as context]
+            [cubiql.schema.mapping.dataset :as dsm]
             [com.walmartlabs.lacinia.schema :as ls]
-            [graphql-qb.util :as util]
+            [cubiql.util :as util]
+            [cubiql.schema.mapping.dataset :as ds-mapping]
             [grafter.rdf :as rdf])
-  (:import [graphql_qb.types EnumType RefPeriodType RefAreaType DecimalType StringType UnmappedType StringMeasureType FloatMeasureType MappedEnumType GroupMapping
-                             MeasureDimensionType]))
+  (:import [cubiql.types EnumType RefPeriodType RefAreaType DecimalType StringType UnmappedType StringMeasureType FloatMeasureType MappedEnumType GroupMapping
+                         MeasureDimensionType]))
 
 (defprotocol ArgumentTransform
   (transform-argument [this graphql-value]

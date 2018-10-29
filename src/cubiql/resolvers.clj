@@ -1,11 +1,11 @@
-(ns graphql-qb.resolvers
-  (:require [graphql-qb.queries :as queries]
-            [graphql-qb.util :as util]
-            [graphql-qb.context :as context]
-            [graphql-qb.query-model :as qm]
+(ns cubiql.resolvers
+  (:require [cubiql.queries :as queries]
+            [cubiql.util :as util]
+            [cubiql.context :as context]
+            [cubiql.query-model :as qm]
             [clojure.spec.alpha :as s]
-            [graphql-qb.config :as config])
-  (:import [graphql_qb.types Dimension MeasureType]))
+            [cubiql.config :as config])
+  (:import [cubiql.types Dimension MeasureType]))
 
 (s/def ::order-direction #{:ASC :DESC})
 (s/def ::dimension #(instance? Dimension %))

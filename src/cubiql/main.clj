@@ -1,8 +1,8 @@
-(ns graphql-qb.main
-  (:require [graphql-qb.server :as server]
+(ns cubiql.main
+  (:require [cubiql.server :as server]
             [clojure.tools.cli :as cli]
-            [graphql-qb.data :as data]
-            [graphql-qb.config :as config]
+            [cubiql.data :as data]
+            [cubiql.config :as config]
             [clojure.java.io :as io])
   (:gen-class)
   (:import [java.io File]))
@@ -21,7 +21,7 @@
     :validate [(fn [^File f] (.exists f)) "Configuration file not found"]]])
 
 (defn print-usage [arg-summary]
-  (println "Usage: graphql-qb OPTIONS")
+  (println "Usage: cubiql OPTIONS")
   (println "The following options are available:")
   (println)
   (println arg-summary))
