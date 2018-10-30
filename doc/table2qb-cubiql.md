@@ -86,6 +86,10 @@ What to load at the triple store:
   - RDF for the DSD and the observations
 - RDF for the [QB vocabulary](https://raw.githubusercontent.com/UKGovLD/publishing-statistical-data/master/specs/src/main/vocab/cube.ttl)
 
+Configuration of the triple store:
+- Set the max limit of the returned results e.g. 100000 (depends on the size and number of cubes). 
+  - At Virtuoso the limit is defined by the parameter `ResultSetMaxRows`
+
 ## Step 3: CubiQL
 
 Run CubiQL using the default configuration:
