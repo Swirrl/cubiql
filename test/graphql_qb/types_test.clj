@@ -33,20 +33,7 @@
           dim (->Dimension (URI. "http://dim") 1 type)
           value (URI. "http://val1")
           bindings {:dim1 value}]
-      (is (= value (project-result dim bindings)))))
-
-  (testing "Measure matching measure type"
-    (let [uri (URI. "http://measure")
-          measure (->MeasureType uri 1 true)
-          value 4
-          bindings {:mp uri :mv 4}]
-      (is (= value (project-result measure bindings)))))
-
-  (testing "Measure not matching measure type"
-    (let [uri (URI. "http://measure1")
-          measure (->MeasureType uri 1 true)
-          bindings {:mp (URI. "http://measure2") :mv 5}]
-      (is (nil? (project-result measure bindings))))))
+      (is (= value (project-result dim bindings))))))
 
 (deftest apply-filter-test
   (testing "Ref period dimension"
@@ -58,5 +45,5 @@
                   :ends_after ends-after}
           model (apply-filter dim qm/empty-model filter)]
       (is (= ::qm/var (qm/get-path-binding-value model [:dim1 :begin :time])))
-      (is (= ::qm/var (qm/get-path-binding-value model [:dim1 :end :time]) )))))
+      (is (= ::qm/var (qm/get-path-binding-value model [:dim1 :end :time]))))))
 

@@ -30,18 +30,19 @@
 
 (defn resolve-observations [context args field]
   (let [{:keys [uri] :as dataset} (::dataset field)
+        ds-mapping (context/get-dataset-mapping context uri)
         repo (context/get-repository context)
         dimension-filter (::dimensions-filter args)
-        filter-model (queries/get-observation-filter-model dimension-filter)
+        filter-model (queries/get-observation-filter-model ds-mapping dimension-filter)
         selections (context/get-selections context)
         total-matches (if (total-count-required? selections)
                         (get-observation-count repo uri filter-model))]
     (merge
       (select-keys args [::dimensions-filter ::order-by])
-      {::dataset                     dataset
-       ::filter-model                filter-model
-       :total_matches                total-matches
-       :aggregations                 {::dimensions-filter dimension-filter ::filter-model filter-model :ds-uri uri}})))
+      {::dataset      dataset
+       ::filter-model filter-model
+       :total_matches total-matches
+       :aggregations  {::dimensions-filter dimension-filter ::filter-model filter-model :ds-uri uri}})))
 
 (defn resolve-observations-sparql-query [context _args obs-field]
   (let [config (context/get-configuration context)

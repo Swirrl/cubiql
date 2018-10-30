@@ -233,8 +233,7 @@
     model)
 
   (project-result [_this binding]
-    (when (= uri (get binding :mp))
-      (get binding :mv))))
+    (throw (ex-info "Not supported - measure values are bound differently depending on the existence of a qb:measureDimension within the dataset" {}))))
 
 (defrecord Dataset [uri name dimensions measures])
 
