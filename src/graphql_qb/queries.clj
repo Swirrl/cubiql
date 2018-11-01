@@ -1,40 +1,55 @@
 (ns graphql-qb.queries
   (:require [clojure.string :as string]
             [graphql-qb.types :as types]
-            [grafter.rdf.sparql :as sp]
             [graphql-qb.vocabulary :refer :all]
-            [graphql-qb.query-model :as qm]))
+            [graphql-qb.query-model :as qm]
+            [graphql-qb.config :as config]
+            [graphql-qb.util :as util]
+            [graphql-qb.types.scalars :as scalars]
+            [graphql-qb.schema.mapping.dataset :as dsm]))
 
-(defn get-observation-filter-model [dim-filter]
-  (reduce (fn [m [dim value]]
-            (types/apply-filter dim m value))
-          qm/empty-model
-          dim-filter))
+(defn- add-observation-filter-measure-bindings [dataset-mapping model]
+  (if (dsm/has-measure-type-dimension? dataset-mapping)
+    (-> model
+        (qm/add-binding [[:mp qb:measureType]] ::qm/var)
+        (qm/add-binding [[:mv (qm/->QueryVar "mp")]] ::qm/var))
+    (reduce (fn [m {{:keys [uri order] :as measure} :measure :as measure-mapping}]
+              (let [measure-key (keyword (str "mv" order))]
+                (qm/add-binding m [[measure-key uri]] ::qm/var)))
+            model
+            (dsm/measures dataset-mapping))))
 
-(defn apply-model-projections [filter-model dataset observation-selections]
+(defn get-observation-filter-model [dataset-mapping dim-filter]
+  (let [m (add-observation-filter-measure-bindings dataset-mapping qm/empty-model)]
+    (reduce (fn [m [dim value]]
+              (types/apply-filter dim m value))
+            m
+            dim-filter)))
+
+(defn apply-model-projections [filter-model dataset observation-selections config]
   (reduce (fn [m dm]
-            (types/apply-projection dm m observation-selections))
+            (types/apply-projection dm m observation-selections config))
           filter-model
           (types/dataset-dimension-measures dataset)))
 
-(defn apply-model-order-by [model order-by-dims-measures]
+(defn apply-model-order-by [model order-by-dims-measures config]
   (reduce (fn [m [dim-measure direction]]
-            (types/apply-order-by dim-measure m direction))
+            (types/apply-order-by dim-measure m direction config))
           model
           order-by-dims-measures))
 
-(defn filter-model->observations-query [filter-model dataset order-by observation-selections]
+(defn filter-model->observations-query [filter-model dataset order-by observation-selections config]
   (-> filter-model
-      (apply-model-projections dataset observation-selections)
-      (apply-model-order-by order-by)))
+      (apply-model-projections dataset observation-selections config)
+      (apply-model-order-by order-by config)))
 
-(defn get-observation-query [{ds-uri :uri :as dataset} filter-model order-by observation-selections]
-  (let [model (filter-model->observations-query filter-model dataset order-by observation-selections)]
+(defn get-observation-query [{ds-uri :uri :as dataset} filter-model order-by observation-selections config]
+  (let [model (filter-model->observations-query filter-model dataset order-by observation-selections config)]
     (qm/get-query model "obs" ds-uri)))
 
-(defn get-observation-page-query [dataset filter-model limit offset order-by-dim-measures observation-selections]
+(defn get-observation-page-query [dataset filter-model limit offset order-by-dim-measures observation-selections config]
   (str
-    (get-observation-query dataset filter-model order-by-dim-measures observation-selections)
+    (get-observation-query dataset filter-model order-by-dim-measures observation-selections config)
     " LIMIT " limit " OFFSET " offset))
 
 (defn get-dimensions-or [{dims-or :or}]
@@ -64,23 +79,18 @@
                                    dims-and)]
       (str (string/join "\n" and-clauses)))))
 
-
-
-;;Added by Dimitris
 (defn get-measures-filter [{meas-and :and}]
   (if (empty? meas-and)
     ""
     (let [and-clauses (map-indexed (fn [idx uri]
                                      (let [comp-var (str "?compMeas" (inc idx))]
                                        (str
-                                        "?struct qb:component " comp-var ". \n"
-                                        comp-var " a qb:ComponentSpecification .\n"
-                                        comp-var " qb:measure <" (str uri) "> .\n")))
-                            meas-and)]
+                                         "?struct qb:component " comp-var ". \n"
+                                         comp-var " a qb:ComponentSpecification .\n"
+                                         comp-var " qb:measure <" (str uri) "> .\n")))
+                                   meas-and)]
       (str (string/join and-clauses)))))
 
-
-;;Added by Dimitris
 (defn get-measures-or [{meas-or :or}]
   (if (empty? meas-or)
     ""
@@ -96,7 +106,6 @@
        (string/join " UNION " union-clauses)
        "} }"))))
 
-;;Added by Dimitris
 (defn get-attributes-filter [{attr-and :and}]
   (if (empty? attr-and)
     ""
@@ -109,8 +118,6 @@
                             attr-and)]
       (str (string/join and-clauses)))))
 
-
-;;Added by Dimitris
 (defn get-attributes-or [{attr-or :or}]
   (if (empty? attr-or)
     ""
@@ -126,7 +133,6 @@
        (string/join " UNION " union-clauses)
        "} }"))))
 
-;;Added by Dimitris
 (defn get-data-filter [{data-and :and}]
   (if (empty? data-and)
     ""
@@ -146,7 +152,6 @@
                         data-and)]
       (str (string/join and-clauses)))))
 
-;;Added by Dimitris
 (defn get-data-or [{data-or :or}]
   (if (empty? data-or)
     ""
@@ -178,50 +183,201 @@
        (string/join " UNION " union-clauses)
        "} }"))))
 
-;;Modified by Dimitris
-(defn get-datasets-query [dimensions measures attributes componentValue uri]
+(defn get-datasets-query [dimensions measures attributes componentValue uri configuration]
+  (let [dataset-label (config/dataset-label configuration)
+        schema-lang (config/schema-label-language configuration)]
+    (str
+      "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>"
+      "PREFIX qb: <http://purl.org/linked-data/cube#>"
+      "PREFIX dcterms: <http://purl.org/dc/terms/>"
+      "PREFIX skos: <http://www.w3.org/2004/02/skos/core#>"
+      "SELECT DISTINCT ?ds ?name WHERE {"
+      "  ?ds a qb:DataSet ."
+      "  ?ds qb:structure ?struct ."
+      "  ?struct a qb:DataStructureDefinition ."
+      (get-dimensions-or dimensions)
+      (get-measures-or measures)
+      (get-attributes-or attributes)
+      (get-data-or componentValue)
+      "  ?ds <" (str dataset-label) "> ?name ."
+      "  FILTER(LANG(?name) = \"" schema-lang "\")"
+      (get-dimensions-filter dimensions)
+      (get-measures-filter measures)
+      (get-attributes-filter attributes)
+      (get-data-filter componentValue)
+      (if (some? uri)
+        (str "FILTER(?ds = <" uri ">) ."))
+      "}")))
+
+(defn get-datasets [repo dimensions measures attributes componentValue uri configuration]
+  (let [q (get-datasets-query dimensions measures attributes componentValue uri configuration)
+        results (util/eager-query repo q)]
+    (map (util/convert-binding-labels [:name]) results)))
+
+(defn- get-datasets-metadata-query [dataset-uris configuration lang]
+  (let [label-predicate (str (config/dataset-label configuration))]
+    (str
+      "PREFIX qb: <http://purl.org/linked-data/cube#>"
+      "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>"
+      "PREFIX dcterms: <http://purl.org/dc/terms/>"
+      "SELECT DISTINCT * WHERE {"
+      "  VALUES ?ds { " (string/join " " (map #(str "<" % ">") dataset-uris)) " }"
+      "  ?ds a qb:DataSet ."
+      "{"
+      "  ?ds <" label-predicate "> ?title ."
+      (when lang
+        (str "FILTER(LANG(?title) = \"" lang "\")"))
+      "}"
+      "UNION {"
+      "  ?ds rdfs:comment ?description ."
+      (when lang
+        (str "FILTER(LANG(?description) = \"" lang "\")"))
+      "}"
+      "UNION { ?ds dcterms:issued ?issued . }"
+      "UNION { ?ds dcterms:publisher ?publisher . }"
+      "UNION { ?ds dcterms:license ?licence . }"
+      "UNION {"
+      "  SELECT ?modified WHERE {"
+      "    ?ds dcterms:modified ?modified ."
+      "  } ORDER BY DESC(?modified) LIMIT 1"
+      "}"
+      "}")))
+
+(def metadata-keys #{:title :description :issued :publisher :licence :modified})
+
+(defn process-dataset-metadata-bindings [bindings]
+  (let [{:keys [title description issued publisher licence modified]} (util/to-multimap bindings)]
+    {:title       (util/label->string (first title))              ;;TODO: allow multiple titles?
+     :description (mapv util/label->string description)
+     :issued      (mapv scalars/grafter-date->datetime issued)
+     :publisher   (or publisher [])
+     :licence     (or licence [])
+     :modified    (some-> (first modified) (scalars/grafter-date->datetime))}))
+
+(defn get-dataset-metadata [repo dataset-uri configuration lang]
+  (let [q (get-datasets-metadata-query [dataset-uri] configuration lang)
+        bindings (util/eager-query repo q)]
+    (process-dataset-metadata-bindings bindings)))
+
+(defn get-datasets-metadata [repo dataset-uris configuration lang]
+  (let [q (get-datasets-metadata-query dataset-uris configuration lang)
+        results (util/eager-query repo q)]
+    (group-by :ds results)))
+
+(defn get-dimension-codelist-values-query [ds-uri configuration lang]
+  (let [codelist-label (config/codelist-label configuration)
+        codelist-predicate (config/codelist-predicate configuration)]
+    (str
+      "PREFIX qb: <http://purl.org/linked-data/cube#>"
+      "PREFIX skos: <http://www.w3.org/2004/02/skos/core#>"
+      "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>"
+      "PREFIX ui: <http://www.w3.org/ns/ui#>"
+      "SELECT ?dim ?member ?label WHERE {"
+      "<" (str ds-uri) "> qb:structure ?struct ."
+      "?struct a qb:DataStructureDefinition ."
+      "?struct qb:component ?comp ."
+      "?comp qb:dimension ?dim ."
+      (config/codelist-source configuration) " <" codelist-predicate "> ?list ."
+      "{"
+      "  ?list skos:member ?member ."
+      "  OPTIONAL {"
+      "    ?member <" (str codelist-label) "> ?label ."
+      (when lang
+        (str "FILTER(LANG(?label) = \"" lang "\") ."))
+      "  }"
+      "} UNION {"
+      "  ?member skos:inScheme ?list ."
+      "  OPTIONAL {"
+      "    ?member <" (str codelist-label) "> ?label ."
+      (when lang
+        (str "FILTER(LANG(?label) = \"" lang "\") ."))
+      "  }"
+      "}"
+      "}")))
+
+(defn get-dimension-codelist-values [repo {:keys [uri] :as dataset} config lang]
+  (let [dimvalues-query (get-dimension-codelist-values-query uri config lang)
+        results (util/eager-query repo dimvalues-query)]
+    (map (util/convert-binding-labels [:label]) results)))
+
+(defn get-all-enum-dimension-values
+  "Gets all codelist members for all dimensions across all datasets. Each dimension is expected to have a
+  single label without a language code. Each codelist item should have at most one label without a language
+  code used to generate the enum name."
+  [configuration]
+  (let [codelist-label (config/codelist-label configuration)
+        codelist-predicate (config/codelist-predicate configuration)
+        ignored-dimensions (config/ignored-codelist-dimensions configuration)
+        dimension-filters (map (fn [dim-uri] (format "FILTER(?dim != <%s>)" dim-uri)) ignored-dimensions)]
+    (str
+      "PREFIX qb: <http://purl.org/linked-data/cube#>"
+      "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>"
+      "PREFIX skos: <http://www.w3.org/2004/02/skos/core#>"
+      "SELECT * WHERE {"
+      "  ?ds qb:structure ?struct ."
+      "  ?struct a qb:DataStructureDefinition ."
+      "  ?struct qb:component ?comp ."
+      "  ?comp qb:dimension ?dim ."
+      (string/join "\n" dimension-filters)
+      "  OPTIONAL { ?dim rdfs:comment ?doc }"
+      (config/codelist-source configuration) " <" codelist-predicate "> ?codelist ."
+      "{"
+      "  ?codelist skos:member ?member ."
+      "  ?member <" (str codelist-label) "> ?vallabel ."
+      "}"
+      "UNION {"
+      "  ?member skos:inScheme ?codelist ."
+      "  ?member rdfs:label ?vallabel ."
+      "}"
+
+      "}")))
+
+(defn get-measures-by-lang-query [ds-uri lang configuration]
   (str
-    "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>"
     "PREFIX qb: <http://purl.org/linked-data/cube#>"
-    "PREFIX dcterms: <http://purl.org/dc/terms/>"
-    "PREFIX skos: <http://www.w3.org/2004/02/skos/core#>"
-    "SELECT DISTINCT ?ds ?title ?description ?licence ?issued ?modified ?publisher WHERE {"
-     "  ?ds a qb:DataSet ."
-     "  ?ds qb:structure ?struct ."
-     "  ?struct a qb:DataStructureDefinition ."
-    (get-dimensions-or dimensions)
-    (get-measures-or measures)
-    (get-attributes-or attributes)
-    (get-data-or componentValue)
-    "  ?ds rdfs:label ?title ."
-    "  OPTIONAL { ?ds rdfs:comment ?description . }"
-    "  OPTIONAL { ?ds dcterms:license ?licence }"
-    "  OPTIONAL { ?ds dcterms:issued ?issued }"
-    "  OPTIONAL { ?ds dcterms:modified ?modified }"
-    "  OPTIONAL { ?ds dcterms:publisher ?publisher }"
-    (get-dimensions-filter dimensions)
-    (get-measures-filter measures)
-    (get-attributes-filter attributes)
-    (get-data-filter componentValue)
-    (if (some? uri)
-      (str "FILTER(?ds = <" uri ">) ."))
+    "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>"
+    "SELECT ?mt ?label WHERE {"
+    "  <" ds-uri "> qb:structure ?struct ."
+    "  ?struct qb:component ?comp ."
+    "  ?comp qb:measure ?mt ."
+    "  ?mt a qb:MeasureProperty ."
+    "  OPTIONAL {"
+    "    ?mt <" (config/dataset-label configuration) "> ?label ."
+    "    FILTER(LANG(?label) = \"" lang "\")"
+    "  }"
     "}"))
 
-(defn get-unmapped-dimension-values [repo {:keys [uri] :as dataset}]
-  (let [results (vec (sp/query "get-unmapped-dimension-values.sparql" {:ds uri} repo))]
-    (group-by :dim results)))
-
-(defn get-datasets-containing-dimension [repo dimension-uri]
-  (let [results (vec (sp/query "get-datasets-with-dimension.sparql" {:dim dimension-uri} repo))]
-    (into #{} (map :ds results))))
-
-(defn get-dimensions-query [dim-uris]
+(defn get-dimensions-by-lang-query [ds-uri lang configuration]
   (str
-    "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>"
     "PREFIX qb: <http://purl.org/linked-data/cube#>"
-    "SELECT ?dim ?label ?comment WHERE {"
-    "  VALUES ?dim { " (string/join " " (map #(str "<" % ">") dim-uris)) " }"
+    "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>"
+    "SELECT ?dim ?label WHERE {"
+    "  <" ds-uri "> qb:structure ?struct ."
+    "  ?struct qb:component ?comp ."
+    "  ?comp qb:dimension ?dim ."
     "  ?dim a qb:DimensionProperty ."
-    "  ?dim rdfs:label ?label ."
-    "  OPTIONAL { ?dim rdfs:comment ?comment }"
+    "  OPTIONAL {"
+    "    ?dim <" (config/dataset-label configuration) "> ?label ."
+    "    FILTER(LANG(?label) = \"" lang "\")"
+    "  }"
     "}"))
+
+(defn get-dimension-labels-query [configuration]
+  (str
+    "PREFIX qb: <http://purl.org/linked-data/cube#>"
+    "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>"
+    "SELECT ?dim ?label ?doc WHERE {"
+    "  ?dim a qb:DimensionProperty ."
+    "  { ?dim <" (config/dataset-label configuration) "> ?label . }"
+    "  UNION { ?dim rdfs:comment ?doc . }"
+    "}"))
+
+(defn get-measure-labels-query [configuration]
+  (let [dataset-label (config/dataset-label configuration)]
+    (str
+      "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>"
+      "PREFIX qb: <http://purl.org/linked-data/cube#>"
+      "SELECT ?measure ?label WHERE {"
+      "  ?measure a qb:MeasureProperty ."
+      "  ?measure <" (str dataset-label) "> ?label ."
+      "}")))

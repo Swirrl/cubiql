@@ -1,4 +1,4 @@
-(defproject graphql-qb "0.2.1-SNAPSHOT"
+(defproject graphql-qb "0.6.0-SNAPSHOT"
   :description "Query RDF Datacubes with graphQL"
   :url "http://swirrl.com/"
   :license {:name "Eclipse Public License"
@@ -7,7 +7,7 @@
                  [com.walmartlabs/lacinia "0.23.0-rc-1"]
                  [com.walmartlabs/lacinia-pedestal "0.5.0-rc-2"]
                  [org.clojure/data.json "0.2.6"]
-                 [grafter "0.9.0"]
+                 [grafter "0.11.5"]
                  [org.clojure/tools.cli "0.3.5"]
 
                  ;; logging
@@ -16,8 +16,9 @@
                  
                  [org.slf4j/jul-to-slf4j "1.7.25"]
                  [org.slf4j/jcl-over-slf4j "1.7.25"]
-
-                 ]
+                 
+                 ;;configuration
+                 [aero "1.1.3"]]
   :main ^:skip-aot graphql-qb.main
   :target-path "target/%s"
   :profiles {:uberjar {:aot :all}}
@@ -30,6 +31,4 @@
                   ["change" "version" "leiningen.release/bump-version"]
                   ["vcs" "commit"]
                   ;;["vcs" "push"]
-                  ]
-
-  )
+                  ])

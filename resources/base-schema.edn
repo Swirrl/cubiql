@@ -1,14 +1,24 @@
 {:objects
- {:dataset
+ {:qb
+  {:fields
+   {:datasets {:type    (list :dataset)
+               :resolve :resolve-datasets
+               :args    {:dimensions {:type :filter}
+                         :measures       {:type :filter}
+                         :attributes     {:type :filter}
+                         :componentValue {:type :valuefilter}
+                         :uri        {:type :uri}}}}}
+
+  :dataset
   {:implements [:dataset_meta]
    :fields
    {:uri         {:type :uri :description "Dataset URI"}
     :title       {:type String :description "Dataset title"}
-    :description {:type String :description "Dataset description"}
-    :licence     {:type :uri :description "URI of the licence the dataset is published under"}
-    :issued      {:type :DateTime :description "When the dataset was issued"}
+    :description {:type (list String) :description "Dataset descriptions"}
+    :licence     {:type (list :uri) :description "URIs of the licences the dataset is published under"}
+    :issued      {:type (list :DateTime) :description "When the dataset was issued"}
     :modified    {:type :DateTime :description "When the dataset was last modified"}
-    :publisher   {:type :uri :description "URI of the publisher of the dataset"}
+    :publisher   {:type (list :uri) :description "URIs of the publishers of the dataset"}
     :schema      {:type String :description "Name of the GraphQL query root field corresponding to this dataset"}
     :dimensions  {:type        (list :dim)
                   :resolve     :resolve-dataset-dimensions
@@ -20,6 +30,7 @@
   :dim
   {:fields
    {:uri    {:type :uri :description "URI of the dimension"}
+    :label {:type String :description "Label for the dimension"}
     :values {:type (list :dim_value) :description "Code list of values for the dimension"}
     :enum_name {:type String :description "Name of the corresponding enum value"}}}
 
@@ -61,10 +72,10 @@
    :fields
    {:uri         {:type :uri :description "Dataset URI"}
     :title       {:type String :description "Dataset title"}
-    :description {:type String :description "Dataset description"}
+    :description {:type (list String) :description "Dataset description"}
     :schema      {:type String :description "Name of the GraphQL query root field corresponding to this dataset"}
     :dimensions  {:type (list :dim) :description "Dimensions within the dataset"}
-    :measures {:type (list :measure) :description "Measure types within the dataset"}}}
+    :measures    {:type (list :measure) :description "Measure types within the dataset"}}}
   :resource
   {:description "Resource with a URI and optional label"
    :fields
@@ -87,21 +98,19 @@
           :description "List of URIs for which at least one must be contained within matching datasets."}
     :and {:type        (list :uri)
           :description "List of URIs which must all be contained within matching datasets."}}}
-  
-   :valuefilter
-    {:fields
-    {:or  {:type        (list :componentvalue)
-           :description "List of :componentvalues for which at least one must be contained within matching datasets."}
-     :and {:type        (list :componentvalue)
-           :description "List of :componentvalues which must all be contained within matching datasets."}}}
-  
+
+  :valuefilter
+  {:fields
+   {:or  {:type        (list :componentvalue)
+          :description "List of :componentvalues for which at least one must be contained within matching datasets."}
+    :and {:type        (list :componentvalue)
+          :description "List of :componentvalues which must all be contained within matching datasets."}}}
+
   :componentvalue
-   {:fields
-    {:component {:type :uri :description "The URI of a dimension or attribute"}
-     :values    {:type (list :uri) :description "A list of dimension/attribute values"}
-     :levels    {:type (list :uri) :description "A list of URIs of the hierarchical levels of dimension/attribute value"}   
-    }
-   }
+  {:fields
+   {:component {:type :uri :description "The URI of a dimension or attribute"}
+    :values    {:type (list :uri) :description "A list of dimension/attribute values"}
+    :levels    {:type (list :uri) :description "A list of URIs of the hierarchical levels of dimension/attribute value"}}}
 
   :ref_period_filter
   {:fields
@@ -117,12 +126,7 @@
     :after {:type :SparqlCursor :description "Cursor to the start of the results page"}}}}
 
  :queries
- {:datasets
-  {:type    (list :dataset)
-   :resolve :resolve-datasets
-   :args
-            {:dimensions {:type :filter}
-             :measures       {:type :filter} 
-             :attributes     {:type :filter}
-             :componentValue {:type :valuefilter}
-             :uri        {:type :uri}}}}}
+ {:cubiql
+  {:type :qb
+   :resolve :resolve-cuibiql
+   :args {:lang_preference {:type String}}}}}

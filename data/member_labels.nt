@@ -1,25 +1,89 @@
-<http://purl.org/linked-data/sdmx/2009/dimension#refPeriod> <http://www.w3.org/2000/01/rdf-schema#label> "Reference Period"@en .
-<http://reference.data.gov.uk/id/year/2004> <http://www.w3.org/2000/01/rdf-schema#label> "2004" .
+<http://statistics.gov.scot/def/measure-properties/count> <http://www.w3.org/2000/01/rdf-schema#label> "Count" .
+<http://statistics.gov.scot/def/concept/gender/male> <http://www.w3.org/2000/01/rdf-schema#label> "Male" .
+<http://statistics.gov.scot/def/concept/gender/male> <http://www.w3.org/2000/01/rdf-schema#label> "Male" .
+<http://statistics.gov.scot/def/concept/gender/female> <http://www.w3.org/2000/01/rdf-schema#label> "Female" .
+<http://statistics.gov.scot/def/concept/gender/female> <http://www.w3.org/2000/01/rdf-schema#label> "Female" .
+<http://statistics.gov.scot/id/statistical-geography/S12000039> <http://www.w3.org/2000/01/rdf-schema#label> "West Dunbartonshire" .
+<http://statistics.gov.scot/id/statistical-geography/S12000040> <http://www.w3.org/2000/01/rdf-schema#label> "West Lothian" .
+<http://statistics.gov.scot/id/statistical-geography/S92000003> <http://www.w3.org/2000/01/rdf-schema#label> "Scotland" .
+<http://statistics.gov.scot/id/statistical-geography/S92000003> <http://www.w3.org/2000/01/rdf-schema#label> "Scotland" .
+<http://statistics.gov.scot/id/statistical-geography/S12000005> <http://www.w3.org/2000/01/rdf-schema#label> "Clackmannanshire" .
+<http://statistics.gov.scot/id/statistical-geography/S12000006> <http://www.w3.org/2000/01/rdf-schema#label> "Dumfries and Galloway" .
+<http://statistics.gov.scot/id/statistical-geography/S12000008> <http://www.w3.org/2000/01/rdf-schema#label> "East Ayrshire" .
+<http://statistics.gov.scot/id/statistical-geography/S12000010> <http://www.w3.org/2000/01/rdf-schema#label> "East Lothian" .
+<http://statistics.gov.scot/id/statistical-geography/S12000011> <http://www.w3.org/2000/01/rdf-schema#label> "East Renfrewshire" .
+<http://statistics.gov.scot/id/statistical-geography/S12000013> <http://www.w3.org/2000/01/rdf-schema#label> "Na h-Eileanan Siar" .
+<http://statistics.gov.scot/id/statistical-geography/S12000014> <http://www.w3.org/2000/01/rdf-schema#label> "Falkirk" .
+<http://statistics.gov.scot/id/statistical-geography/S12000017> <http://www.w3.org/2000/01/rdf-schema#label> "Highland" .
+<http://statistics.gov.scot/id/statistical-geography/S12000018> <http://www.w3.org/2000/01/rdf-schema#label> "Inverclyde" .
+<http://statistics.gov.scot/id/statistical-geography/S12000019> <http://www.w3.org/2000/01/rdf-schema#label> "Midlothian" .
+<http://statistics.gov.scot/id/statistical-geography/S12000020> <http://www.w3.org/2000/01/rdf-schema#label> "Moray" .
+<http://statistics.gov.scot/id/statistical-geography/S12000021> <http://www.w3.org/2000/01/rdf-schema#label> "North Ayrshire" .
+<http://statistics.gov.scot/id/statistical-geography/S12000023> <http://www.w3.org/2000/01/rdf-schema#label> "Orkney Islands" .
+<http://statistics.gov.scot/id/statistical-geography/S12000026> <http://www.w3.org/2000/01/rdf-schema#label> "Scottish Borders" .
+<http://statistics.gov.scot/id/statistical-geography/S12000027> <http://www.w3.org/2000/01/rdf-schema#label> "Shetland Islands" .
+<http://statistics.gov.scot/id/statistical-geography/S12000028> <http://www.w3.org/2000/01/rdf-schema#label> "South Ayrshire" .
+<http://statistics.gov.scot/id/statistical-geography/S12000029> <http://www.w3.org/2000/01/rdf-schema#label> "South Lanarkshire" .
+<http://statistics.gov.scot/id/statistical-geography/S12000030> <http://www.w3.org/2000/01/rdf-schema#label> "Stirling" .
+<http://statistics.gov.scot/id/statistical-geography/S12000033> <http://www.w3.org/2000/01/rdf-schema#label> "Aberdeen City" .
+<http://statistics.gov.scot/id/statistical-geography/S12000034> <http://www.w3.org/2000/01/rdf-schema#label> "Aberdeenshire" .
+<http://statistics.gov.scot/id/statistical-geography/S12000035> <http://www.w3.org/2000/01/rdf-schema#label> "Argyll and Bute" .
+<http://statistics.gov.scot/id/statistical-geography/S12000036> <http://www.w3.org/2000/01/rdf-schema#label> "City of Edinburgh" .
+<http://statistics.gov.scot/id/statistical-geography/S12000038> <http://www.w3.org/2000/01/rdf-schema#label> "Renfrewshire" .
+<http://statistics.gov.scot/id/statistical-geography/S12000041> <http://www.w3.org/2000/01/rdf-schema#label> "Angus" .
+<http://statistics.gov.scot/id/statistical-geography/S12000042> <http://www.w3.org/2000/01/rdf-schema#label> "Dundee City" .
+<http://statistics.gov.scot/id/statistical-geography/S12000044> <http://www.w3.org/2000/01/rdf-schema#label> "North Lanarkshire" .
+<http://statistics.gov.scot/id/statistical-geography/S12000045> <http://www.w3.org/2000/01/rdf-schema#label> "East Dunbartonshire" .
+<http://statistics.gov.scot/id/statistical-geography/S12000046> <http://www.w3.org/2000/01/rdf-schema#label> "Glasgow City" .
+<http://statistics.gov.scot/id/statistical-geography/S12000047> <http://www.w3.org/2000/01/rdf-schema#label> "Fife" .
+<http://statistics.gov.scot/id/statistical-geography/S12000048> <http://www.w3.org/2000/01/rdf-schema#label> "Perth and Kinross" .
+<http://statistics.gov.scot/def/concept/gender/all> <http://www.w3.org/2000/01/rdf-schema#label> "All" .
 <http://reference.data.gov.uk/id/year/2003> <http://www.w3.org/2000/01/rdf-schema#label> "2003" .
-<http://reference.data.gov.uk/id/year/2002> <http://www.w3.org/2000/01/rdf-schema#label> "2002" .
-<http://reference.data.gov.uk/id/year/1998> <http://www.w3.org/2000/01/rdf-schema#label> "1998" .
-<http://reference.data.gov.uk/id/year/1999> <http://www.w3.org/2000/01/rdf-schema#label> "1999" .
-<http://reference.data.gov.uk/id/year/2000> <http://www.w3.org/2000/01/rdf-schema#label> "2000" .
-<http://reference.data.gov.uk/id/year/2001> <http://www.w3.org/2000/01/rdf-schema#label> "2001" .
+<http://reference.data.gov.uk/id/year/2004> <http://www.w3.org/2000/01/rdf-schema#label> "2004" .
+<http://reference.data.gov.uk/id/year/2005> <http://www.w3.org/2000/01/rdf-schema#label> "2005" .
 <http://reference.data.gov.uk/id/year/2005> <http://www.w3.org/2000/01/rdf-schema#label> "2005" .
 <http://reference.data.gov.uk/id/year/2006> <http://www.w3.org/2000/01/rdf-schema#label> "2006" .
+<http://reference.data.gov.uk/id/year/2006> <http://www.w3.org/2000/01/rdf-schema#label> "2006" .
+<http://reference.data.gov.uk/id/year/2007> <http://www.w3.org/2000/01/rdf-schema#label> "2007" .
 <http://reference.data.gov.uk/id/year/2007> <http://www.w3.org/2000/01/rdf-schema#label> "2007" .
 <http://reference.data.gov.uk/id/year/2008> <http://www.w3.org/2000/01/rdf-schema#label> "2008" .
+<http://reference.data.gov.uk/id/year/2008> <http://www.w3.org/2000/01/rdf-schema#label> "2008" .
 <http://reference.data.gov.uk/id/year/2009> <http://www.w3.org/2000/01/rdf-schema#label> "2009" .
+<http://reference.data.gov.uk/id/year/2009> <http://www.w3.org/2000/01/rdf-schema#label> "2009" .
+<http://reference.data.gov.uk/id/year/2010> <http://www.w3.org/2000/01/rdf-schema#label> "2010" .
 <http://reference.data.gov.uk/id/year/2010> <http://www.w3.org/2000/01/rdf-schema#label> "2010" .
 <http://reference.data.gov.uk/id/year/2011> <http://www.w3.org/2000/01/rdf-schema#label> "2011" .
 <http://reference.data.gov.uk/id/year/2012> <http://www.w3.org/2000/01/rdf-schema#label> "2012" .
-<http://purl.org/linked-data/cube#measureType> <http://www.w3.org/2000/01/rdf-schema#label> "measure type"@en .
+<http://reference.data.gov.uk/id/year/2001> <http://www.w3.org/2000/01/rdf-schema#label> "2001" .
+<http://reference.data.gov.uk/id/year/2001> <http://www.w3.org/2000/01/rdf-schema#label> "2001" .
+<http://reference.data.gov.uk/id/year/2002> <http://www.w3.org/2000/01/rdf-schema#label> "2002" .
+<http://reference.data.gov.uk/id/year/2002> <http://www.w3.org/2000/01/rdf-schema#label> "2002" .
 <http://statistics.gov.scot/def/measure-properties/median> <http://www.w3.org/2000/01/rdf-schema#label> "Median" .
-<http://statistics.gov.scot/def/dimension/gender> <http://www.w3.org/2000/01/rdf-schema#label> "Gender" .
-<http://statistics.gov.scot/def/concept/gender/all> <http://www.w3.org/2000/01/rdf-schema#label> "All" .
-<http://statistics.gov.scot/def/concept/gender/male> <http://www.w3.org/2000/01/rdf-schema#label> "Male" .
-<http://statistics.gov.scot/def/concept/gender/female> <http://www.w3.org/2000/01/rdf-schema#label> "Female" .
-<http://statistics.gov.scot/def/dimension/populationGroup> <http://www.w3.org/2000/01/rdf-schema#label> "Population Group" .
-<http://statistics.gov.scot/def/concept/population-group/workplace-based> <http://www.w3.org/2000/01/rdf-schema#label> "Workplace Based" .
+<http://reference.data.gov.uk/id/year/1998> <http://www.w3.org/2000/01/rdf-schema#label> "1998" .
+<http://reference.data.gov.uk/id/year/1998> <http://www.w3.org/2000/01/rdf-schema#label> "1998" .
+<http://reference.data.gov.uk/id/year/1999> <http://www.w3.org/2000/01/rdf-schema#label> "1999" .
+<http://reference.data.gov.uk/id/year/1999> <http://www.w3.org/2000/01/rdf-schema#label> "1999" .
+<http://reference.data.gov.uk/id/year/2000> <http://www.w3.org/2000/01/rdf-schema#label> "2000" .
+<http://reference.data.gov.uk/id/year/2000> <http://www.w3.org/2000/01/rdf-schema#label> "2000" .
 <http://statistics.gov.scot/def/concept/population-group/residence-based> <http://www.w3.org/2000/01/rdf-schema#label> "Residence Based" .
+<http://statistics.gov.scot/def/concept/population-group/workplace-based> <http://www.w3.org/2000/01/rdf-schema#label> "Workplace Based" .
+<http://reference.data.gov.uk/id/year/1993> <http://www.w3.org/2000/01/rdf-schema#label> "1993" .
+<http://reference.data.gov.uk/id/year/1994> <http://www.w3.org/2000/01/rdf-schema#label> "1994" .
+<http://reference.data.gov.uk/id/year/1995> <http://www.w3.org/2000/01/rdf-schema#label> "1995" .
+<http://reference.data.gov.uk/id/year/1996> <http://www.w3.org/2000/01/rdf-schema#label> "1996" .
+<http://reference.data.gov.uk/id/year/1980> <http://www.w3.org/2000/01/rdf-schema#label> "1980" .
+<http://reference.data.gov.uk/id/year/1981> <http://www.w3.org/2000/01/rdf-schema#label> "1981" .
+<http://reference.data.gov.uk/id/year/1982> <http://www.w3.org/2000/01/rdf-schema#label> "1982" .
+<http://reference.data.gov.uk/id/year/1983> <http://www.w3.org/2000/01/rdf-schema#label> "1983" .
+<http://reference.data.gov.uk/id/year/1984> <http://www.w3.org/2000/01/rdf-schema#label> "1984" .
+<http://reference.data.gov.uk/id/year/1985> <http://www.w3.org/2000/01/rdf-schema#label> "1985" .
+<http://reference.data.gov.uk/id/year/1986> <http://www.w3.org/2000/01/rdf-schema#label> "1986" .
+<http://reference.data.gov.uk/id/year/1987> <http://www.w3.org/2000/01/rdf-schema#label> "1987" .
+<http://reference.data.gov.uk/id/year/1988> <http://www.w3.org/2000/01/rdf-schema#label> "1988" .
+<http://reference.data.gov.uk/id/year/1989> <http://www.w3.org/2000/01/rdf-schema#label> "1989" .
+<http://reference.data.gov.uk/id/year/1990> <http://www.w3.org/2000/01/rdf-schema#label> "1990" .
+<http://reference.data.gov.uk/id/year/1991> <http://www.w3.org/2000/01/rdf-schema#label> "1991" .
+<http://reference.data.gov.uk/id/year/1992> <http://www.w3.org/2000/01/rdf-schema#label> "1992" .
+<http://statistics.gov.scot/def/concept/confidence-interval/all> <http://www.w3.org/2000/01/rdf-schema#label> "All" .
+<http://statistics.gov.scot/def/concept/confidence-interval/lower> <http://www.w3.org/2000/01/rdf-schema#label> "Lower" .
+<http://statistics.gov.scot/def/concept/confidence-interval/upper> <http://www.w3.org/2000/01/rdf-schema#label> "Upper" .

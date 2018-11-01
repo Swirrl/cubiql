@@ -1,21 +1,6 @@
 (ns graphql-qb.schema-model
-  (:require [graphql-qb.types :as types]
-            [clojure.string :as string]
-            [clojure.pprint :as pp]
-            [graphql-qb.schema.mapping.labels])
-  (:import [graphql_qb.schema.mapping.labels GroupMapping]))
-
-(defn get-order-by [{:keys [order order_spec] :as args} dataset]
-  (map (fn [dm-uri]
-         (let [{:keys [field-name] :as dim-measure} (types/get-dataset-dimension-measure-by-uri dataset dm-uri)
-               dir (get order_spec field-name :ASC)]
-           [dim-measure dir]))
-       order))
-
-(defn map-dimension-filter [{filter :dimensions :as args} {:keys [dimensions] :as dataset}]
-  (into {} (map (fn [{:keys [field-name] :as f}]
-                  [f (get filter field-name)])
-                dimensions)))
+  (:require [clojure.string :as string])
+  (:import [graphql_qb.types GroupMapping]))
 
 (defn is-graphql-type? [x]
   (or (symbol? x)
@@ -34,9 +19,14 @@
 
 (defn merge-schemas [s1 s2]
   (merge-with (fn [v1 v2]
-                (if (and (map? v1) (map? v2))
-                  (merge-schemas v1 v2)
-                  v2))
+                (cond
+                  (and (map? v1) (map? v2)) (merge-schemas v1 v2)
+
+                  (nil? v1) v2
+
+                  (nil? v2) v1
+
+                  :else v2))
               s1 s2))
 
 (defn path->object-name [path]

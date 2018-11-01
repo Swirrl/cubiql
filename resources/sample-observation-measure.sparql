@@ -1,8 +1,0 @@
-PREFIX qb: <http://purl.org/linked-data/cube#>
-
-SELECT ?measure WHERE {
-  ?obs a qb:Observation .
-  ?obs qb:dataSet ?ds .
-  ?obs qb:measureType ?mt .
-  ?obs ?mt ?measure .
-} LIMIT 1

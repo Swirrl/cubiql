@@ -2,111 +2,281 @@
   (:require [graphql-qb.types :as types]
             [graphql-qb.resolvers :as resolvers]
             [graphql-qb.schema-model :as sm]
-            [clojure.pprint :as pp]
-            [graphql-qb.schema.mapping.labels :as mapping]
             [graphql-qb.context :as context]
-            [graphql-qb.queries :as queries]))
+            [graphql-qb.schema.mapping.dataset :as dsm]
+            [com.walmartlabs.lacinia.schema :as ls]
+            [graphql-qb.util :as util]
+            [grafter.rdf :as rdf])
+  (:import [graphql_qb.types EnumType RefPeriodType RefAreaType DecimalType StringType UnmappedType StringMeasureType FloatMeasureType MappedEnumType GroupMapping
+                             MeasureDimensionType]))
 
-(defn enum-type-name [dataset {:keys [enum-name] :as enum-type}]
-  (types/field-name->type-name enum-name (types/dataset-schema dataset)))
+(defprotocol ArgumentTransform
+  (transform-argument [this graphql-value]
+    "Converts a GraphQL argument value from the incoming query into the corresponding RDF value"))
 
-(defn type-schema-type-name [dataset type]
-  (cond
-    (types/is-ref-area-type? type) :ref_area
-    (types/is-ref-period-type? type) :ref_period
-    (types/is-enum-type? type) (enum-type-name dataset type)))
+(defprotocol ResultTransform
+  (transform-result [this inner-value]
+    "Transforms an RDF result from a query result into the corresponding GraphQL schema value"))
 
-(defn type-schema-input-type-name [dataset type]
-  (cond
-    (types/is-ref-area-type? type) :uri
-    (types/is-ref-period-type? type) :ref_period_filter
-    (types/is-enum-type? type) (enum-type-name dataset type)))
+(defprotocol ToGraphQLInputType
+  (->input-type-name [this]
+    "Returns the name of the type to use for the argument representation of this type"))
 
-;;TODO: move to resolvers namespace
-(defn argument-mapping-resolver [arg-mapping inner-resolver]
+(defprotocol ToGraphQLOutputType
+  (->output-type-name [this]
+    "Return the name of the type to use for the output representation of this type"))
+
+(extend-protocol ToGraphQLInputType
+  RefAreaType
+  (->input-type-name [_ref-area-type] :uri)
+
+  RefPeriodType
+  (->input-type-name [_ref-period-type] :ref_period_filter)
+
+  EnumType
+  (->input-type-name [_enum-type] :uri)
+
+  DecimalType
+  (->input-type-name [_decimal-type] 'Float)
+
+  StringType
+  (->input-type-name [_string-type] 'String)
+
+  MeasureDimensionType
+  (->input-type-name [_measure-dimension-type] :uri)
+
+  UnmappedType
+  (->input-type-name [_unmapped-type] 'String)
+
+  MappedEnumType
+  (->input-type-name [{:keys [enum-type-name]}] enum-type-name))
+
+(extend-protocol ToGraphQLOutputType
+  RefAreaType
+  (->output-type-name [_ref-area-type] :ref_area)
+
+  RefPeriodType
+  (->output-type-name [_ref-period-type] :ref_period)
+
+  EnumType
+  (->output-type-name [_enum-type] :uri)
+
+  DecimalType
+  (->output-type-name [_decimal-type] 'Float)
+
+  StringType
+  (->output-type-name [_string-type] 'String)
+
+  MeasureDimensionType
+  (->output-type-name [_measure-dimension-type] :uri)
+
+  UnmappedType
+  (->output-type-name [_unmapped-type] 'String)
+
+  MappedEnumType
+  (->output-type-name [{:keys [enum-type-name]}] enum-type-name)
+
+  StringMeasureType
+  (->output-type-name [_string-type] 'String)
+
+  FloatMeasureType
+  (->output-type-name [_float-type] 'Float))
+
+(defn identity-transform [_type value] value)
+
+(extend-protocol ResultTransform
+  RefAreaType
+  (transform-result [_ref-area-type result] result)
+
+  RefPeriodType
+  (transform-result [_ref-period-type result] result)
+
+  StringType
+  (transform-result [_string-type result] (str result))
+
+  UnmappedType
+  (transform-result [_type result] (str result))
+
+  FloatMeasureType
+  (transform-result [_this r] (some-> r double))
+
+  StringMeasureType
+  (transform-result [_this r] (some-> r str))
+
+  MappedEnumType
+  (transform-result [{:keys [items] :as _this} result]
+    (->> items
+         (util/find-first (fn [{:keys [value]}]
+                            (= value result)))
+         (:name))))
+
+(def default-result-transform-impl
+  {:transform-result identity-transform})
+
+(extend EnumType ResultTransform default-result-transform-impl)
+(extend DecimalType ResultTransform default-result-transform-impl)
+(extend MeasureDimensionType default-result-transform-impl)
+
+(def default-argument-transform-impl
+  {:transform-argument identity-transform})
+
+(extend RefAreaType ArgumentTransform default-argument-transform-impl)
+(extend RefPeriodType ArgumentTransform default-argument-transform-impl)
+(extend EnumType ArgumentTransform default-argument-transform-impl)
+(extend DecimalType ArgumentTransform default-argument-transform-impl)
+(extend StringType ArgumentTransform default-argument-transform-impl)
+(extend MeasureDimensionType default-argument-transform-impl)
+(extend UnmappedType ArgumentTransform default-argument-transform-impl)
+
+(extend-protocol ArgumentTransform
+  MappedEnumType
+  (transform-argument [{:keys [items] :as _this} graphql-value]
+    (:value (types/find-item-by-name graphql-value items)))
+
+  GroupMapping
+  (transform-argument [{:keys [items] :as _this} graphql-value]
+    (:value (types/find-item-by-name graphql-value items)))
+
+  UnmappedType
+  (transform-argument [{:keys [type-uri] :as _unmapped-type} graphql-value]
+    ;;map values as string literals if no type associated with the dimension
+    (if (some? type-uri)
+      (rdf/literal graphql-value type-uri)
+      graphql-value)))
+
+(defn create-aggregation-resolver [dataset-mapping aggregation-fn aggregation-measures-enum]
+  (fn [context {:keys [measure] :as args} field]
+    (let [measure-uri (transform-argument aggregation-measures-enum measure)
+          {:keys [type] :as measure-mapping} (dsm/get-measure-by-uri dataset-mapping measure-uri)
+          result (resolvers/resolve-observations-aggregation aggregation-fn context {:measure measure-mapping} field)]
+      (transform-result type result))))
+
+(defn get-order-by
+  "Returns an ordered list of [component-uri sort-direction] given a sequence of component URIs and an associated
+   (possibly partial) specification for the order direction of each field. If the sort direction is not specified
+   for an ordered field it will be sorted in ascending order."
+  [{:keys [order order_spec] :as args} dataset-mapping]
+  (map (fn [dm-uri]
+         (let [{:keys [uri] :as comp} (dsm/get-component-by-uri dataset-mapping dm-uri)
+               direction (get order_spec uri :ASC)]
+           [(dsm/component-mapping->component comp) direction]))
+       order))
+
+(defn map-dimension-filter [dimensions dataset-mapping]
+  (into {} (map (fn [{:keys [uri dimension] :as dim-mapping}]
+                  [dimension (get dimensions uri)])
+                (dsm/dimensions dataset-mapping))))
+
+(defn map-dataset-observation-args [{:keys [dimensions order order_spec]} dataset-mapping]
+  (let [mapped-dimensions (into {} (map (fn [[field-name value]]
+                                          (let [{:keys [uri type]} (dsm/get-dimension-by-field-name dataset-mapping field-name)]
+                                            [uri (transform-argument type value)]))
+                                        dimensions))
+        mapped-order (mapv (fn [component-enum]
+                             (:uri (dsm/get-component-by-enum-name dataset-mapping component-enum)))
+                           order)
+        mapped-order-spec (into {} (map (fn [[field-name dir]]
+                                          [(:uri (dsm/get-component-by-field-name dataset-mapping field-name)) dir])
+                                        order_spec))]
+    {:dimensions mapped-dimensions
+     :order      mapped-order
+     :order_spec mapped-order-spec}))
+
+(defn get-observation-selections [context]
+  (get-in (context/get-selections context) [:page :observation]))
+
+(defn map-observation-selections [dataset-mapping selections]
+  (into {} (keep (fn [{:keys [field-name uri] :as comp}]
+                   (when (contains? selections field-name)
+                     [uri (get selections field-name)]))
+                 (dsm/components dataset-mapping))))
+
+(defn create-observation-resolver [dataset-mapping]
   (fn [context args field]
-    (let [mapped-args (mapping/transform-argument arg-mapping args)]
-      (inner-resolver context mapped-args field))))
+    (let [{:keys [dimensions] :as mapped-args} (map-dataset-observation-args args dataset-mapping)
+          updated-args {::resolvers/dimensions-filter (map-dimension-filter dimensions dataset-mapping)
+                        ::resolvers/order-by (get-order-by mapped-args dataset-mapping)}
+          selected-observation-fields (get-observation-selections context)
+          result (resolvers/resolve-observations context updated-args field)]
+      (assoc result ::resolvers/observation-selections (map-observation-selections dataset-mapping selected-observation-fields)))))
 
-(defn wrap-dataset-result-measures-resolver [inner-resolver measures-mapping]
-  (resolvers/wrap-post-resolver inner-resolver (fn [result]
-                                       (let [ds (::resolvers/dataset result)]
-                                         (assoc ds :measures measures-mapping ::resolvers/dataset ds)))))
+(defn get-measure-type-measure-value
+  "Gets the value for the specified measure from a map of observation query bindings for a dataset with an
+   explicit measure dimension. The observation should have a single measure defined by the qb:measureType which
+   is bound to the ?mp variable."
+  [{:keys [uri] :as measure} {:keys [mp mv] :as bindings}]
+  (if (= uri mp)
+    mv))
 
-(defn create-aggregation-resolver [dataset aggregation-fn aggregation-measures-enum]
-  (let [arg-mapping (mapping/->MapTransform {:measure aggregation-measures-enum})
-        inner-resolver (fn [context args field]
-                         ;;TODO: move this measure-uri -> measure resolution function somewhere else
-                         (let [updated-args (update args :measure (fn [measure-uri]
-                                                                    (types/get-dataset-measure-by-uri dataset measure-uri)))]
-                           (resolvers/resolve-observations-aggregation aggregation-fn context updated-args field)))]
-    (argument-mapping-resolver arg-mapping inner-resolver)))
+(defn get-multi-measure-value
+  "Gets the value for the specified measure from a map of observation query bindings for a dataset with multiple
+   measure values per observation. A value for each measure should be associated with the observation."
+  [{:keys [order] :as measure} bindings]
+  (let [measure-key (keyword (str "mv" order))]
+    (get bindings measure-key)))
 
-(defn create-observation-resolver [dataset dataset-enum-mappings]
-  (let [arg-mapping (mapping/get-dataset-observations-argument-mapping dataset dataset-enum-mappings)]
-    (argument-mapping-resolver
-      arg-mapping
-      (fn [context args field]
-        (let [dim-filter (sm/map-dimension-filter args dataset)
-              order-by (sm/get-order-by args dataset)
-              updated-args (-> args
-                               (assoc ::resolvers/dimensions-filter dim-filter)
-                               (assoc ::resolvers/order-by order-by))]
-          (resolvers/resolve-observations context updated-args field))))))
+(defn- map-measure-values
+  "Returns a sequence of [field-name value] pairs for each measure type defined for the given dataset for a single
+   bindings row of the observations query results."
+  [dataset-model bindings]
+  (let [measure-value-fn (if (dsm/has-measure-type-dimension? dataset-model)
+                           get-measure-type-measure-value
+                           get-multi-measure-value)]
+    (map (fn [{:keys [field-name type measure] :as measure-mapping}]
+           (let [value (measure-value-fn measure bindings)]
+             [field-name (transform-result type value)]))
+         (dsm/measures dataset-model))))
 
-(defn wrap-observations-mapping [inner-resolver dataset dataset-enum-mappings]
-  (fn [context args observations-field]
-    (let [result (inner-resolver context args observations-field)
-          projection (merge {:uri :obs} (types/dataset-result-projection dataset))
-          result-mapping (mapping/get-dataset-observations-result-mapping dataset dataset-enum-mappings)
-          mapped-result (mapv (fn [obs-bindings]
-                                (let [sparql-result (types/project-result projection obs-bindings)]
-                                  (mapping/transform-result result-mapping sparql-result)))
-                              (::resolvers/observation-results result))]
-      (assoc result :observations mapped-result))))
+(defn get-observation-result [dataset-model bindings]
+  (let [dimension-results (map (fn [{:keys [field-name type dimension] :as dimension-mapping}]
+                                 (let [result (types/project-result dimension bindings)]
+                                   [field-name (transform-result type result)]))
+                               (dsm/dimensions dataset-model))
+        measure-results (map-measure-values dataset-model bindings)]
+    (into {:uri (:obs bindings)} (concat dimension-results measure-results))))
 
-(defn create-aggregation-field [dataset field-name aggregation-measures-enum-mapping aggregation-fn]
+(defn create-aggregation-field [dataset-mapping field-name aggregation-measures-enum-mapping aggregation-fn]
   {field-name
    {:type    'Float
     :args    {:measure {:type (sm/non-null aggregation-measures-enum-mapping) :description "The measure to aggregate"}}
-    :resolve (create-aggregation-resolver dataset aggregation-fn aggregation-measures-enum-mapping)}})
+    :resolve (create-aggregation-resolver dataset-mapping aggregation-fn aggregation-measures-enum-mapping)}})
 
-(defn get-aggregations-schema-model [dataset aggregation-measures-enum-mapping]
+(defn get-aggregations-schema-model [dataset-mapping aggregation-measures-enum-mapping]
   {:type
    {:fields
     (merge
-      (create-aggregation-field dataset :max aggregation-measures-enum-mapping :max)
-      (create-aggregation-field dataset :min aggregation-measures-enum-mapping :min)
-      (create-aggregation-field dataset :sum aggregation-measures-enum-mapping :sum)
-      (create-aggregation-field dataset :average aggregation-measures-enum-mapping :avg))}})
+      (create-aggregation-field dataset-mapping :max aggregation-measures-enum-mapping :max)
+      (create-aggregation-field dataset-mapping :min aggregation-measures-enum-mapping :min)
+      (create-aggregation-field dataset-mapping :sum aggregation-measures-enum-mapping :sum)
+      (create-aggregation-field dataset-mapping :average aggregation-measures-enum-mapping :avg))}})
 
-(defn dataset-observation-dimensions-schema-model [{:keys [dimensions] :as dataset}]
+(defn dataset-observation-dimensions-input-schema-model [dataset-mapping]
   (into {} (map (fn [{:keys [field-name type] :as dim}]
-                  [field-name {:type (type-schema-type-name dataset type)}])
-                dimensions)))
+                  [field-name {:type (->input-type-name type)}])
+                (dsm/dimensions dataset-mapping))))
 
-;;TODO: combine with dataset-observation-dimensions-schema-model?
-(defn dataset-observation-dimensions-input-schema-model [{:keys [dimensions] :as dataset}]
-  (into {} (map (fn [{:keys [field-name type] :as dim}]
-                  [field-name {:type (type-schema-input-type-name dataset type)}])
-                dimensions)))
-
-(defn dataset-observation-schema-model [dataset]
-  (let [dimensions-model (dataset-observation-dimensions-schema-model dataset)
-        measures (map (fn [{:keys [field-name] :as measure}]
-                        [field-name {:type 'String}])
-                      (:measures dataset))]
+(defn dataset-observation-schema-model [dataset-mapping]
+  (let [field-types (map (fn [{:keys [field-name type] :as comp}]
+                           [field-name {:type (->output-type-name type)}])
+                         (dsm/components dataset-mapping))]
     (into {:uri {:type :uri}}
-          (concat dimensions-model measures))))
+          field-types)))
 
-(defn dataset-order-spec-schema-model [dataset]
-  (let [dim-measures (types/dataset-dimension-measures dataset)]
-    (into {} (map (fn [{:keys [field-name]}]
-                    [field-name {:type :sort_direction}]))
-          dim-measures)))
+(defn dataset-order-spec-schema-model [dataset-mapping]
+  (into {} (map (fn [{:keys [field-name] :as comp}]
+                  [field-name {:type :sort_direction}]))
+        (dsm/components dataset-mapping)))
 
-(defn get-observation-schema-model [dataset dataset-enum-mappings]
-  (let [dimensions-measures-enum-mapping (mapping/dataset-dimensions-measures-enum-group dataset)
+(defn create-dataset-observations-page-resolver [dataset-mapping]
+  (fn [context args observations-field]
+    (let [result (resolvers/resolve-observations-page context args observations-field)
+          mapped-result (mapv (fn [obs-bindings]
+                                (get-observation-result dataset-mapping obs-bindings))
+                              (::resolvers/observation-results result))]
+      (assoc result :observation mapped-result))))
+
+(defn get-observation-schema-model [dataset-mapping]
+  (let [dimensions-measures-enum-mapping (dsm/components-enum-group dataset-mapping)
         obs-model {:type
                    {:fields
                     {:sparql
@@ -118,55 +288,129 @@
                       {:fields
                        {:next_page    {:type :SparqlCursor :description "Cursor to the next page of results"}
                         :count        {:type 'Int}
-                        :observations {:type [{:fields (dataset-observation-schema-model dataset)}] :description "List of observations on this page"}}}
+                        :observation {:type [{:fields (dataset-observation-schema-model dataset-mapping)}] :description "List of observations on this page"}}}
                       :args        {:after {:type :SparqlCursor}
                                     :first {:type 'Int}}
                       :description "Page of results to retrieve."
-                      :resolve     (wrap-observations-mapping resolvers/resolve-observations-page dataset dataset-enum-mappings)}
+                      :resolve     (create-dataset-observations-page-resolver dataset-mapping)}
                      :total_matches {:type 'Int}}}
                    :args
-                   {:dimensions {:type {:fields (dataset-observation-dimensions-input-schema-model dataset)}}
+                   {:dimensions {:type {:fields (dataset-observation-dimensions-input-schema-model dataset-mapping)}}
                     :order      {:type [dimensions-measures-enum-mapping]}
-                    :order_spec {:type {:fields (dataset-order-spec-schema-model dataset)}}}
-                   :resolve (create-observation-resolver dataset dataset-enum-mappings)}
-        aggregation-measures-enum-mapping (mapping/dataset-aggregation-measures-enum-group dataset)]
+                    :order_spec {:type {:fields (dataset-order-spec-schema-model dataset-mapping)}}}
+                   :resolve (resolvers/wrap-options (create-observation-resolver dataset-mapping))}
+        aggregation-measures-enum-mapping (dsm/aggregation-measures-enum-group dataset-mapping)]
     (if (nil? aggregation-measures-enum-mapping)
       obs-model
-      (let [aggregation-fields (get-aggregations-schema-model dataset aggregation-measures-enum-mapping)]
+      (let [aggregation-fields (get-aggregations-schema-model dataset-mapping aggregation-measures-enum-mapping)]
         (assoc-in obs-model [:type :fields :aggregations] aggregation-fields)))))
 
-(defn get-query-schema-model [{:keys [description] :as dataset} dataset-enum-mappings dataset-measure-mappings]
-  (let [schema-name (types/dataset-schema dataset)
-        observations-model (get-observation-schema-model dataset dataset-enum-mappings)]
-    {schema-name
-     {:type
-      {:implements  [:dataset_meta]
-       :fields      {:uri          {:type :uri :description "Dataset URI"}
-                     :title        {:type 'String :description "Dataset title"}
-                     :description  {:type 'String :description "Dataset description"}
-                     :licence      {:type :uri :description "URI of the licence the dataset is published under"}
-                     :issued       {:type :DateTime :description "When the dataset was issued"}
-                     :modified     {:type :DateTime :description "When the dataset was last modified"}
-                     :publisher    {:type :uri :description "URI of the publisher of the dataset"}
-                     :schema       {:type 'String :description "Name of the GraphQL query root field corresponding to this dataset"}
-                     :dimensions   {:type        [:dim]
-                                    :resolve     (fn [context _args _field]
-                                                   (let [repo (context/get-repository context)
-                                                         unmapped-dims (queries/get-unmapped-dimension-values repo dataset)]
-                                                     (mapping/format-dataset-dimension-values dataset dataset-enum-mappings unmapped-dims)))
-                                    :description "Dimensions within the dataset"}
-                     :measures     {:type        [:measure]
-                                    :description "Measure types within the dataset"}
-                     :observations observations-model}
-       :description (or description "")}
-      :resolve (wrap-dataset-result-measures-resolver
-                 (resolvers/dataset-resolver dataset)
-                 dataset-measure-mappings)}}))
+;;TODO: move? replace with protocol?
+(defn- is-enum-type? [type]
+  (instance? MappedEnumType type))
 
-(defn get-dataset-schema [dataset dataset-enum-mapping dataset-measure-mappings]
-  (let [ds-enums-schema (mapping/dataset-enum-types-schema dataset dataset-enum-mapping)
-        enums-schema {:enums ds-enums-schema}
-        query-model (get-query-schema-model dataset dataset-enum-mapping dataset-measure-mappings)
-        query-schema (sm/visit-queries query-model)]
-    (-> query-schema
-        (sm/merge-schemas enums-schema))))
+(defn- annotate-dimension-values [{:keys [type] :as dimension-mapping} dimension-values]
+  (when dimension-values
+    (if (is-enum-type? type)
+      (mapv (fn [{:keys [uri] :as enum-value}]
+              (let [enum-item (util/find-first #(= uri (:value %)) (:items type))]
+                (-> enum-value
+                    (assoc :enum_name (name (:name enum-item)))
+                    (ls/tag-with-type :enum_dim_value))))
+            dimension-values)
+      (mapv #(ls/tag-with-type % :unmapped_dim_value) dimension-values))))
+
+(defn annotate-dataset-dimensions [dataset-mapping dimensions]
+  (mapv (fn [{:keys [uri] :as dim}]
+          (let [{:keys [enum-name] :as dim-mapping} (dsm/get-dimension-by-uri dataset-mapping uri)]
+            (-> dim
+                (assoc :enum_name (name enum-name))
+                (update :values #(annotate-dimension-values dim-mapping %)))))
+        dimensions))
+
+(defn create-dataset-dimensions-resolver [dataset-mapping]
+  (fn [context args field]
+    (let [inner-resolver (resolvers/create-dataset-dimensions-resolver dataset-mapping)
+          results (inner-resolver context args field)]
+      (annotate-dataset-dimensions dataset-mapping results))))
+
+(defn create-global-dataset-dimensions-resolver [all-dataset-mappings]
+  (let [uri->dataset-mapping (util/strict-map-by :uri all-dataset-mappings)]
+    (fn [context args {:keys [uri] :as dataset-mapping-field}]
+      (let [dataset-mapping (util/strict-get uri->dataset-mapping uri)
+            results (resolvers/dataset-dimensions-resolver context args dataset-mapping-field)]
+        (annotate-dataset-dimensions dataset-mapping results)))))
+
+(defn map-dataset-measure-results [dataset-mapping results]
+  (mapv (fn [{:keys [uri] :as result}]
+          (let [measure-mapping (dsm/get-measure-by-uri dataset-mapping uri)]
+            (assoc result :enum_name (name (:enum-name measure-mapping)))))
+        results))
+
+(defn create-dataset-measures-resolver [dataset-mapping]
+  (fn [context args field]
+    (let [inner-resolver (resolvers/create-dataset-measures-resolver dataset-mapping)
+          results (inner-resolver context args field)]
+      (map-dataset-measure-results dataset-mapping results))))
+
+;;TODO: refactor with create-dataset-measures-resolver
+(defn global-dataset-measures-resolver [context args {:keys [uri] :as dataset-field}]
+  (let [dataset-mapping (context/get-dataset-mapping context uri)
+        inner-resolver (resolvers/create-dataset-measures-resolver dataset-mapping)
+        results (inner-resolver context args dataset-mapping)]
+    (map-dataset-measure-results dataset-mapping results)))
+
+(defn create-dataset-resolver [dataset-mapping]
+  (resolvers/wrap-options
+    ;;TODO: add spec for resolver result?
+    ;;should contain keys defined in dataset schema
+    (resolvers/dataset-resolver dataset-mapping)))
+
+(defn get-query-schema-model [{:keys [schema] :as dataset-mapping}]
+  (let [observations-model (get-observation-schema-model dataset-mapping)]
+    {schema
+     {:type
+               {:implements  [:dataset_meta]
+                :fields      {:uri          {:type :uri :description "Dataset URI"}
+                              :title        {:type 'String :description "Dataset title"}
+                              :description  {:type ['String] :description "Dataset descriptions"}
+                              :licence      {:type [:uri] :description "URIs of the licences the dataset is published under"}
+                              :issued       {:type [:DateTime] :description "When the dataset was issued"}
+                              :modified     {:type :DateTime :description "When the dataset was last modified"}
+                              :publisher    {:type [:uri] :description "URIs of the publishers of the dataset"}
+                              :schema       {:type 'String :description "Name of the GraphQL query root field corresponding to this dataset"}
+                              :dimensions   {:type        [:dim]
+                                             :resolve     (create-dataset-dimensions-resolver dataset-mapping)
+                                             :description "Dimensions within the dataset"}
+                              :measures     {:type        [:measure]
+                                             :description "Measure types within the dataset"
+                                             :resolve     (create-dataset-measures-resolver dataset-mapping)}
+                              :observations observations-model}
+                :description (dsm/description dataset-mapping)}
+      :resolve (create-dataset-resolver dataset-mapping)}}))
+
+(defn dimension->enum-schema [{:keys [type] :as dim}]
+  (when (instance? MappedEnumType type)
+    (let [{:keys [enum-type-name doc items]} type]
+      (if (some? doc)
+        {enum-type-name {:values (mapv :name items) :description doc}}
+        {enum-type-name {:values (mapv :name items)}}))))
+
+(defn dataset-enum-types-schema [dataset-mapping]
+  (apply merge (map (fn [dim]
+                      (dimension->enum-schema dim))
+                    (dsm/dimensions dataset-mapping))))
+
+(defn get-qb-fields-schema [dataset-mappings]
+  (reduce (fn [{:keys [qb-fields] :as acc} dsm]
+            (let [m (get-query-schema-model dsm)
+                  [field-name field] (first m)
+                  field-schema (sm/visit-field [field-name] field-name field :objects)
+                  ds-enums-schema {:enums (dataset-enum-types-schema dsm)}
+                  field (::sm/field field-schema)
+                  schema (::sm/schema field-schema)
+                  schema (sm/merge-schemas schema ds-enums-schema)]
+              {:qb-fields (assoc qb-fields field-name field)
+               :schema (sm/merge-schemas (:schema acc) schema)}))
+          {:qb-fields {} :schema {}}
+          dataset-mappings))

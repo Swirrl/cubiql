@@ -4,8 +4,19 @@
 <http://statistics.gov.scot/data/earnings> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://rdfs.org/ns/void#Dataset> .
 <http://statistics.gov.scot/data/earnings> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/dcat#Dataset> .
 <http://statistics.gov.scot/data/earnings> <http://www.w3.org/2000/01/rdf-schema#label> "Earnings" .
+<http://statistics.gov.scot/data/earnings> <http://www.w3.org/2000/01/rdf-schema#label> "Earnings"@en .
+<http://statistics.gov.scot/data/earnings> <http://www.w3.org/2000/01/rdf-schema#label> "Urningz"@de .
+<http://statistics.gov.scot/data/earnings> <http://www.w3.org/2000/01/rdf-schema#label> "Eauxnings"@fr .
+
 <http://statistics.gov.scot/data/earnings> <http://purl.org/dc/terms/title> "Earnings" .
+<http://statistics.gov.scot/data/earnings> <http://purl.org/dc/terms/title> "Earnings"@en .
+<http://statistics.gov.scot/data/earnings> <http://purl.org/dc/terms/title> "Urningz"@de .
+<http://statistics.gov.scot/data/earnings> <http://purl.org/dc/terms/title> "Eauxnings"@fr .
+
 <http://statistics.gov.scot/data/earnings> <http://www.w3.org/2000/01/rdf-schema#comment> "Median gross weekly earnings (\u00A3s) by gender and workplace/residence measure. " .
+<http://statistics.gov.scot/data/earnings> <http://www.w3.org/2000/01/rdf-schema#comment> "Median gross weekly urningz (\u00A3s) by gender und workplace/residence measure. "@de .
+<http://statistics.gov.scot/data/earnings> <http://www.w3.org/2000/01/rdf-schema#comment> "Median gross weekly eauxnings (\u00A3s) by gender et workplace/residence measure. "@fr .
+
 <http://statistics.gov.scot/data/earnings> <http://publishmydata.com/def/dataset#contactEmail> <mailto:statistics.enquiries@scotland.gsi.gov.uk> .
 <http://statistics.gov.scot/data/earnings> <http://publishmydata.com/def/dataset#graph> <http://statistics.gov.scot/graph/earnings> .
 <http://statistics.gov.scot/data/earnings> <http://purl.org/dc/terms/issued> "2014-07-29T02:00:00+02:00"^^<http://www.w3.org/2001/XMLSchema#dateTime> .

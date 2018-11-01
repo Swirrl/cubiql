@@ -1,59 +1,50 @@
 (ns graphql-qb.types
   "Functions for mapping DSD elements to/from GraphQL types"
-  (:require [clojure.string :as string]
-            [graphql-qb.query-model :as qm]
+  (:require [graphql-qb.query-model :as qm]
             [graphql-qb.vocabulary :refer [time:hasBeginning time:hasEnd time:inXSDDateTime rdfs:label]]
             [graphql-qb.types.scalars :refer [grafter-date->datetime]]
-            [graphql-qb.util :as util])
-  (:import [clojure.lang Keyword IPersistentMap]))
-
-(defn get-identifier-segments [label]
-  (let [segments (re-seq #"[a-zA-Z0-9]+" (str label))]
-    (if (empty? segments)
-      (throw (IllegalArgumentException. (format "Cannot construct identifier from label '%s'" label)))
-      (let [first-char (ffirst segments)]
-        (if (Character/isDigit first-char)
-          (cons "a" segments)
-          segments)))))
-
-(defn- segments->schema-key [segments]
-  (->> segments
-       (map string/lower-case)
-       (string/join "_")
-       (keyword)))
-
-(defn dataset-label->schema-name [label]
-  (segments->schema-key (cons "dataset" (get-identifier-segments label))))
-
-(defn label->field-name [label]
-  (segments->schema-key (get-identifier-segments label)))
-
-(defn ->field-name [{:keys [label]}]
-  (label->field-name label))
-
-(defn field-name->type-name [field-name ds-schema]
-  (keyword (str (name ds-schema) "_" (name field-name) "_type")))
+            [graphql-qb.util :as util]
+            [graphql-qb.config :as config]))
 
 (defprotocol SparqlFilterable
   (apply-filter [this model graphql-value]))
 
 (defprotocol SparqlQueryable
-  (apply-order-by [this model direction]))
+  (apply-order-by [this model direction config]))
+
+(defprotocol SparqlTypeProjection
+  "Protocol for projecting a set of observation SPARQL bindings into a data structure
+   for the type"
+  (project-type-result [type root-key bindings]
+    "Extracts any values associated with the the dimensions key from a map of SPARQL bindings and returns
+     a data structure representing this type."))
 
 (defrecord RefAreaType [])
-
 (defrecord RefPeriodType [])
+(defrecord EnumType [])
+(defrecord DecimalType [])
+(defrecord StringType [])
+(defrecord MeasureDimensionType [])
+(defrecord UnmappedType [type-uri])
 
-(defrecord EnumType [enum-name values])
+(defn find-item-by-name [name items]
+  (util/find-first #(= name (:name %)) items))
 
-(defn is-enum-type? [type]
-  (instance? EnumType type))
+(defn find-item-by-value [value items]
+  )
 
-(defn is-ref-area-type? [type]
-  (instance? RefAreaType type))
+(defrecord EnumMappingItem [name value label])
 
-(defn is-ref-period-type? [type]
-  (instance? RefPeriodType type))
+(defrecord MappedEnumType [enum-type-name type doc items])
+
+(defrecord GroupMapping [name items])
+
+(def ref-area-type (->RefAreaType))
+(def ref-period-type (->RefPeriodType))
+(def decimal-type (->DecimalType))
+(def string-type (->StringType))
+(def enum-type (->EnumType))
+(def measure-dimension-type (->MeasureDimensionType))
 
 (defn maybe-add-period-filter [model dim-key dim-uri interval-key filter-fn dt]
   (if (some? dt)
@@ -77,139 +68,174 @@
             (maybe-add-period-filter dim-key dim-uri [:end time:hasEnd] '>= ends_after))))))
 
 (defprotocol SparqlResultProjector
-  (apply-projection [this model selections])
-  (project-result [this sparql-binding])
-  (get-result-projection [this]))
+  (apply-projection [this model selections config])
+  (project-result [this sparql-binding]))
 
-(extend-protocol SparqlResultProjector
-  Keyword
-  (apply-projection [kw model selections]
+(extend-protocol SparqlTypeProjection
+  RefPeriodType
+  (project-type-result [_type dim-key bindings]
+    {:uri   (get bindings dim-key)
+     :label (get bindings (qm/key-path->var-key [dim-key :label]))
+     :start (some-> (get bindings (qm/key-path->var-key [dim-key :begin :time])) grafter-date->datetime)
+     :end   (some-> (get bindings (qm/key-path->var-key [dim-key :end :time])) grafter-date->datetime)})
+
+  RefAreaType
+  (project-type-result [_type dim-key bindings]
+    {:uri   (get bindings dim-key)
+     :label (get bindings (qm/key-path->var-key [dim-key :label]))})
+
+  EnumType
+  (project-type-result [_type dim-key bindings]
+    (get bindings dim-key))
+
+  DecimalType
+  (project-type-result [_type dim-key bindings]
+    (get bindings dim-key))
+
+  StringType
+  (project-type-result [_type dim-key bindings]
+    (get bindings dim-key))
+
+  MeasureDimensionType
+  (project-type-result [_type dim-key bindings]
+    (get bindings dim-key))
+
+  UnmappedType
+  (project-type-result [_type dim-key bindings]
+    (some-> (get bindings dim-key) str)))
+
+(defprotocol TypeResultProjector
+  (apply-type-projection [type dim-key uri model field-selections configuration]))
+
+(extend-protocol TypeResultProjector
+  RefPeriodType
+  (apply-type-projection [_type dim-key uri model field-selections configuration]
+    (let [codelist-label (config/dataset-label configuration)
+          model (qm/add-binding model [[dim-key uri]] ::qm/var)
+          model (if (contains? field-selections :label)
+                  (qm/add-binding model [[dim-key uri] [:label codelist-label]] ::qm/var)
+                  model)
+          model (if (contains? field-selections :start)
+                  (qm/add-binding model [[dim-key uri] [:begin time:hasBeginning] [:time time:inXSDDateTime]] ::qm/var)
+                  model)]
+      (if (contains? field-selections :end)
+        (qm/add-binding model [[dim-key uri] [:end time:hasEnd] [:time time:inXSDDateTime]] ::qm/var)
+        model)))
+
+  RefAreaType
+  (apply-type-projection [_type dim-key uri model field-selections configuration]
+    (let [label-selected? (contains? field-selections :label)
+          codelist-label (config/dataset-label configuration)]
+      (if label-selected?
+        (qm/add-binding model [[dim-key uri] [:label codelist-label]] ::qm/var)
+        model)))
+
+  EnumType
+  (apply-type-projection [_type _dim-key _uri model _field-selections _configuration]
     model)
-  (project-result [kw sparql-binding]
-    (get sparql-binding kw))
 
-  IPersistentMap
-  (apply-projection [m model selections]
-    (reduce (fn [acc [k inner-selections]]
-              (let [proj (get m k)]
-                (apply-projection proj acc inner-selections)))
-            model
-            selections))
+  DecimalType
+  (apply-type-projection [_type _dim-key _uri model _field-selections _configuration]
+    model)
 
-  (project-result [m sparql-binding]
-    (into {} (map (fn [[k projector]]
-                    [k (project-result projector sparql-binding)])
-                  m))))
+  StringType
+  (apply-type-projection [_type _dim-key _uri model _field-selections _configuration]
+    model)
 
-(defrecord PathProjection [path optional? transform-f]
-  SparqlResultProjector
-  (apply-projection [_this model selections]
-    (qm/add-binding model path ::qm/var :optional? optional?))
-  (project-result [_this sparql-binding]
-    (let [key-path (mapv first path)
-          var-key (keyword (qm/key-path->var-name key-path))
-          sparql-value (get sparql-binding var-key)]
-      (if (and optional? (nil? sparql-value))
-        nil
-        (transform-f sparql-value)))))
+  MeasureDimensionType
+  (apply-type-projection [_type _dim-key _uri model _field-selections _configuration]
+    model)
 
-(defrecord Dimension [uri label order type]
+  UnmappedType
+  (apply-type-projection [_type _dim-key _uri model _field-selections _configuration]
+    model))
+
+(defprotocol TypeOrderBy
+  (apply-type-order-by [type dim-key dimension-uri model direction configuration]))
+
+(defn- default-type-order-by [_type dim-key _dimension-uri model direction _configuration]
+  ;;NOTE: binding should have already been added
+  (qm/add-order-by model {direction [dim-key]}))
+
+(def default-type-order-by-impl {:apply-type-order-by default-type-order-by})
+
+(defn- ref-area-order-by [type dim-key dimension-uri model direction configuration]
+  (let [codelist-label (config/dataset-label configuration)]
+    (-> model
+        (qm/add-binding [[dim-key dimension-uri] [:label codelist-label]] ::qm/var)
+        (qm/add-order-by {direction [dim-key :label]}))))
+
+(extend RefAreaType TypeOrderBy {:apply-type-order-by ref-area-order-by})
+(extend RefPeriodType TypeOrderBy default-type-order-by-impl)
+(extend EnumType TypeOrderBy default-type-order-by-impl)
+(extend DecimalType TypeOrderBy default-type-order-by-impl)
+(extend StringType TypeOrderBy default-type-order-by-impl)
+(extend MeasureDimensionType TypeOrderBy default-type-order-by-impl)
+(extend UnmappedType TypeOrderBy default-type-order-by-impl)
+
+(defprotocol TypeFilter
+  (apply-type-filter [type dim-key dimension-uri model sparql-value]))
+
+(defn default-type-filter [_type dim-key dimension-uri model sparql-value]
+  (let [value (or sparql-value ::qm/var)]
+    (qm/add-binding model [[dim-key dimension-uri]] value)))
+
+(defn- ref-period-type-filter [_type dim-key dimension-uri model sparql-value]
+  (apply-ref-period-filter model dim-key dimension-uri sparql-value))
+
+(def default-type-filter-impl {:apply-type-filter default-type-filter})
+
+(extend RefAreaType TypeFilter default-type-filter-impl)
+(extend RefPeriodType TypeFilter {:apply-type-filter ref-period-type-filter})
+(extend EnumType TypeFilter default-type-filter-impl)
+(extend DecimalType TypeFilter default-type-filter-impl)
+(extend StringType TypeFilter default-type-filter-impl)
+(extend MeasureDimensionType TypeFilter default-type-filter-impl)
+(extend UnmappedType TypeFilter default-type-filter-impl)
+
+;;measure types
+;;TODO: combine with dimension types?
+(defrecord FloatMeasureType [])
+(defrecord StringMeasureType [])
+
+(def float-measure-type (->FloatMeasureType))
+(def string-measure-type (->StringMeasureType))
+
+(defrecord Dimension [uri order type]
   SparqlQueryable
-
-  (apply-order-by [_this model direction]
+  (apply-order-by [_this model direction configuration]
     (let [dim-key (keyword (str "dim" order))]
-      (if (is-ref-area-type? type)
-        (-> model
-            (qm/add-binding [[dim-key uri] [:label rdfs:label]] ::qm/var :optional? true)
-            (qm/add-order-by {direction [dim-key :label]}))
-        ;;NOTE: binding should have already been added
-        (qm/add-order-by model {direction [dim-key]}))))
+      (apply-type-order-by type dim-key uri model direction configuration)))
 
   SparqlFilterable
   (apply-filter [this model sparql-value]
     (let [dim-key (keyword (str "dim" order))]
-      (if (is-ref-period-type? type)
-        (apply-ref-period-filter model dim-key uri sparql-value)
-        (let [value (or sparql-value ::qm/var)]
-          (qm/add-binding model [[dim-key uri]] value)))))
+      (apply-type-filter type dim-key uri model sparql-value)))
 
   SparqlResultProjector
-  (apply-projection [this model observation-selections]
+  (apply-projection [this model observation-selections configuration]
     (let [dim-key (keyword (str "dim" order))
-          field-name (:field-name this)
-          field-selections (get observation-selections field-name)]
-      (cond
-        (is-ref-period-type? type)
-        (let [model (qm/add-binding model [[dim-key uri]] ::qm/var)
-              model (if (contains? field-selections :label)
-                      (qm/add-binding model [[dim-key uri] [:label rdfs:label]] ::qm/var :optional? true)
-                      model)
-              model (if (contains? field-selections :start)
-                      (qm/add-binding model [[dim-key uri] [:begin time:hasBeginning] [:time time:inXSDDateTime]] ::qm/var)
-                      model)]
-          (if (contains? field-selections :end)
-            (qm/add-binding model [[dim-key uri] [:end time:hasEnd] [:time time:inXSDDateTime]] ::qm/var)
-            model))
-
-        (is-ref-area-type? type)
-        (let [label-selected? (contains? field-selections :label)]
-          (if label-selected?
-            (qm/add-binding model [[dim-key uri] [:label rdfs:label]] ::qm/var :optional? true)
-            model))
-
-        :else model)))
+          ;;TODO: move field selections into caller?
+          field-selections (get observation-selections uri)]
+      (apply-type-projection type dim-key uri model field-selections configuration)))
 
   (project-result [_this bindings]
     (let [dim-key (keyword (str "dim" order))]
-      (cond
-        (is-ref-period-type? type)
-        {:uri   (get bindings dim-key)
-         :label (get bindings (keyword (qm/key-path->var-name [dim-key :label])))
-         :start (some-> (get bindings (keyword (qm/key-path->var-name [dim-key :begin :time]))) grafter-date->datetime)
-         :end   (some-> (get bindings (keyword (qm/key-path->var-name [dim-key :end :time]))) grafter-date->datetime)}
+      (project-type-result type dim-key bindings))))
 
-        (is-ref-area-type? type)
-        {:uri   (get bindings dim-key)
-         :label (get bindings (keyword (qm/key-path->var-name [dim-key :label])))}
-
-        :else (get bindings dim-key))))
-
-  (get-result-projection [_this]
-    (let [dim-key (keyword (str "dim" order))]
-      (cond
-        (is-ref-period-type? type)
-        {:uri   (->PathProjection [[dim-key uri]] false identity)
-         :label (->PathProjection [[dim-key :label]] true identity)
-         :start (->PathProjection [[dim-key uri] [:begin time:hasBeginning] [:time time:inXSDDateTime]] true grafter-date->datetime)
-         :end   (->PathProjection [[dim-key uri] [:end time:hasEnd] [:time time:inXSDDateTime]] true grafter-date->datetime)}
-        (is-ref-area-type? type)
-        {:uri   (->PathProjection [[dim-key uri]] false identity)
-         :label (->PathProjection [[dim-key uri] [:label rdfs:label]] true identity)}
-
-        :else
-        (->PathProjection [[dim-key uri]] false identity)))))
-
-(defrecord MeasureType [uri label order is-numeric?]
+(defrecord MeasureType [uri order is-numeric?]
   SparqlQueryable
-  (apply-order-by [this model direction]
-    (qm/add-order-by model {direction [(keyword (str "mv" order))]}))
+  (apply-order-by [_this model direction _configuration]
+    (qm/add-order-by model {direction [(keyword (str "mv"))]}))
 
   SparqlResultProjector
-  (apply-projection [_this model selections]
-    (let [dim-key (keyword (str "mv" order))]
-      (qm/add-binding model [[dim-key uri]] ::qm/var :optional? true)))
+  (apply-projection [_this model selections config]
+    model)
 
   (project-result [_this binding]
-    (get binding (keyword (str "mv" order))))
+    (throw (ex-info "Not supported - measure values are bound differently depending on the existence of a qb:measureDimension within the dataset" {}))))
 
-  (get-result-projection [_this]
-    (let [dim-key (keyword (str "mv" order))]
-      (->PathProjection [[dim-key uri]] true identity))))
-
-(defrecord Dataset [uri title description dimensions measures])
-
-(defn dataset-schema [{:keys [title] :as ds}]
-  (keyword (dataset-label->schema-name title)))
+(defrecord Dataset [uri name dimensions measures])
 
 (defn dataset-aggregate-measures [{:keys [measures] :as ds}]
   (filter :is-numeric? measures))
@@ -220,13 +246,18 @@
 (defn dataset-dimensions [ds]
   (:dimensions ds))
 
+(defn dataset-measures [ds]
+  (:measures ds))
+
+(defn is-numeric-measure? [m]
+  (:is-numeric? m))
+
 (defn get-dataset-dimension-measure-by-uri [dataset uri]
   (util/find-first #(= uri (:uri %)) (dataset-dimension-measures dataset)))
+
+(defn get-dataset-dimension-by-uri [dataset dimension-uri]
+  (util/find-first (fn [dim] (= dimension-uri (:uri dim))) (dataset-dimensions dataset)))
 
 (defn get-dataset-measure-by-uri [{:keys [measures] :as dataset} uri]
   (util/find-first #(= uri (:uri %)) measures))
 
-(defn dataset-result-projection [dataset]
-  (into {} (map (fn [{:keys [field-name] :as ft}]
-                  [field-name (get-result-projection ft)])
-                (dataset-dimension-measures dataset))))

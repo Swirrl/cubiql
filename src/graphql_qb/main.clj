@@ -2,9 +2,10 @@
   (:require [graphql-qb.server :as server]
             [clojure.tools.cli :as cli]
             [graphql-qb.data :as data]
-            [grafter.rdf.repository :as repo])
+            [graphql-qb.config :as config]
+            [clojure.java.io :as io])
   (:gen-class)
-  (:import [java.net URI]))
+  (:import [java.io File]))
 
 (def cli-options
   [["-p" "--port PORT" "Port number to start the server on"
@@ -13,7 +14,11 @@
     :validate [#(< 0 % 65536) "Port number must be in the range (0, 65536)"]]
 
    ["-e" "--endpoint ENDPOINT" "Uri of the SPARQL query endpoint to search for datasets. Uses the test repository if not specified"
-    :parse-fn #(URI. %)]])
+    :parse-fn data/parse-endpoint]
+
+   ["-c" "--configuration CONFIGURATION" "File containing data cube configuration"
+    :parse-fn io/file
+    :validate [(fn [^File f] (.exists f)) "Configuration file not found"]]])
 
 (defn print-usage [arg-summary]
   (println "Usage: graphql-qb OPTIONS")
@@ -28,19 +33,23 @@
     (println)
     (print-usage arg-summary)))
 
-(defn get-repo [uri-or-nil]
-  (if (nil? uri-or-nil)
-    (data/get-test-repo)
-    (repo/sparql-repo (str uri-or-nil))))
+(defn parse-arguments [args]
+  (let [{:keys [options] :as result} (cli/parse-opts args cli-options)
+        endpoint (:endpoint options)]
+    (if (nil? endpoint)
+      (update result :errors conj "Endpoint required")
+      result)))
 
 (defn -main
   [& args]
-  (let [{:keys [options summary errors]} (cli/parse-opts args cli-options)]
+  (let [{:keys [options summary errors]} (parse-arguments args)]
     (if (some? errors)
       (do
         (print-errors-and-usage errors summary)
         (System/exit 1))
-      (let [{:keys [port endpoint]} options
-            repo (get-repo endpoint)]
-        (server/start-server port repo)
+      (let [{:keys [port endpoint configuration]} options
+            config (if (some? configuration)
+                     (config/read-config configuration)
+                     (config/read-config))]
+        (server/start-server port endpoint config)
         (println "Started server on port " port)))))
