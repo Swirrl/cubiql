@@ -52,7 +52,7 @@
     (get-observation-query dataset filter-model order-by-dim-measures observation-selections config)
     " LIMIT " limit " OFFSET " offset))
 
-(defn get-dimensions-or [{dims-or :or}]
+(defn get-dimensions-or [{dims-or :or} configuration]
   (if (empty? dims-or)
     ""
     (let [union-clauses (map (fn [dim]
@@ -67,7 +67,7 @@
         (string/join " UNION " union-clauses)
         "} }"))))
 
-(defn get-dimensions-filter [{dims-and :and}]
+(defn get-dimensions-filter [{dims-and :and} configuration]
   (if (empty? dims-and)
     ""
     (let [and-clauses (map-indexed (fn [idx uri]
@@ -79,7 +79,7 @@
                                    dims-and)]
       (str (string/join "\n" and-clauses)))))
 
-(defn get-measures-filter [{meas-and :and}]
+(defn get-measures-filter [{meas-and :and} configuration]
   (if (empty? meas-and)
     ""
     (let [and-clauses (map-indexed (fn [idx uri]
@@ -91,7 +91,7 @@
                                    meas-and)]
       (str (string/join and-clauses)))))
 
-(defn get-measures-or [{meas-or :or}]
+(defn get-measures-or [{meas-or :or} configuration]
   (if (empty? meas-or)
     ""
     (let [union-clauses (map (fn [meas]
@@ -106,7 +106,7 @@
        (string/join " UNION " union-clauses)
        "} }"))))
 
-(defn get-attributes-filter [{attr-and :and}]
+(defn get-attributes-filter [{attr-and :and} configuration]
   (if (empty? attr-and)
     ""
     (let [and-clauses (map-indexed (fn [idx uri]
@@ -118,7 +118,7 @@
                             attr-and)]
       (str (string/join and-clauses)))))
 
-(defn get-attributes-or [{attr-or :or}]
+(defn get-attributes-or [{attr-or :or} configuration]
   (if (empty? attr-or)
     ""
     (let [union-clauses (map (fn [attr]
@@ -133,14 +133,15 @@
        (string/join " UNION " union-clauses)
        "} }"))))
 
-(defn get-data-filter [{data-and :and}]
+(defn get-data-filter [{data-and :and} configuration]
   (if (empty? data-and)
     ""
-    (let [and-clauses (map-indexed (fn [idx {comp :component vals :values levs :levels}]
+    (let [codelist-predicate (config/codelist-predicate configuration)
+          and-clauses (map-indexed (fn [idx {comp :component vals :values levs :levels}]
                                      (let [incidx (str (inc idx))]
                                        (str " ?struct qb:component ?compdata" incidx " .\n"
                                             " ?compdata" incidx " qb:dimension|qb:attribute <" comp "> .\n" ;;the component can be either a dimension or attribute
-                                            " ?compdata" incidx " qb:codeList ?cl" incidx ".\n" ;the codelist should contain ONLY the values used at the dataset
+                                            " ?compdata" incidx " <" codelist-predicate "> ?cl" incidx ".\n" ;the codelist should contain ONLY the values used at the dataset
                                              (if (some? vals)
                                                 (let [cl-vals
                                                   (map (fn[uri] (str "  ?cl" incidx " skos:member <" uri ">.\n")) vals)]
@@ -152,13 +153,14 @@
                         data-and)]
       (str (string/join and-clauses)))))
 
-(defn get-data-or [{data-or :or}]
+(defn get-data-or [{data-or :or} configuration]
   (if (empty? data-or)
     ""
-    (let [union-clauses (map (fn [{comp :component vals :values levs :levels}]
+    (let [codelist-predicate (config/codelist-predicate configuration)
+          union-clauses (map (fn [{comp :component vals :values levs :levels}]
                                (str "{ ?struct qb:component ?comp .\n"
                                     "  ?comp qb:dimension|qb:attribute <" comp "> .\n" ;;the component can be either a dimension or attribute
-                                    "  ?comp qb:codeList ?cl.\n" ;;the codelist should contain ONLY the values used at the dataset
+                                    "  ?comp <" codelist-predicate "> ?cl.\n" ;;the codelist should contain ONLY the values used at the dataset
                                     "  ?cl skos:member ?mem.\n"
                                    (if (some? vals)
                                        (let [members
@@ -195,16 +197,16 @@
       "  ?ds a qb:DataSet ."
       "  ?ds qb:structure ?struct ."
       "  ?struct a qb:DataStructureDefinition ."
-      (get-dimensions-or dimensions)
-      (get-measures-or measures)
-      (get-attributes-or attributes)
-      (get-data-or componentValue)
+      (get-dimensions-or dimensions configuration)
+      (get-measures-or measures configuration)
+      (get-attributes-or attributes configuration)
+      (get-data-or componentValue configuration)
       "  ?ds <" (str dataset-label) "> ?name ."
       "  FILTER(LANG(?name) = \"" schema-lang "\")"
-      (get-dimensions-filter dimensions)
-      (get-measures-filter measures)
-      (get-attributes-filter attributes)
-      (get-data-filter componentValue)
+      (get-dimensions-filter dimensions configuration)
+      (get-measures-filter measures configuration)
+      (get-attributes-filter attributes configuration)
+      (get-data-filter componentValue configuration)
       (if (some? uri)
         (str "FILTER(?ds = <" uri ">) ."))
       "}")))
