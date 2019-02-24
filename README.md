@@ -4,7 +4,7 @@
 
 ![CubiQL](https://github.com/Swirrl/cubiql/blob/master/doc/ogi-cubiql.png "CubiQL")
 
-CubiQL (formerly called graphql-qb) is a proof of concept [GraphQL](http://graphql.org/) service for querying [Linked Data Cubes](https://www.w3.org/TR/vocab-data-cube/) that was produced as part of the [Open Gov Intelligence](http://www.opengovintelligence.eu/) project.
+CubiQL (formerly called graphql-qb) is a proof of concept [GraphQL](http://graphql.org/) service for querying [Linked Data Cubes](https://www.w3.org/TR/vocab-data-cube/) that was produced as part of the [OpenGovIntelligence](http://www.opengovintelligence.eu/) project, funded by the European Union’s Horizon 2020 research and innovation programme under grant agreement No 693849. 
 
 The primary aim of CubiQL is to facilitate the querying of
 multidimensional QB datasets through GraphQL in an easier more familiar
