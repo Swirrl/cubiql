@@ -110,6 +110,35 @@ You'll see something like:
 [table2qb](https://github.com/Swirrl/table2qb/) is a command-line tool for generating RDF data cubes from tidy CSV data. See the [end-to-end example](https://github.com/Swirrl/cubiql/blob/master/doc/table2qb-cubiql.md)
 of using table2qb and CubiQL together to generate and query RDF data cubes.
 
+## Data validation
+
+CubiQL currently makes assumptions about the data in the cubes it finds, namely that certain resources (e.g. dimensions and measures) have
+an associated label, and that time and geograpical dimension values have a particular structure. When producing your own data for use
+with CubiQL you may want to check that it conforms to the expectations CubiQL has.
+
+The [rdf-validator](https://github.com/Swirrl/rdf-validator) is a tool for running a collection of validation tests against a SPARQL endpoint.
+CubiQL includes validation queries encoding its requirements in the `validation` directory. To run these validations against your data:
+
+1. Download the [latest version](https://github.com/Swirrl/rdf-validator/releases) of RDF validator
+2. Clone the CubiQL repository or copy the files in the validation directory to your local machine
+3. Define the CubiQL configuration file for your data. The required configuration keys are listed below
+4. Run the RDF validator by specifying the location of the data, validation directory and CubiQL configuration e.g.
+
+       java -jar rdf-validator-standalone.jar --endpoint my_data.ttl --suite validations/ --variables cubiql-config.edn
+       
+   The `--endpoint` parameter can refer to an RDF file, a folder containing RDF files or a remote SPARQL endpoint URI.
+   
+The `cubiql-config.edn` file must contain the following keys:
+
+ | Key                 |
+ |---------------------|
+ | :geo-dimension-uri  |
+ | :time-dimension-uri |
+ | :codelist-label-uri |
+ | :dataset-label-uri  |
+ 
+If you are not using time or geography dimensions in your runtime configuration, you should set `geo-dimension-uri` and/or `time-dimension-uri` to a dummy value.
+
 ## License
 
 Copyright © 2017 Swirrl IT Ltd.

@@ -1,0 +1,12 @@
+# Datasets must have a qb:measureType component
+
+PREFIX qb: <http://purl.org/linked-data/cube#>
+
+SELECT ?this WHERE {
+  ?this a qb:DataSet .
+  FILTER NOT EXISTS {
+    ?this qb:structure ?dsd .
+    ?dsd qb:component ?comp .
+    ?comp qb:dimension qb:measureType .
+  }
+}

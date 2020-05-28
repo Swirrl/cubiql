@@ -1,0 +1,16 @@
+PREFIX qb: <http://purl.org/linked-data/cube#>
+PREFIX time: <http://www.w3.org/2006/time#>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+
+SELECT ?this WHERE {
+  { SELECT DISTINCT ?this WHERE {
+        ?obs a qb:Observation .
+        ?obs <{{time-dimension-uri}}> ?this .
+      }
+  }
+  FILTER NOT EXISTS {
+    ?this time:hasBeginning ?begin .
+    ?begin time:inXSDDateTime ?begintime .
+    FILTER(datatype(?begintime) = xsd:dateTime)
+  }
+}
